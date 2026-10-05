@@ -1,5 +1,6 @@
 // Thin client for the DataForSEO v3 REST API (live endpoints only — no callbacks needed).
 import { config } from '../config.js';
+import { db } from '../db.js';
 
 const BASE = 'https://api.dataforseo.com/v3';
 
@@ -77,4 +78,66 @@ export async function localSerp(keyword, lat, lng, zoom = 14) {
   const pack = items.filter((i) => i.type === 'local_pack').map((i) => ({ position: i.rank_group, title: i.title, rating: i.rating?.value ?? null, phone: i.phone, domain: (i.domain || '').replace(/^www\./, ''), url: i.url }));
   const organic = items.filter((i) => i.type === 'organic').map((i) => ({ position: i.rank_group, domain: (i.domain || '').replace(/^www\./, ''), url: i.url }));
   return { pack, organic };
+}
+
+// ---- Spend tracking & standard queue ----
+const month = () => new Date().toISOString().slice(0, 7);
+
+export function recordSpend(kind, cost, calls = 1) {
+  db.prepare(`INSERT INTO dfs_spend (month,kind,calls,cost) VALUES (?,?,?,?)
+    ON CONFLICT(month,kind) DO UPDATE SET calls=calls+excluded.calls, cost=cost+excluded.cost`).run(month(), kind, calls, cost || 0);
+}
+export function spendThisMonth() {
+  return db.prepare('SELECT COALESCE(SUM(cost),0) c FROM dfs_spend WHERE month=?').get(month()).c;
+}
+export function underCap(extraUsd = 0) {
+  return spendThisMonth() + extraUsd <= config.dfs.monthlyCapUsd;
+}
+
+/** Raw POST returning full task objects (for queue endpoints we need ids and costs, not just result[0]). */
+async function postRaw(path, body) {
+  if (!config.dfs.enabled) throw new Error('DataForSEO not configured');
+  const auth = Buffer.from(`${config.dfs.login}:${config.dfs.password}`).toString('base64');
+  const res = await fetch(BASE + path, { method: 'POST', headers: { authorization: `Basic ${auth}`, 'content-type': 'application/json' },
+    body: JSON.stringify(body), signal: AbortSignal.timeout(90000) });
+  const json = await res.json();
+  if (json.status_code !== 20000) throw new Error(`DataForSEO ${json.status_code}: ${json.status_message}`);
+  return json.tasks || [];
+}
+async function getRaw(path) {
+  const auth = Buffer.from(`${config.dfs.login}:${config.dfs.password}`).toString('base64');
+  const res = await fetch(BASE + path, { headers: { authorization: `Basic ${auth}` }, signal: AbortSignal.timeout(60000) });
+  const json = await res.json();
+  if (json.status_code !== 20000) throw new Error(`DataForSEO ${json.status_code}: ${json.status_message}`);
+  return json.tasks || [];
+}
+
+/**
+ * Post Google Maps searches to the standard (cheap, async) queue. Each item: { keyword, lat, lng, zoom, tag }.
+ * Returns [{ task_id, tag, cost }]. Up to 100 per call.
+ */
+export async function postMapsTasks(items) {
+  const out = [];
+  for (let i = 0; i < items.length; i += 100) {
+    const tasks = await postRaw('/serp/google/maps/task_post', items.slice(i, i + 100).map((it) => ({
+      keyword: it.keyword, language_code: config.dfs.language, location_coordinate: `${it.lat},${it.lng},${it.zoom ?? 14}z`,
+      device: 'mobile', depth: 20, priority: 1, tag: it.tag })));
+    for (const t of tasks) out.push({ task_id: t.id, tag: t.data?.tag, cost: t.cost || 0, ok: t.status_code === 20100, message: t.status_message });
+  }
+  return out;
+}
+
+/** Ids of standard-queue Maps tasks that have finished. */
+export async function mapsTasksReady() {
+  const [t] = await getRaw('/serp/google/maps/tasks_ready');
+  return (t?.result || []).map((r) => r.id);
+}
+
+/** Fetch one finished Maps task: [{ position, title, place_id, cid, rating, phone, domain, url }]. */
+export async function getMapsTask(id) {
+  const [t] = await getRaw(`/serp/google/maps/task_get/advanced/${id}`);
+  const items = t?.result?.[0]?.items || [];
+  return { cost: t?.cost || 0, items: items.filter((i) => i.type === 'maps_search').map((i) => ({
+    position: i.rank_group, title: i.title, place_id: i.place_id, cid: i.cid, rating: i.rating?.value ?? null,
+    phone: i.phone, domain: (i.domain || '').replace(/^www\./, ''), url: i.url, address: i.address })) };
 }

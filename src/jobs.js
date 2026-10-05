@@ -5,7 +5,7 @@ import { syncGsc } from './data/gsc.js';
 import { refreshCompetitors } from './data/competitors.js';
 import { sendDigest } from './digest.js';
 import { syncGbp } from './data/gbp.js';
-import { trackLocalRanks, checkNap } from './data/local.js';
+import { trackLocalRanks, collectLocalRanks, checkNap } from './data/local.js';
 
 const forEachSite = async (fn, only) => {
   const sites = loadSites().filter((s) => !only || s.slug === only);
@@ -24,4 +24,5 @@ export const jobs = {
   digest: () => sendDigest(),
   gbp: (only) => config.gbp.enabled ? forEachSite(syncGbp, only) : Promise.resolve(['Business Profile not configured']),
   local: (only) => forEachSite(async (s) => `${await trackLocalRanks(s)}; ${await checkNap(s)}`, only),
+  'local-collect': () => collectLocalRanks(loadSites()).then((r) => [r]),
 };

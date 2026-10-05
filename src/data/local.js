@@ -2,7 +2,7 @@
 import * as cheerio from 'cheerio';
 import { config } from '../config.js';
 import { db, today, logJob } from '../db.js';
-import { localSerp } from './dataforseo.js';
+import { postMapsTasks, mapsTasksReady, getMapsTask, recordSpend, underCap } from './dataforseo.js';
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const norm = (s) => (s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]/g, '');
@@ -14,24 +14,59 @@ export function keywordsFor(site, loc) {
   return [...new Set(tpl.map((k) => k.replace(/\{town\}/gi, loc.town || loc.name)))];
 }
 
+const MAPS_COST_EST = 0.002; // USD per standard-queue Maps task, used only for the pre-flight cap check
+
+/** Monday job: post this week's map-pack checks to the standard queue. Results are collected by collectLocalRanks. */
 export async function trackLocalRanks(site) {
   const locs = site.locations.filter((l) => l.lat != null && l.lng != null);
   if (!locs.length) return 'no locations with lat/lng';
   if (!config.dfs.enabled) return 'DataForSEO not configured';
   return logJob('local-ranks', site.slug, async () => {
-    const up = db.prepare('INSERT OR REPLACE INTO local_ranks (site,location,keyword,checked_on,map_pack,organic,top_pack) VALUES (?,?,?,?,?,?,?)');
-    let n = 0;
-    for (const loc of locs) for (const kw of keywordsFor(site, loc)) {
-      const { pack, organic } = await localSerp(kw, loc.lat, loc.lng);
-      const isMine = (x) => norm(x.title).includes(norm(loc.name).slice(0, 12)) || norm(x.title).includes(norm(site.name)) || normPhone(x.phone) === normPhone(loc.phone)
-        || (x.domain && x.domain === site.host);
-      const packPos = pack.find(isMine)?.position ?? null;
-      const orgPos = organic.find((o) => o.domain === site.host || o.domain.endsWith('.' + site.host))?.position ?? null;
-      up.run(site.slug, loc.slug, kw, today(), packPos, orgPos, JSON.stringify(pack.slice(0, 5).map((p) => ({ p: p.position, t: p.title, r: p.rating }))));
-      n++; await sleep(300);
+    const items = locs.flatMap((loc) => keywordsFor(site, loc).map((kw) => ({ keyword: kw, lat: loc.lat, lng: loc.lng, zoom: loc.zoom ?? 14, tag: `${site.slug}|${loc.slug}|${kw}` })));
+    if (!items.length) return 'no local keywords';
+    if (!underCap(items.length * MAPS_COST_EST)) return `skipped: monthly DataForSEO cap (US$${config.dfs.monthlyCapUsd}) would be exceeded`;
+    // skip anything already posted this week
+    const already = new Set(db.prepare("SELECT site||'|'||location||'|'||keyword k FROM dfs_tasks WHERE kind='maps' AND posted_on >= date('now','-6 days')").all().map((r) => r.k));
+    const fresh = items.filter((i) => !already.has(i.tag));
+    if (!fresh.length) return 'all checks already posted this week';
+    const posted = await postMapsTasks(fresh);
+    const ins = db.prepare('INSERT OR REPLACE INTO dfs_tasks (task_id,kind,site,location,keyword,posted_on,status,cost) VALUES (?,?,?,?,?,?,?,?)');
+    let n = 0, cost = 0;
+    for (const p of posted) {
+      if (!p.ok) { console.warn(`[local:${site.slug}] task rejected: ${p.message}`); continue; }
+      const [, loc, kw] = p.tag.split('|');
+      ins.run(p.task_id, 'maps', site.slug, loc, kw, today(), 'posted', p.cost); n++; cost += p.cost;
     }
-    return `${n} local checks across ${locs.length} locations`;
+    recordSpend('maps', cost, n);
+    return `${n} map-pack checks queued (US$${cost.toFixed(3)})`;
   });
+}
+
+/** Collect finished standard-queue tasks and store positions. Safe to run as often as you like. */
+export async function collectLocalRanks(sites) {
+  if (!config.dfs.enabled) return 'DataForSEO not configured';
+  const pending = db.prepare("SELECT * FROM dfs_tasks WHERE kind='maps' AND status='posted'").all();
+  if (!pending.length) return 'nothing pending';
+  const ready = new Set(await mapsTasksReady());
+  const up = db.prepare('INSERT OR REPLACE INTO local_ranks (site,location,keyword,checked_on,map_pack,organic,top_pack) VALUES (?,?,?,?,?,?,?)');
+  const done = db.prepare("UPDATE dfs_tasks SET status=?, cost=cost+? WHERE task_id=?");
+  let n = 0;
+  for (const t of pending) {
+    if (!ready.has(t.task_id)) continue;
+    const site = sites.find((s) => s.slug === t.site); const loc = site?.locations.find((l) => l.slug === t.location);
+    if (!site || !loc) { done.run('orphaned', 0, t.task_id); continue; }
+    try {
+      const { items, cost } = await getMapsTask(t.task_id);
+      const mine = items.find((i) => (loc.placeId && i.place_id === loc.placeId) || (loc.cid && String(i.cid) === String(loc.cid)))
+        || items.find((i) => normPhone(i.phone) && normPhone(i.phone) === normPhone(loc.phone))
+        || items.find((i) => norm(i.title).includes(norm(loc.name).slice(0, 14)));
+      up.run(t.site, t.location, t.keyword, t.posted_on, mine?.position ?? null, null,
+        JSON.stringify(items.slice(0, 5).map((i) => ({ p: i.position, t: i.title, r: i.rating, id: i.place_id }))));
+      done.run('done', cost, t.task_id); recordSpend('maps-get', cost, 1); n++;
+      await sleep(150);
+    } catch (e) { console.warn(`[local-collect] ${t.task_id}: ${e.message}`); }
+  }
+  return `${n} results collected, ${pending.length - n} still pending`;
 }
 
 /** Does the location's own web page and its Business Profile show the same name / address / phone as configured? */

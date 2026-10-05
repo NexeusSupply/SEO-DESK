@@ -101,3 +101,13 @@ CREATE TABLE IF NOT EXISTS nap_checks (
   PRIMARY KEY (site, location, checked_on, source)
 );
 `);
+
+// ---- Standard-queue tasks and spend tracking ----
+db.exec(`
+CREATE TABLE IF NOT EXISTS dfs_tasks (
+  task_id TEXT PRIMARY KEY, kind TEXT, site TEXT, location TEXT, keyword TEXT, posted_on TEXT, status TEXT, cost REAL
+);
+CREATE TABLE IF NOT EXISTS dfs_spend (
+  month TEXT, kind TEXT, calls INTEGER, cost REAL, PRIMARY KEY (month, kind)
+);
+`);

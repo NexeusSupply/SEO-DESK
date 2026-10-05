@@ -11,7 +11,22 @@ A self-hosted SEO dashboard for a portfolio of brand websites. It covers the par
 | Local SEO | Per-clinic Business Profile listing (rating, review count, completeness, open status), reviews with unreplied and low-rating flags, listing performance (search/maps views, calls, direction requests), map-pack rankings checked from each town, and name/address/phone consistency between config, website and listing. A group-wide "All clinics" view sorts by who needs attention. | Google Business Profile APIs + DataForSEO | Free + ~US$0.003 per local check |
 | Digest | Weekly email summarising score changes, errors, rank movers and within-reach queries across all brands. | SMTP | Free |
 
-Everything is optional. Brands without a `locations` list simply don't show the clinic sections. With no API keys at all you still get the site audit and dashboard.
+Everything is optional. Brands without a `locations` list simply don't show the clinic sections. A brand whose Search Console property or Google listing the account can't reach shows as **Not connected** everywhere — never as zero.
+
+## Two audiences, two views
+
+- **Overview** (the home page) is for management: a block per group (`group` in sites.json — e.g. Comhla and Nexeus Supply Chain are never mixed), a handful of headline figures, then each brand with a Good / Watch / Problem / Not connected signal, the reason in plain words, and what changed since last month. Readable in under a minute.
+- **Dashboard** and the per-brand pages are the marketing team's detail: audits, Search Console, rank tracking, competitors, clinics, reviews.
+
+Signal rules live in `brandSignal()` in `src/queries.js` and are deliberately simple: Problem = search traffic down 20%+, site health under 60, several poor reviews, or a listing showing as closed. Watch = traffic slipping 5%+, site issues, a poor or many unanswered reviews, fewer than half of clinics in the local top 3, or mismatched contact details.
+
+## Login (Cloudflare Access)
+
+The app has no login of its own. Put it behind Cloudflare Access and set `CF_ACCESS_TEAM_DOMAIN` and `CF_ACCESS_AUD`; the app then verifies Cloudflare's signed header on every request and refuses anything that didn't come through Access (so the host's raw URL is a dead end). With those unset it runs open, for local development only — the startup log says so loudly.
+
+## DataForSEO spend cap
+
+`DFS_MONTHLY_CAP_USD` (default 10) is a hard ceiling. Every job estimates its cost before posting and skips with a logged message if the month's total would exceed it; actual costs reported by the API are recorded per month in the `dfs_spend` table and shown in the dashboard header. Local map-pack checks use the **standard queue** (posted Monday, collected over the following hours) at a fraction of the live price; brand rank checks and competitor refreshes use live endpoints because they're small. With no API keys at all you still get the site audit and dashboard.
 
 ## Setup
 
@@ -47,7 +62,8 @@ Add a `locations` list to any brand. Each location needs `slug` and `name`; the 
 
 | Field | Enables |
 |---|---|
-| `town`, `lat`, `lng` | Map-pack rank checks run from that point on the map |
+| `town`, `lat`, `lng` (optional `zoom`, default 14) | Map-pack rank checks run from that point on the map, weekly, via DataForSEO's standard queue |
+| `placeId` or `cid` | Exact matching of the clinic in results (otherwise matched by phone, then name). Get the place ID from the listing's Maps URL or `GET /api/gbp/listings` |
 | `address`, `phone`, `url` | Name/address/phone consistency check against the clinic's web page |
 | `gbpLocationId` | Business Profile sync (listing, reviews, performance) |
 
@@ -92,10 +108,19 @@ npm run gsc
 npm run competitors
 npm run digest
 npm run gbp                 # Business Profile sync
-npm run local               # map-pack ranks + name/address/phone check
+npm run local               # post this week's map-pack checks + name/address/phone check
+node src/cli.js local-collect   # collect finished map-pack results (cron runs this every 2h)
 ```
 
 Or click the buttons in the dashboard, which fire the same jobs in the background.
+
+## Deploying on Railway (the current plan)
+
+1. Push this repo to GitHub. Railway → New Project → Deploy from GitHub repo; the `Dockerfile` is detected.
+2. Add a **Volume** mounted at `/app/data`.
+3. Add **Variables** from `.env.example`. For Search Console paste the key file's contents into `GSC_SERVICE_ACCOUNT_JSON_CONTENT` rather than uploading a file. Put the real `sites.json` on the volume (or commit it — it holds no secrets).
+4. Settings → Networking → Custom domain `seo.comhlavet.com`; IT adds the CNAME in Cloudflare, proxied.
+5. Cloudflare Zero Trust → Access → add a self-hosted application for that hostname with an email allow-list. Copy its AUD into `CF_ACCESS_AUD`, and the team domain into `CF_ACCESS_TEAM_DOMAIN`. Redeploy.
 
 ## No admin rights on your PC?
 
@@ -120,6 +145,7 @@ Either way, put the dashboard behind a login (Cloudflare Access, or the host's b
 ```
 src/
   server.js           Express API + static dashboard + scheduler
+  access.js           Cloudflare Access JWT verification
   config.js           .env and sites.json loading
   db.js               SQLite schema
   queries.js          Read models for dashboard and digest
