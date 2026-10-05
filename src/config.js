@@ -25,6 +25,14 @@ export const config = {
     refreshToken: process.env.GBP_REFRESH_TOKEN || '',
     get enabled() { return Boolean(this.clientId && this.clientSecret && this.refreshToken); },
   },
+  meta: {
+    // A System User token from Meta Business Settings (never expires); page tokens are derived from it.
+    token: process.env.META_ACCESS_TOKEN || '',
+    appSecret: process.env.META_APP_SECRET || '',
+    graphUrl: (process.env.META_GRAPH_URL || 'https://graph.facebook.com').replace(/\/$/, ''),
+    version: process.env.META_GRAPH_VERSION || 'v23.0',
+    get enabled() { return Boolean(this.token); },
+  },
   gsc: {
     keyPath: process.env.GSC_SERVICE_ACCOUNT_JSON ? path.resolve(root, process.env.GSC_SERVICE_ACCOUNT_JSON) : '',
     keyContent: process.env.GSC_SERVICE_ACCOUNT_JSON_CONTENT || '',
@@ -63,6 +71,8 @@ export const config = {
     gbp: process.env.CRON_GBP || '15 7 * * *',
     local: process.env.CRON_LOCAL || '0 5 * * 1',
     'local-collect': process.env.CRON_LOCAL_COLLECT || '0 */2 * * *',
+    meta: process.env.CRON_META || '45 6 * * *',
+    'meta-comments': process.env.CRON_META_COMMENTS || '*/30 * * * *',
   },
 };
 
@@ -76,6 +86,7 @@ export function loadSites() {
     s.keywords ||= [];
     s.competitors ||= [];
     s.localKeywords ||= [];
+    s.meta = s.meta?.pageId || s.meta?.instagramId ? { pageId: s.meta.pageId ? String(s.meta.pageId) : null, instagramId: s.meta.instagramId ? String(s.meta.instagramId) : null } : null;
     s.locations = (s.locations || []).map((l) => {
       if (!l.slug || !l.name) throw new Error(`Location in ${s.slug} missing slug or name`);
       return { keywords: [], ...l };

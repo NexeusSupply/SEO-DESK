@@ -62,7 +62,8 @@ export function siteDetail(site) {
     audit: audit ? { ...audit, issue_counts: JSON.parse(audit.issue_counts || '{}') } : null, issues, scoreHistory,
     gsc: { daily: gscDaily, topQueries, topPages, strikingDistance, periodEnd: qEnd },
     ranks, domains, gap: keywordGap(site), jobs,
-    locations: locationRows(site), recentReviews: recentReviews(site), connections: connections(site) };
+    locations: locationRows(site), recentReviews: recentReviews(site), connections: connections(site),
+    social: socialSummary(site), comments: socialComments([site], { limit: 40 }) };
 }
 
 export function issueDetail(site, code) {
@@ -112,6 +113,37 @@ export function recentReviews(site, limit = 30) {
   return db.prepare('SELECT location, created_at, rating, reviewer, comment, replied FROM gbp_reviews WHERE site=? ORDER BY created_at DESC LIMIT ?').all(site.slug, limit);
 }
 
+// ---- Facebook and Instagram ----
+
+/** Followers, 28-day insight totals against the 28 days before, and recent posts, per platform. */
+export function socialSummary(site) {
+  const platforms = db.prepare('SELECT DISTINCT platform FROM meta_snapshots WHERE site=? ORDER BY platform').all(site.slug).map((r) => r.platform);
+  const out = platforms.map((platform) => {
+    const snap = db.prepare('SELECT * FROM meta_snapshots WHERE site=? AND platform=? ORDER BY fetched_on DESC LIMIT 1').get(site.slug, platform);
+    const prev = db.prepare(`SELECT followers FROM meta_snapshots WHERE site=? AND platform=? AND fetched_on <= date(?, '-28 days') ORDER BY fetched_on DESC LIMIT 1`).get(site.slug, platform, snap.fetched_on);
+    const end = db.prepare('SELECT MAX(date) d FROM meta_daily WHERE site=? AND platform=?').get(site.slug, platform)?.d;
+    const totals = (from, to) => Object.fromEntries(db.prepare(`SELECT metric, SUM(value) v FROM meta_daily WHERE site=? AND platform=? AND date > date(?, ?) AND date <= date(?, ?) GROUP BY metric`)
+      .all(site.slug, platform, end, `-${from} days`, end, `-${to} days`).map((r) => [r.metric, r.v]));
+    const daily = end ? db.prepare(`SELECT date, SUM(CASE WHEN metric='views' THEN value END) views, SUM(CASE WHEN metric='engagements' THEN value END) engagements
+      FROM meta_daily WHERE site=? AND platform=? AND date > date(?, '-90 days') GROUP BY date ORDER BY date`).all(site.slug, platform, end) : [];
+    return { platform, name: snap.name, followers: snap.followers, prevFollowers: prev?.followers ?? null, fetched: snap.fetched_on,
+      last28: end ? totals(28, 0) : {}, prev28: end ? totals(56, 28) : {}, daily };
+  });
+  const posts = db.prepare('SELECT post_id, platform, created_at, message, permalink, media_type, likes, comments, shares FROM meta_posts WHERE site=? ORDER BY created_at DESC LIMIT 20').all(site.slug);
+  const unanswered = db.prepare(`SELECT COUNT(*) n, SUM(CASE WHEN created_at < strftime('%Y-%m-%dT%H:%M:%S','now','-1 day') THEN 1 ELSE 0 END) old FROM meta_comments WHERE site=? AND replied=0 AND hidden=0`).get(site.slug);
+  return { platforms: out, posts, unanswered: unanswered?.n ?? 0, unansweredOld: unanswered?.old ?? 0 };
+}
+
+/** The comments inbox: unanswered first, newest first within that. */
+export function socialComments(sites, { status = 'open', limit = 100 } = {}) {
+  if (!sites.length) return [];
+  const names = Object.fromEntries(sites.map((s) => [s.slug, s.name]));
+  const where = status === 'open' ? 'AND c.replied=0 AND c.hidden=0' : '';
+  return db.prepare(`SELECT c.*, p.message post_message, p.permalink post_permalink FROM meta_comments c LEFT JOIN meta_posts p ON p.post_id=c.post_id
+    WHERE c.site IN (${sites.map(() => '?').join(',')}) ${where} ORDER BY c.replied, c.created_at DESC LIMIT ?`).all(...sites.map((s) => s.slug), limit)
+    .map((c) => ({ ...c, brand: names[c.site] }));
+}
+
 // ---- Connection status, groups and the management view ----
 
 const lastOk = (job, site) => db.prepare('SELECT finished_at FROM job_log WHERE job=? AND site=? AND ok=1 ORDER BY id DESC LIMIT 1').get(job, site)?.finished_at;
@@ -126,6 +158,7 @@ export function connections(site) {
     ranks: st(site.keywords.length > 0, config.dfs.enabled, has('SELECT 1 FROM ranks WHERE site=?', site.slug)),
     listings: st(site.locations.some((l) => l.gbpLocationId), config.gbp.enabled, has('SELECT 1 FROM gbp_snapshots WHERE site=?', site.slug)),
     localRanks: st(site.locations.some((l) => l.lat != null), config.dfs.enabled, has('SELECT 1 FROM local_ranks WHERE site=?', site.slug)),
+    social: st(Boolean(site.meta), config.meta.enabled, has('SELECT 1 FROM meta_snapshots WHERE site=?', site.slug)),
     listingsConnected: site.locations.filter((l) => l.gbpLocationId).length, listingsTotal: site.locations.length,
   };
 }
@@ -173,7 +206,13 @@ export function brandSignal(site) {
     const nap = locs.filter((l) => l.napIssues.length).length;
     if (nap) { level = Math.max(level, 1); reasons.push(`${nap} clinic${nap > 1 ? 's' : ''} with mismatched contact details`); }
   }
-  const anyConnected = ['searchConsole', 'ranks', 'listings', 'localRanks'].some((k) => conn[k] === 'connected') || conn.audit === 'connected';
+  if (conn.social === 'connected') {
+    const social = socialSummary(site);
+    const gained = social.platforms.reduce((a, p) => a + (p.followers != null && p.prevFollowers != null ? p.followers - p.prevFollowers : 0), 0);
+    if (social.platforms.some((p) => p.prevFollowers != null) && gained) changes.push(`${gained > 0 ? '+' : ''}${gained} social followers`);
+    if (social.unansweredOld >= 5) { level = Math.max(level, 1); reasons.push(`${social.unansweredOld} Facebook/Instagram comments unanswered`); }
+  }
+  const anyConnected = ['searchConsole', 'ranks', 'listings', 'localRanks', 'social'].some((k) => conn[k] === 'connected') || conn.audit === 'connected';
   return {
     slug: site.slug, name: site.name, group: site.group, host: site.host,
     signal: !anyConnected ? 'not_connected' : ['good', 'watch', 'problem'][level],
