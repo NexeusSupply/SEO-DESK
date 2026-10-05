@@ -1,0 +1,41 @@
+[
+  {
+    "slug": "heartland",
+    "name": "Heartland Feeds",
+    "url": "https://www.heartlandfeeds.co.nz",
+    "gscProperty": "sc-domain:heartlandfeeds.co.nz",
+    "keywords": ["mineral supplements for cattle nz", "trace element supplements dairy", "calf feed nz"],
+    "competitors": ["example-competitor-one.co.nz"]
+  },
+  {
+    "slug": "totallyvets",
+    "name": "Totally Vets",
+    "url": "https://www.totallyvets.co.nz",
+    "gscProperty": "sc-domain:totallyvets.co.nz",
+    "keywords": ["vet manawatu", "large animal vet manawatu"],
+    "competitors": [],
+    "localKeywords": ["vet {town}", "vet clinic {town}", "vet near me"],
+    "locations": [
+      {
+        "slug": "feilding",
+        "name": "Totally Vets Feilding",
+        "town": "Feilding",
+        "address": "123 Example Street, Feilding 4702",
+        "phone": "06 323 0000",
+        "lat": -40.2244, "lng": 175.5658,
+        "url": "https://www.totallyvets.co.nz/feilding",
+        "gbpLocationId": "locations/1234567890"
+      },
+      {
+        "slug": "otaki",
+        "name": "Totally Vets Ōtaki",
+        "town": "Otaki",
+        "address": "45 Example Road, Ōtaki 5512",
+        "phone": "06 364 0000",
+        "lat": -40.7561, "lng": 175.1519,
+        "url": "https://www.totallyvets.co.nz/otaki",
+        "gbpLocationId": "locations/0987654321"
+      }
+    ]
+  }
+]
