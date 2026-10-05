@@ -1,5 +1,6 @@
 import { db, tx, today, logJob } from '../db.js';
-import { rankedKeywords, domainOverview, backlinkSummary, searchVolume, keywordDifficulty } from './dataforseo.js';
+import { rankedKeywords, domainOverview, backlinkSummary, searchVolume, keywordDifficulty, recordSpend, underCap } from './dataforseo.js';
+import { config } from '../config.js';
 
 async function snapshotDomain(domain) {
   const [ov, bl, kws] = await Promise.all([domainOverview(domain), backlinkSummary(domain), rankedKeywords(domain, 300)]);
@@ -15,8 +16,9 @@ async function snapshotDomain(domain) {
 export async function refreshCompetitors(site) {
   return logJob('competitors', site.slug, async () => {
     const domains = [site.host, ...site.competitors];
+    if (!underCap(domains.length * 0.1)) return `skipped: monthly DataForSEO cap (US$${config.dfs.monthlyCapUsd}) would be exceeded`;
     let n = 0;
-    for (const d of domains) n += await snapshotDomain(d);
+    for (const d of domains) { n += await snapshotDomain(d); recordSpend('labs', 0.1, 3); }
     // enrich the tracked keyword list with volume + difficulty
     const kws = site.keywords.filter(Boolean);
     if (kws.length) {

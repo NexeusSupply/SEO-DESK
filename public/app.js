@@ -69,21 +69,54 @@ async function run(job, site) {
 }
 window.run = run;
 
+const SIGNAL = { good: ['Good', 'good'], watch: ['Watch', 'watch'], problem: ['Problem', 'problem'], not_connected: ['Not connected', 'nc'] };
+const sig = (k) => `<span class="sig ${SIGNAL[k][1]}">${SIGNAL[k][0]}</span>`;
+const nc = (label = 'Not connected') => `<span class="nc-text">${label}</span>`;
+const conn = (status, value) => status === 'not_connected' ? nc() : status === 'no_data' ? nc('No data yet') : value;
+const pctTxt = (p) => p == null ? '' : `<span class="delta ${p > 0 ? 'up' : p < 0 ? 'down' : 'flat'}">${p > 0 ? '+' : ''}${p}%</span>`;
+
+async function renderManagement() {
+  const groups = await api('/management');
+  $('#main').innerHTML = `<h1>How things are going</h1><p class="sub">Search visibility and Google listings across the group, updated daily. Green is fine, amber needs a look, red needs a decision.</p>
+  ${groups.map((g) => { const h = g.headline; return `
+  <section class="group">
+    <h2 class="group-title">${esc(g.group)}</h2>
+    <div class="strip mgmt">
+      <div><div class="v">${h.brandsConnected}<small>of ${h.brands} brands</small></div><div class="l">Reporting</div></div>
+      ${h.listingsTotal ? `<div><div class="v">${h.listingsConnected}<small>of ${h.listingsTotal} listings</small></div><div class="l">Google listings connected</div></div>` : ''}
+      <div><div class="v">${h.clicks != null ? n(h.clicks) : nc()}${pctTxt(h.clicksChange)}</div><div class="l">Visits from Google search, 28 days</div></div>
+      ${h.listingsTotal ? `<div><div class="v">${h.rating != null ? `${h.rating} <span class="star">★</span>` : nc()}</div><div class="l">Average clinic rating</div></div>` : ''}
+      <div><div class="v">${h.health != null ? `${h.health}<small>/100</small>` : nc()}</div><div class="l">Average website health</div></div>
+      <div><div class="v ${h.problems ? 'notok' : ''}">${h.problems}<small>problem${h.problems === 1 ? '' : 's'}</small> <span class="muted">·</span> ${h.watch}<small>to watch</small></div><div class="l">Brands needing attention</div></div>
+    </div>
+    <div class="wrap"><table class="ledger mgmt-table"><thead><tr><th>Brand</th><th>Status</th><th>Why</th><th>Since last month</th></tr></thead><tbody>
+    ${g.brands.map((b) => `<tr>
+      <td class="brand"><a href="#/${b.slug}">${esc(b.name)}</a>${b.metrics.clinics ? `<small>${b.metrics.clinicsConnected} of ${b.metrics.clinics} clinics connected</small>` : ''}</td>
+      <td>${sig(b.signal)}</td>
+      <td class="why">${b.signal === 'not_connected' ? '<span class="muted">Waiting on access to this brand\u2019s Search Console or Google listings</span>' : b.reasons.length ? esc(b.reasons.join('; ')) : '<span class="muted">Nothing needs attention</span>'}</td>
+      <td class="why">${b.changes.length ? esc(b.changes.join(' · ')) : '<span class="muted">—</span>'}</td>
+    </tr>`).join('')}</tbody></table></div>
+  </section>`; }).join('')}
+  <p class="foot"><a href="#/portfolio">Open the detailed dashboard →</a></p>`;
+}
+
 async function renderOverview() {
   const sites = await api('/overview');
+  const groups = [...new Set(sites.map((s) => s.group))];
   $('#main').innerHTML = `
   <h1>Portfolio</h1><p class="sub">Every brand, last 28 days. Open a brand for the detail.</p>
+  ${groups.map((g) => `<h2 class="group-title">${esc(g)}</h2>
   <div class="wrap"><table class="ledger"><thead><tr>
     <th>Brand</th><th>Audit score</th><th class="num">Errors</th><th class="num">Clicks</th><th class="num">Impressions</th><th>Keywords in top 10</th><th class="num">Referring domains</th>
-  </tr></thead><tbody>${sites.map((s) => `<tr>
+  </tr></thead><tbody>${sites.filter((s) => s.group === g).map((s) => `<tr>
     <td class="brand"><a href="#/${s.slug}">${esc(s.name)}</a><small>${esc(s.host)}</small></td>
     <td>${scoreBar(s.audit?.score)}${delta(s.audit?.score, s.audit?.prevScore)}</td>
     <td class="num">${s.audit ? (s.audit.issue_counts.error || 0) : n(null)}</td>
-    <td class="num">${n(s.gsc?.clicks)}${delta(s.gsc?.clicks, s.gsc?.prevClicks)}</td>
-    <td class="num">${n(s.gsc?.impressions)}${delta(s.gsc?.impressions, s.gsc?.prevImpressions)}</td>
-    <td>${s.ranks ? `${s.ranks.top10} of ${s.ranks.tracked}${s.ranks.top3 ? ` <span class="delta up">${s.ranks.top3} in top 3</span>` : ''}` : n(null)}</td>
+    <td class="num">${s.gsc ? `${n(s.gsc.clicks)}${delta(s.gsc.clicks, s.gsc.prevClicks)}` : nc()}</td>
+    <td class="num">${s.gsc ? `${n(s.gsc.impressions)}${delta(s.gsc.impressions, s.gsc.prevImpressions)}` : nc()}</td>
+    <td>${s.ranks ? `${s.ranks.top10} of ${s.ranks.tracked}${s.ranks.top3 ? ` <span class="delta up">${s.ranks.top3} in top 3</span>` : ''}` : nc('Not tracked')}</td>
     <td class="num">${n(s.domain?.referring_domains)}</td>
-  </tr>`).join('')}</tbody></table></div>
+  </tr>`).join('')}</tbody></table></div>`).join('')}
   <div class="actions">
     <button class="run" onclick="run('audit')">Audit all sites</button>
     <button class="run" onclick="run('ranks')">Check rankings</button>
@@ -104,9 +137,9 @@ async function renderSite(slug) {
 
   <div class="strip">
     <div><div class="v">${d.audit?.score ?? '—'}<small>/100</small></div><div class="l">Audit score${d.scoreHistory.length > 1 ? ` · ${spark(d.scoreHistory.map((s) => s.score))}` : ''}</div></div>
-    <div><div class="v">${last28.length ? n(sum(last28, 'clicks')) : '—'}${prev28.length ? delta(sum(last28, 'clicks'), sum(prev28, 'clicks')) : ''}</div><div class="l">Clicks, 28 days</div></div>
-    <div><div class="v">${last28.length ? n(sum(last28, 'impressions')) : '—'}${prev28.length ? delta(sum(last28, 'impressions'), sum(prev28, 'impressions')) : ''}</div><div class="l">Impressions, 28 days</div></div>
-    <div><div class="v">${d.ranks.length ? `${top10}<small>of ${d.ranks.length}</small>` : '—'}</div><div class="l">Tracked keywords in top 10</div></div>
+    <div><div class="v">${conn(d.connections.searchConsole, last28.length ? `${n(sum(last28, 'clicks'))}${prev28.length ? delta(sum(last28, 'clicks'), sum(prev28, 'clicks')) : ''}` : nc('No data yet'))}</div><div class="l">Clicks, 28 days</div></div>
+    <div><div class="v">${conn(d.connections.searchConsole, last28.length ? `${n(sum(last28, 'impressions'))}${prev28.length ? delta(sum(last28, 'impressions'), sum(prev28, 'impressions')) : ''}` : nc('No data yet'))}</div><div class="l">Impressions, 28 days</div></div>
+    <div><div class="v">${conn(d.connections.ranks, d.ranks.length ? `${top10}<small>of ${d.ranks.length}</small>` : nc('No data yet'))}</div><div class="l">Tracked keywords in top 10</div></div>
     <div><div class="v">${n(mine.referring_domains)}</div><div class="l">Referring domains</div></div>
   </div>
   <div class="actions">
@@ -117,7 +150,7 @@ async function renderSite(slug) {
   </div>
 
   <h2>Search performance</h2>
-  ${lineChart(g.daily)}
+  ${d.connections.searchConsole === 'not_connected' ? '<p class="empty">Search Console is not connected for this brand. Add the service account to its property and set <code>gscProperty</code> in sites.json.</p>' : lineChart(g.daily)}
 
   ${g.strikingDistance.length ? `<h2>Within reach</h2><p class="sub">Queries ranking 8–20 with real impressions. Improving these pages is usually the cheapest traffic available.</p>
   <div class="wrap"><table class="data"><thead><tr><th>Query</th><th>Page</th><th class="r">Position</th><th class="r">Impressions</th><th class="r">Clicks</th></tr></thead><tbody>
@@ -170,12 +203,15 @@ async function renderSite(slug) {
 async function boot() {
   const [status, sites] = await Promise.all([api('/status'), api('/overview')]);
   $('#status').innerHTML = [['Search Console', status.searchConsole], ['DataForSEO', status.dataforseo], ['Business Profile', status.businessProfile], ['Email', status.email]]
-    .map(([k, v]) => `<span class="${v ? '' : 'off'}">${k} ${v ? 'on' : 'off'}</span>`).join('');
+    .map(([k, v]) => `<span class="${v ? '' : 'off'}">${k} ${v ? 'on' : 'off'}</span>`).join('')
+    + (status.dfsSpendUsd != null ? `<span title="DataForSEO spend this month against the cap">US$${status.dfsSpendUsd} / ${status.dfsCapUsd}</span>` : '')
+    + (status.access ? `<span>${esc(status.user)}</span>` : '<span class="off">No login</span>');
   const route = async () => {
     const slug = location.hash.replace(/^#\/?/, '');
     $('#brands').innerHTML = sites.map((s) => `<a href="#/${s.slug}" class="${s.slug === slug ? 'active' : ''}">${esc(s.name)}</a>`).join('')
       + `<a href="#/clinics" class="${slug === 'clinics' ? 'active' : ''} sep">All clinics</a>`;
-    try { slug === 'clinics' ? await renderLocations() : slug ? await renderSite(slug) : await renderOverview(); }
+    $('#home').className = slug ? '' : 'active'; $('#portfolio').className = slug === 'portfolio' ? 'active' : '';
+    try { slug === 'clinics' ? await renderLocations() : slug === 'portfolio' ? await renderOverview() : slug ? await renderSite(slug) : await renderManagement(); }
     catch (e) { $('#main').innerHTML = `<p class="empty">Couldn't load that view: ${esc(e.message)}. <a href="#/">Back to portfolio</a></p>`; }
   };
   window.addEventListener('hashchange', route);

@@ -3,7 +3,7 @@ import { config } from '../config.js';
 import { db, tx, today, logJob } from '../db.js';
 
 function client() {
-  const auth = new google.auth.GoogleAuth({ keyFile: config.gsc.keyPath, scopes: ['https://www.googleapis.com/auth/webmasters.readonly'] });
+  const auth = new google.auth.GoogleAuth({ credentials: config.gsc.credentials, scopes: ['https://www.googleapis.com/auth/webmasters.readonly'] });
   return google.searchconsole({ version: 'v1', auth });
 }
 

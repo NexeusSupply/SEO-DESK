@@ -1,5 +1,6 @@
 // Read-side queries that feed the dashboard and digest.
 import { db } from './db.js';
+import { config } from './config.js';
 import { ISSUE_LABELS } from './audit/rules.js';
 import { keywordGap } from './data/competitors.js';
 
@@ -16,7 +17,7 @@ export function overview(sites) {
     const ranks = rankDate ? db.prepare('SELECT position FROM ranks WHERE site=? AND checked_on=?').all(s.slug, rankDate) : [];
     const snap = db.prepare('SELECT * FROM domain_snapshots WHERE domain=? ORDER BY fetched_on DESC LIMIT 1').get(s.host);
     return {
-      slug: s.slug, name: s.name, url: s.url, host: s.host,
+      slug: s.slug, name: s.name, url: s.url, host: s.host, group: s.group,
       audit: audit ? { ...audit, issue_counts: JSON.parse(audit.issue_counts || '{}'), prevScore: prevAudit?.score ?? null } : null,
       gsc: gsc28?.clicks != null ? { ...gsc28, prevClicks: gscPrev?.clicks ?? null, prevImpressions: gscPrev?.impressions ?? null } : null,
       ranks: ranks.length ? {
@@ -61,7 +62,7 @@ export function siteDetail(site) {
     audit: audit ? { ...audit, issue_counts: JSON.parse(audit.issue_counts || '{}') } : null, issues, scoreHistory,
     gsc: { daily: gscDaily, topQueries, topPages, strikingDistance, periodEnd: qEnd },
     ranks, domains, gap: keywordGap(site), jobs,
-    locations: locationRows(site), recentReviews: recentReviews(site) };
+    locations: locationRows(site), recentReviews: recentReviews(site), connections: connections(site) };
 }
 
 export function issueDetail(site, code) {
@@ -109,4 +110,104 @@ export function allLocations(sites) {
 
 export function recentReviews(site, limit = 30) {
   return db.prepare('SELECT location, created_at, rating, reviewer, comment, replied FROM gbp_reviews WHERE site=? ORDER BY created_at DESC LIMIT ?').all(site.slug, limit);
+}
+
+// ---- Connection status, groups and the management view ----
+
+const lastOk = (job, site) => db.prepare('SELECT finished_at FROM job_log WHERE job=? AND site=? AND ok=1 ORDER BY id DESC LIMIT 1').get(job, site)?.finished_at;
+
+/** Per-module status for a brand: connected | not_connected | no_data (connected but nothing fetched yet). */
+export function connections(site) {
+  const has = (q, ...a) => Boolean(db.prepare(q).get(...a));
+  const st = (configured, enabled, hasData) => hasData ? 'connected' : configured && enabled ? 'no_data' : 'not_connected';
+  return {
+    audit: has('SELECT 1 FROM audits WHERE site=?', site.slug) ? 'connected' : 'no_data',
+    searchConsole: st(Boolean(site.gscProperty), config.gsc.enabled, has('SELECT 1 FROM gsc_daily WHERE site=?', site.slug)),
+    ranks: st(site.keywords.length > 0, config.dfs.enabled, has('SELECT 1 FROM ranks WHERE site=?', site.slug)),
+    listings: st(site.locations.some((l) => l.gbpLocationId), config.gbp.enabled, has('SELECT 1 FROM gbp_snapshots WHERE site=?', site.slug)),
+    localRanks: st(site.locations.some((l) => l.lat != null), config.dfs.enabled, has('SELECT 1 FROM local_ranks WHERE site=?', site.slug)),
+    listingsConnected: site.locations.filter((l) => l.gbpLocationId).length, listingsTotal: site.locations.length,
+  };
+}
+
+const pctChange = (cur, prev) => cur == null || prev == null || prev === 0 ? null : Math.round(((cur - prev) / prev) * 100);
+
+/** One brand row for the management page. */
+export function brandSignal(site) {
+  const o = overview([site])[0];
+  const conn = connections(site);
+  const locs = locationRows(site);
+  const connectedLocs = locs.filter((l) => l.listing);
+  const changes = [];
+  const reasons = [];
+  let level = 0; // 0 good, 1 watch, 2 problem
+
+  const clicks = o.gsc ? pctChange(o.gsc.clicks, o.gsc.prevClicks) : null;
+  if (clicks != null) {
+    changes.push(`${clicks >= 0 ? '+' : ''}${clicks}% search clicks`);
+    if (clicks <= -20) { level = Math.max(level, 2); reasons.push('search traffic down sharply'); }
+    else if (clicks <= -5) { level = Math.max(level, 1); reasons.push('search traffic slipping'); }
+  }
+  if (o.audit) {
+    if (o.audit.prevScore != null && o.audit.score !== o.audit.prevScore) changes.push(`site health ${o.audit.prevScore} → ${o.audit.score}`);
+    const errors = o.audit.issue_counts.error || 0;
+    if (o.audit.score < 60 || errors >= 10) { level = Math.max(level, 2); reasons.push('site health poor'); }
+    else if (o.audit.score < 80 || errors > 0) { level = Math.max(level, 1); reasons.push('site issues to fix'); }
+  }
+  if (connectedLocs.length) {
+    const rating = connectedLocs.reduce((a, l) => a + (l.listing.rating || 0), 0) / connectedLocs.filter((l) => l.listing.rating).length || null;
+    const prevRating = db.prepare(`SELECT AVG(rating) r FROM gbp_snapshots WHERE site=? AND fetched_on <= date('now','-28 days') AND fetched_on > date('now','-42 days')`).get(site.slug)?.r;
+    if (rating && prevRating && Math.abs(rating - prevRating) >= 0.05) changes.push(`rating ${prevRating.toFixed(1)} → ${rating.toFixed(1)}`);
+    const lowReviews = connectedLocs.reduce((a, l) => a + l.reviews.lowRecent, 0);
+    const unreplied = connectedLocs.reduce((a, l) => a + l.reviews.unreplied, 0);
+    const newReviews = connectedLocs.reduce((a, l) => a + l.reviews.last30, 0);
+    if (newReviews) changes.push(`${newReviews} new review${newReviews > 1 ? 's' : ''}`);
+    if (lowReviews >= 3 || connectedLocs.some((l) => l.listing.openStatus && l.listing.openStatus !== 'OPEN')) { level = Math.max(level, 2); reasons.push(lowReviews >= 3 ? 'several poor reviews' : 'a listing shows as closed'); }
+    else if (lowReviews || unreplied >= 5) { level = Math.max(level, 1); reasons.push(lowReviews ? 'a poor review' : `${unreplied} reviews unanswered`); }
+    const inPack = locs.filter((l) => l.ranks.some((r) => r.map_pack != null && r.map_pack <= 3)).length;
+    const checked = locs.filter((l) => l.ranks.length).length;
+    if (checked) {
+      changes.push(`${inPack} of ${checked} clinics in the top 3 locally`);
+      if (inPack / checked < 0.5) level = Math.max(level, 1);
+    }
+    const nap = locs.filter((l) => l.napIssues.length).length;
+    if (nap) { level = Math.max(level, 1); reasons.push(`${nap} clinic${nap > 1 ? 's' : ''} with mismatched contact details`); }
+  }
+  const anyConnected = ['searchConsole', 'ranks', 'listings', 'localRanks'].some((k) => conn[k] === 'connected') || conn.audit === 'connected';
+  return {
+    slug: site.slug, name: site.name, group: site.group, host: site.host,
+    signal: !anyConnected ? 'not_connected' : ['good', 'watch', 'problem'][level],
+    reasons, changes: changes.slice(0, 3), connections: conn,
+    metrics: { clicks: o.gsc?.clicks ?? null, clicksChange: clicks, score: o.audit?.score ?? null,
+      rating: connectedLocs.length ? +(connectedLocs.reduce((a, l) => a + (l.listing.rating || 0), 0) / (connectedLocs.filter((l) => l.listing.rating).length || 1)).toFixed(1) : null,
+      clinics: site.locations.length, clinicsConnected: connectedLocs.length },
+  };
+}
+
+/** The management landing page: one block per group. */
+export function management(sites) {
+  const groups = [...new Set(sites.map((s) => s.group))];
+  return groups.map((g) => {
+    const brands = sites.filter((s) => s.group === g).map(brandSignal);
+    const connected = brands.filter((b) => b.signal !== 'not_connected');
+    const withClicks = connected.filter((b) => b.metrics.clicks != null);
+    const clicks = withClicks.reduce((a, b) => a + b.metrics.clicks, 0);
+    const prevClicks = withClicks.reduce((a, b) => a + (b.metrics.clicksChange != null ? b.metrics.clicks / (1 + b.metrics.clicksChange / 100) : b.metrics.clicks), 0);
+    const rated = connected.filter((b) => b.metrics.rating);
+    const listingsConnected = brands.reduce((a, b) => a + b.connections.listingsConnected, 0);
+    const listingsTotal = brands.reduce((a, b) => a + b.connections.listingsTotal, 0);
+    const scored = connected.filter((b) => b.metrics.score != null);
+    return {
+      group: g,
+      headline: {
+        brands: brands.length, brandsConnected: connected.length,
+        clinics: brands.reduce((a, b) => a + b.metrics.clinics, 0), listingsConnected, listingsTotal,
+        clicks: withClicks.length ? clicks : null, clicksChange: withClicks.length && prevClicks ? Math.round(((clicks - prevClicks) / prevClicks) * 100) : null,
+        rating: rated.length ? +(rated.reduce((a, b) => a + b.metrics.rating, 0) / rated.length).toFixed(1) : null,
+        health: scored.length ? Math.round(scored.reduce((a, b) => a + b.metrics.score, 0) / scored.length) : null,
+        problems: brands.filter((b) => b.signal === 'problem').length, watch: brands.filter((b) => b.signal === 'watch').length,
+      },
+      brands: brands.sort((a, b) => ({ problem: 0, watch: 1, good: 2, not_connected: 3 }[a.signal] - { problem: 0, watch: 1, good: 2, not_connected: 3 }[b.signal]) || a.name.localeCompare(b.name)),
+    };
+  });
 }

@@ -16,6 +16,7 @@ export const config = {
     password: process.env.DATAFORSEO_PASSWORD || '',
     location: num(process.env.DFS_LOCATION_CODE, 2554),
     language: process.env.DFS_LANGUAGE_CODE || 'en',
+    monthlyCapUsd: num(process.env.DFS_MONTHLY_CAP_USD, 10),
     get enabled() { return Boolean(this.login && this.password); },
   },
   gbp: {
@@ -26,7 +27,18 @@ export const config = {
   },
   gsc: {
     keyPath: process.env.GSC_SERVICE_ACCOUNT_JSON ? path.resolve(root, process.env.GSC_SERVICE_ACCOUNT_JSON) : '',
-    get enabled() { return Boolean(this.keyPath && fs.existsSync(this.keyPath)); },
+    keyContent: process.env.GSC_SERVICE_ACCOUNT_JSON_CONTENT || '',
+    get credentials() {
+      if (this.keyContent) return JSON.parse(this.keyContent);
+      if (this.keyPath && fs.existsSync(this.keyPath)) return JSON.parse(fs.readFileSync(this.keyPath, 'utf8'));
+      return null;
+    },
+    get enabled() { try { return Boolean(this.credentials); } catch { return false; } },
+  },
+  access: {
+    teamDomain: (process.env.CF_ACCESS_TEAM_DOMAIN || '').replace(/^https?:\/\//, '').replace(/\/$/, ''),
+    aud: process.env.CF_ACCESS_AUD || '',
+    get enabled() { return Boolean(this.teamDomain && this.aud); },
   },
   crawl: {
     maxPages: num(process.env.CRAWL_MAX_PAGES, 500),
@@ -49,7 +61,8 @@ export const config = {
     competitors: process.env.CRON_COMPETITORS || '0 3 1 * *',
     digest: process.env.CRON_DIGEST || '0 8 * * 1',
     gbp: process.env.CRON_GBP || '15 7 * * *',
-    local: process.env.CRON_LOCAL || '0 5 * * 1,4',
+    local: process.env.CRON_LOCAL || '0 5 * * 1',
+    'local-collect': process.env.CRON_LOCAL_COLLECT || '0 */2 * * *',
   },
 };
 
@@ -57,6 +70,7 @@ export function loadSites() {
   const p = fs.existsSync(config.sitesPath) ? config.sitesPath : path.resolve(root, './data/sites.example.json');
   const sites = JSON.parse(fs.readFileSync(p, 'utf8'));
   for (const s of sites) {
+    s.group ||= 'Ungrouped';
     if (!s.slug || !s.url) throw new Error(`Site entry missing slug or url: ${JSON.stringify(s)}`);
     s.host = new URL(s.url).host.replace(/^www\./, '');
     s.keywords ||= [];

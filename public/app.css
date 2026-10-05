@@ -93,3 +93,20 @@ button.run:hover { border-color: var(--ink); }
 tr.attn td:first-child { box-shadow: inset 3px 0 0 var(--bad); }
 .brands a.sep { margin-left: auto; border: 1px solid var(--line); }
 code { font-size: 13px; background: var(--sheet); padding: 1px 5px; border-radius: 4px; }
+
+.primary { display: flex; gap: 4px; }
+.primary a { padding: 6px 12px; border-radius: 6px; color: var(--muted); font-weight: 600; }
+.primary a.active { background: var(--ink); color: var(--sheet); }
+.group { margin-bottom: 44px; }
+.group-title { font-size: 13px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); margin: 32px 0 12px; }
+.strip.mgmt { margin-bottom: 16px; }
+.sig { display: inline-block; padding: 3px 10px; border-radius: 999px; font-size: 13px; font-weight: 600; white-space: nowrap; }
+.sig.good { background: var(--good-soft); color: var(--good); }
+.sig.watch { background: var(--warn-soft); color: var(--warn); }
+.sig.problem { background: var(--bad-soft); color: var(--bad); }
+.sig.nc { background: var(--paper); color: var(--muted); border: 1px dashed var(--line); }
+.nc-text { color: var(--muted); font-weight: 400; font-size: 14px; }
+.strip .v .nc-text { font-size: 16px; }
+.mgmt-table td.why { font-size: 14px; color: var(--ink); max-width: 360px; }
+.foot { margin-top: 32px; color: var(--muted); }
+@media (max-width: 800px) { .primary { display: none; } }
