@@ -96,7 +96,7 @@ export function locationRows(site) {
     if (napIssues.length) attention += 2 * napIssues.length;
     if (ranks.length && ranks.every((r) => r.map_pack == null)) attention += 3;
     if (g?.open_status && g.open_status !== 'OPEN') attention += 5;
-    return { slug: loc.slug, name: loc.name, town: loc.town, url: loc.url, hasGbp: Boolean(loc.gbpLocationId),
+    return { slug: loc.slug, name: loc.name, town: loc.town, url: loc.url, hasGbp: Boolean(listingSource(loc)),
       listing: g ? { rating: g.rating, reviews: g.review_count, completeness: g.completeness, category: g.primary_category, photos: g.photo_count, openStatus: g.open_status, fetched: g.fetched_on } : null,
       reviews: { last30: rev30?.n ?? 0, avg30: rev30?.avg ?? null, unreplied, lowRecent: low },
       performance: perf?.views != null ? perf : null, ranks, nap, napIssues, attention };
@@ -116,6 +116,9 @@ export function recentReviews(site, limit = 30) {
 
 const lastOk = (job, site) => db.prepare('SELECT finished_at FROM job_log WHERE job=? AND site=? AND ok=1 ORDER BY id DESC LIMIT 1').get(job, site)?.finished_at;
 
+/** Can any configured source read this clinic's listing? The API needs gbpLocationId; DataForSEO needs a way to find it. */
+const listingSource = (l) => (config.gbp.enabled && l.gbpLocationId) || (config.dfs.enabled && (l.placeId || l.cid || (l.lat != null && l.lng != null)));
+
 /** Per-module status for a brand: connected | not_connected | no_data (connected but nothing fetched yet). */
 export function connections(site) {
   const has = (q, ...a) => Boolean(db.prepare(q).get(...a));
@@ -124,9 +127,9 @@ export function connections(site) {
     audit: has('SELECT 1 FROM audits WHERE site=?', site.slug) ? 'connected' : 'no_data',
     searchConsole: st(Boolean(site.gscProperty), config.gsc.enabled, has('SELECT 1 FROM gsc_daily WHERE site=?', site.slug)),
     ranks: st(site.keywords.length > 0, config.dfs.enabled, has('SELECT 1 FROM ranks WHERE site=?', site.slug)),
-    listings: st(site.locations.some((l) => l.gbpLocationId), config.gbp.enabled, has('SELECT 1 FROM gbp_snapshots WHERE site=?', site.slug)),
+    listings: st(site.locations.some(listingSource), config.gbp.enabled || config.dfs.enabled, has('SELECT 1 FROM gbp_snapshots WHERE site=?', site.slug)),
     localRanks: st(site.locations.some((l) => l.lat != null), config.dfs.enabled, has('SELECT 1 FROM local_ranks WHERE site=?', site.slug)),
-    listingsConnected: site.locations.filter((l) => l.gbpLocationId).length, listingsTotal: site.locations.length,
+    listingsConnected: site.locations.filter(listingSource).length, listingsTotal: site.locations.length,
   };
 }
 
