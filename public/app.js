@@ -150,7 +150,7 @@ async function renderSite(slug) {
   </div>
 
   <h2>Search performance</h2>
-  ${d.connections.searchConsole === 'not_connected' ? '<p class="empty">Search Console is not connected for this brand. Add the service account to its property and set <code>gscProperty</code> in sites.json.</p>' : lineChart(g.daily)}
+  ${d.connections.searchConsole === 'not_connected' ? '<p class="empty">Search Console is not connected for this brand. Add the service account as a user on this brand\u2019s Search Console property; it is picked up on the next sync.</p>' : lineChart(g.daily)}
 
   ${g.strikingDistance.length ? `<h2>Within reach</h2><p class="sub">Queries ranking 8–20 with real impressions. Improving these pages is usually the cheapest traffic available.</p>
   <div class="wrap"><table class="data"><thead><tr><th>Query</th><th>Page</th><th class="r">Position</th><th class="r">Impressions</th><th class="r">Clicks</th></tr></thead><tbody>

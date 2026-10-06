@@ -56,7 +56,7 @@ npm start                                     # dashboard on http://localhost:30
 }
 ```
 
-`gscProperty` must match the property exactly as it appears in Search Console (`sc-domain:example.co.nz` for domain properties, `https://www.example.co.nz/` for URL-prefix properties).
+`gscProperty` is optional. Leave it out and the app finds the property itself among those the service account has been added to: the domain property (`sc-domain:example.co.nz`) first, then a URL-prefix one (`https://www.example.co.nz/`). Set it only to force a particular property, spelled exactly as Search Console shows it.
 
 ### Locations (clinic brands)
 
