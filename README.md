@@ -116,11 +116,14 @@ Or click the buttons in the dashboard, which fire the same jobs in the backgroun
 
 ## Deploying on Railway (the current plan)
 
-1. Push this repo to GitHub. Railway → New Project → Deploy from GitHub repo; the `Dockerfile` is detected.
-2. Add a **Volume** mounted at `/app/data`.
-3. Add **Variables** from `.env.example`. For Search Console paste the key file's contents into `GSC_SERVICE_ACCOUNT_JSON_CONTENT` rather than uploading a file. Put the real `sites.json` on the volume (or commit it — it holds no secrets).
-4. Settings → Networking → Custom domain `seo.comhlavet.com`; IT adds the CNAME in Cloudflare, proxied.
-5. Cloudflare Zero Trust → Access → add a self-hosted application for that hostname with an email allow-list. Copy its AUD into `CF_ACCESS_AUD`, and the team domain into `CF_ACCESS_TEAM_DOMAIN`. Redeploy.
+Do these in order. Setting up Access (step 3) before the first deploy means the app is never reachable without a login.
+
+1. **Sites file.** Commit your real brands as `sites.json` at the repo root (it holds no secrets). Don't rely on `data/sites.json` there: the volume mounted at `/app/data` hides anything committed under `data/`. The app reads `data/sites.json` first, then `sites.json`, then the example.
+2. **Project.** Railway → New Project → Deploy from GitHub repo → `NexeusSupply/SEO-DESK`. The `Dockerfile` is detected. Then right-click the service → **Attach volume**, mount path `/app/data` (the SQLite database lives there). Don't add a healthcheck path; Access would refuse it.
+3. **Cloudflare Access.** Zero Trust → Access → Applications → Add → *Self-hosted*. Domain `seo.comhlavet.com`, a policy that allows your team's emails. From the application's Overview tab copy the **Application Audience (AUD) tag**; the team domain is under Settings → Custom pages (looks like `yourteam.cloudflareaccess.com`).
+4. **Variables.** Service → Variables → Raw Editor, paste from `.env.example` and fill in at least `CF_ACCESS_TEAM_DOMAIN` and `CF_ACCESS_AUD`. Leave `PORT` and `DB_PATH` out (Railway sets `PORT`; the image sets `DB_PATH` and `TZ`). For Search Console paste the key file's whole contents into `GSC_SERVICE_ACCOUNT_JSON_CONTENT`. Anything left blank just switches that module off.
+5. **Domain.** Service → Settings → Networking → Custom domain `seo.comhlavet.com`. Railway shows a CNAME target (and sometimes a TXT verification record); IT adds them in Cloudflare with the CNAME proxied, and the zone's SSL/TLS mode must be **Full**, not Flexible (Flexible causes a redirect loop). Skip "Generate domain": the `*.up.railway.app` address would only ever answer 403.
+6. **Check.** The deploy log should say `Access: enforced` and `Sites: sites.json (N brands)`. Open `https://seo.comhlavet.com`, sign in through Access, and `/api/status` shows your email and which modules are on.
 
 ## No admin rights on your PC?
 
@@ -138,7 +141,7 @@ Either way, put the dashboard behind a login (Cloudflare Access, or the host's b
 - **Your own machine** — fine to start; jobs only run while `npm start` is running.
 - **A small VPS** (any ~NZ$10/month box) — run under `pm2` or a systemd unit so it stays up.
 - **Docker** — `Dockerfile` included; mount `data/` as a volume so the SQLite file and keys persist.
-- **Zoho Catalyst** — AppSail can host the Express app, but Catalyst's filesystem is not persistent, so you would swap `better-sqlite3` for Catalyst Data Store or an external Postgres. Worth doing only once the tool has earned its place.
+- **Zoho Catalyst** — AppSail can host the Express app, but Catalyst's filesystem is not persistent, so you would swap the built-in SQLite (`node:sqlite`) for Catalyst Data Store or an external Postgres. Worth doing only once the tool has earned its place.
 
 ## Layout
 
