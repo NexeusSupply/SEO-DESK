@@ -205,7 +205,7 @@ async function boot() {
   $('#status').innerHTML = [['Search Console', status.searchConsole], ['DataForSEO', status.dataforseo], ['Business Profile', status.businessProfile], ['Email', status.email]]
     .map(([k, v]) => `<span class="${v ? '' : 'off'}">${k} ${v ? 'on' : 'off'}</span>`).join('')
     + (status.dfsSpendUsd != null ? `<span title="DataForSEO spend this month against the cap">US$${status.dfsSpendUsd} / ${status.dfsCapUsd}</span>` : '')
-    + (status.access ? `<span>${esc(status.user)}</span>` : '<span class="off">No login</span>');
+    + (status.access ? `<span>${esc(status.user)}</span>` : status.preview ? '<span>Preview password</span>' : '<span class="off">No login</span>');
   const route = async () => {
     const slug = location.hash.replace(/^#\/?/, '');
     $('#brands').innerHTML = sites.map((s) => `<a href="#/${s.slug}" class="${s.slug === slug ? 'active' : ''}">${esc(s.name)}</a>`).join('')
