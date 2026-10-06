@@ -141,3 +141,49 @@ export async function getMapsTask(id) {
     position: i.rank_group, title: i.title, place_id: i.place_id, cid: i.cid, rating: i.rating?.value ?? null,
     phone: i.phone, domain: (i.domain || '').replace(/^www\./, ''), url: i.url, address: i.address })) };
 }
+
+// ---- Business data: the public Google listing and its reviews (no Business Profile API approval needed) ----
+
+/** Identify a listing for the business_data endpoints: place_id, then cid, then name near its coordinates. */
+function listingTarget(loc) {
+  if (loc.placeId) return { keyword: `place_id:${loc.placeId}`, location_code: config.dfs.location };
+  if (loc.cid) return { keyword: `cid:${loc.cid}`, location_code: config.dfs.location };
+  return { keyword: loc.name, location_coordinate: `${loc.lat},${loc.lng},5000` };
+}
+
+/** Live lookup of one public listing. Returns { cost, info } where info is null if Google returned nothing. */
+export async function businessInfo(loc) {
+  const [t] = await postRaw('/business_data/google/my_business_info/live', [{ ...listingTarget(loc), language_code: config.dfs.language }]);
+  if (t?.status_code !== 20000) throw new Error(`DataForSEO task ${t?.status_code}: ${t?.status_message}`);
+  const i = t.result?.[0]?.items?.[0];
+  return { cost: t.cost || 0, info: i ? {
+    title: i.title, address: i.address, phone: i.phone, website: i.url, category: i.category, description: i.description,
+    rating: i.rating?.value ?? null, reviewCount: i.rating?.votes_count ?? null, photoCount: i.total_photos ?? null,
+    hasHours: Boolean(i.work_time?.work_hours?.timetable), status: i.work_time?.work_hours?.current_status || null,
+    placeId: i.place_id, cid: i.cid, claimed: i.is_claimed } : null };
+}
+
+/** Post review fetches to the task queue (reviews have no live endpoint). Each item: { loc, depth, tag }. */
+export async function postReviewTasks(items) {
+  if (!items.length) return [];
+  // The reviews endpoint takes place_id / cid as their own fields rather than the keyword prefix.
+  const target = (l) => l.placeId ? { place_id: l.placeId, location_code: config.dfs.location } : l.cid ? { cid: String(l.cid), location_code: config.dfs.location } : listingTarget(l);
+  const tasks = await postRaw('/business_data/google/reviews/task_post', items.map((it) => ({
+    ...target(it.loc), language_code: config.dfs.language, depth: it.depth, sort_by: 'newest', tag: it.tag })));
+  return tasks.map((t) => ({ task_id: t.id, tag: t.data?.tag, cost: t.cost || 0, ok: t.status_code === 20100, message: t.status_message }));
+}
+
+export async function reviewTasksReady() {
+  const [t] = await getRaw('/business_data/google/reviews/tasks_ready');
+  return (t?.result || []).map((r) => r.id);
+}
+
+/** Fetch one finished reviews task: [{ id, createdAt, rating, reviewer, comment, replied }]. */
+export async function getReviewTask(id) {
+  const [t] = await getRaw(`/business_data/google/reviews/task_get/${id}`);
+  const items = t?.result?.[0]?.items || [];
+  const iso = (s) => { const d = new Date(String(s || '').replace(' ', 'T').replace(' ', '')); return isNaN(d) ? s : d.toISOString(); };
+  return { cost: t?.cost || 0, status: t?.status_code, items: items.filter((i) => i.review_id).map((i) => ({
+    id: i.review_id, createdAt: iso(i.timestamp), rating: i.rating?.value ?? null, reviewer: i.profile_name || '',
+    comment: i.review_text || '', replied: i.owner_answer ? 1 : 0 })) };
+}

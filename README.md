@@ -71,7 +71,12 @@ Add a `locations` list to any brand. Each location needs `slug` and `name`; the 
 
 ### Google Business Profile
 
-This is the one API that needs a formal request: Google gates Business Profile API access per Cloud project.
+Clinic listings and reviews come from one of two places, chosen per clinic:
+
+- **Without API approval (DataForSEO).** If DataForSEO is configured, any clinic with a `placeId`, `cid`, or `lat`/`lng` gets its public listing (rating, review count, open status, completeness) and its newest 50 reviews (including whether the owner replied) once a week. That costs about US$0.01 per clinic per week and counts towards the spend cap. A clinic found by name and coordinates logs its place ID, so you can paste that into `sites.json` and pin it. This route can't get the listing's private stats: search and Maps views, calls, and direction requests.
+- **With API approval (Business Profile API).** Clinics with a `gbpLocationId` use the API once it is set up below, and that adds the performance stats. The API takes over from DataForSEO for those clinics automatically.
+
+The API is the one that needs a formal request, because Google gates Business Profile API access per Cloud project. The form checks the signed-in account straight away: it has to own a listing that has been verified for at least 60 days, ideally with an email address on the listing's website domain. Otherwise it rejects the request immediately.
 
 1. In the same Cloud project, enable **My Business Account Management**, **My Business Business Information**, **Business Profile Performance** and **My Business API** (v4, for reviews), then submit the [access request form](https://developers.google.com/my-business/content/prereqs). Approval typically takes a few days.
 2. Create an **OAuth client** of type *Desktop app* and put its ID and secret in `.env`. (Service accounts do not work for Business Profile — it has to be a Google account that is an owner or manager of the listings.)
@@ -107,9 +112,9 @@ npm run ranks
 npm run gsc
 npm run competitors
 npm run digest
-npm run gbp                 # Business Profile sync
+npm run gbp                 # Business Profile sync (API, and/or DataForSEO public listing + reviews)
 npm run local               # post this week's map-pack checks + name/address/phone check
-node src/cli.js local-collect   # collect finished map-pack results (cron runs this every 2h)
+node src/cli.js local-collect   # collect finished map-pack and review results (cron runs this every 2h)
 ```
 
 Or click the buttons in the dashboard, which fire the same jobs in the background.
@@ -163,6 +168,7 @@ Dockerfile            For Railway / Render / Fly / any VPS
   data/gsc.js         Search Console sync
   data/competitors.js Domain snapshots, keyword enrichment, keyword gap
   data/gbp.js         Business Profile listings, reviews, performance
+  data/listings-public.js  Public listing + reviews via DataForSEO when the API isn't available
   data/gbp-auth.js    One-time OAuth helper
   data/local.js       Map-pack rank checks and NAP consistency
 public/               Dashboard (no build step)
