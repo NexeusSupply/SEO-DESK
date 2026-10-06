@@ -1,0 +1,775 @@
+[
+  {
+    "slug": "firstvets",
+    "group": "Comhla",
+    "name": "First Vets Whanganui",
+    "url": "https://firstvets.co.nz",
+    "keywords": [],
+    "localKeywords": [
+      "vet {town}"
+    ],
+    "locations": [
+      {
+        "slug": "whanganui",
+        "name": "First Vets Whanganui",
+        "town": "Whanganui",
+        "address": "170 Glasgow Street, Whanganui 4500",
+        "lat": -39.92632,
+        "lng": 175.0383,
+        "placeId": "ChIJfcvTW88DQG0RajnYuRV-f14",
+        "cid": "6809299793384847722"
+      }
+    ]
+  },
+  {
+    "slug": "levinhorowhenua",
+    "group": "Comhla",
+    "name": "Levin & Horowhenua Vets",
+    "url": "https://levinhorowhenuavets.nz",
+    "keywords": [],
+    "localKeywords": [
+      "vet {town}"
+    ],
+    "locations": [
+      {
+        "slug": "levin",
+        "name": "Levin and Horowhenua Vets",
+        "town": "Levin",
+        "address": "518 Queen Street East, Levin, 5510",
+        "lat": -40.6228,
+        "lng": 175.28829,
+        "placeId": "ChIJa-yF117zQG0R0u2h7GZ2oyg",
+        "cid": "2928314367149731282"
+      }
+    ]
+  },
+  {
+    "slug": "otakivets",
+    "group": "Comhla",
+    "name": "Ōtaki Vets",
+    "url": "https://otakivets.nz",
+    "keywords": [],
+    "localKeywords": [
+      "vet {town}"
+    ],
+    "locations": [
+      {
+        "slug": "otaki",
+        "name": "Otaki Vets",
+        "town": "Otaki",
+        "address": "269 Mill Road, Otaki, 5512",
+        "lat": -40.7597,
+        "lng": 175.15586,
+        "placeId": "ChIJ3W4qDyORQG0RIikNMjssVgI",
+        "cid": "168370668827388194"
+      }
+    ]
+  },
+  {
+    "slug": "tararuabreeding",
+    "group": "Comhla",
+    "name": "Tararua Breeding Services",
+    "url": "https://tararuabreeding.nz",
+    "keywords": [],
+    "localKeywords": [
+      "vet {town}"
+    ],
+    "locations": [
+      {
+        "slug": "woodville",
+        "name": "Tararua Breeding Services",
+        "town": "Woodville",
+        "address": "80541 Masterton Road, RD 3, Woodville, 4999",
+        "lat": -40.36197,
+        "lng": 175.8718,
+        "placeId": "ChIJh2-4Bte9QW0Rpa987NArPCY",
+        "cid": "2755125248364687269"
+      }
+    ]
+  },
+  {
+    "slug": "tararuavets",
+    "group": "Comhla",
+    "name": "Tararua Vet Services",
+    "url": "https://tararuavets.nz",
+    "keywords": [],
+    "localKeywords": [
+      "vet {town}"
+    ],
+    "locations": [
+      {
+        "slug": "dannevirke",
+        "name": "Tararua Veterinary Service - Dannevirke",
+        "town": "Dannevirke",
+        "address": "36 Denmark Street, Dannevirke, 4930",
+        "lat": -40.21071,
+        "lng": 176.09855,
+        "placeId": "ChIJNYxOY4PyQW0R1UFsmPuB5hw",
+        "cid": "2082494795299439061"
+      },
+      {
+        "slug": "pahiatua",
+        "name": "Tararua Veterinary Service - Pahiatua",
+        "town": "Pahiatua",
+        "address": "2 George Street, Pahiatua, 4910",
+        "lat": -40.45747,
+        "lng": 175.83772,
+        "placeId": "ChIJrfSRjHGkQW0RWEwH3px1YwI",
+        "cid": "172110527370579032"
+      }
+    ]
+  },
+  {
+    "slug": "totallyvets",
+    "group": "Comhla",
+    "name": "Totally Vets",
+    "url": "https://totallyvets.co.nz",
+    "keywords": [],
+    "localKeywords": [
+      "vet {town}"
+    ],
+    "locations": [
+      {
+        "slug": "palmerston-north",
+        "name": "Totally Vets Awapuni",
+        "town": "Palmerston North",
+        "address": "189 Pioneer Highway, Palmerston North, 4412",
+        "lat": -40.37343,
+        "lng": 175.57137,
+        "placeId": "ChIJk4_Ou0JNQG0RfRy-ZtvIsrA",
+        "cid": "12732459941176941693"
+      },
+      {
+        "slug": "feilding",
+        "name": "Totally Vets Feilding",
+        "town": "Feilding",
+        "address": "25 Manchester Street, Feilding, 4720",
+        "lat": -40.22866,
+        "lng": 175.56671,
+        "placeId": "ChIJ3a2qFYJKQG0R3krLrYkmCsU",
+        "cid": "14198203148007066334"
+      },
+      {
+        "slug": "taumarunui",
+        "name": "Totally Vets Taumarunui",
+        "town": "Taumarunui",
+        "address": "168/170 Hakiaha Street, Taumarunui, 3920",
+        "lat": -38.88266,
+        "lng": 175.27002,
+        "placeId": "ChIJfcp32wJAa20R-OpPhB2uKmw",
+        "cid": "7794233546915179256"
+      }
+    ]
+  },
+  {
+    "slug": "chbvets",
+    "group": "Comhla",
+    "name": "CHB Vets",
+    "url": "https://chbvets.nz",
+    "keywords": [],
+    "localKeywords": [
+      "vet {town}"
+    ],
+    "locations": [
+      {
+        "slug": "waipukurau",
+        "name": "CHB Vets",
+        "town": "Waipukurau",
+        "address": "5 Northumberland Street, Waipukurau 4200",
+        "lat": -39.99471,
+        "lng": 176.55422,
+        "placeId": "ChIJhdhun2wLQm0Rmi0C4_XNpYs",
+        "cid": "10062675398388493722"
+      }
+    ]
+  },
+  {
+    "slug": "vetlife",
+    "group": "Comhla",
+    "name": "Vetlife",
+    "url": "https://vetlife.co.nz",
+    "keywords": [],
+    "localKeywords": [
+      "vet {town}"
+    ],
+    "locations": [
+      {
+        "slug": "riccarton",
+        "name": "Straven Road Vet Centre",
+        "town": "Riccarton",
+        "address": "8 Straven Road, Riccarton, Christchurch",
+        "lat": -43.52896,
+        "lng": 172.60249,
+        "placeId": "ChIJCRefyvWKMW0Rs_ViyeAxfJg",
+        "cid": "10987712032398308787"
+      },
+      {
+        "slug": "alexandra",
+        "name": "Vetlife Alexandra",
+        "town": "Alexandra",
+        "address": "2 Ngapara Street, Alexandra, 9320",
+        "lat": -45.24856,
+        "lng": 169.39876,
+        "placeId": "ChIJxWI07KckK6gRTzpoKPOJ7M4",
+        "cid": "14910444143764847183"
+      },
+      {
+        "slug": "ashburton",
+        "name": "Vetlife Ashburton",
+        "town": "Ashburton",
+        "address": "4 Seafield Road, Ashburton, 7700",
+        "lat": -43.89238,
+        "lng": 171.76695,
+        "placeId": "ChIJm4v1cO27LW0RvqWsXUR0uEM",
+        "cid": "4879778033234126270"
+      },
+      {
+        "slug": "little-river",
+        "name": "Vetlife Banks Peninsula",
+        "town": "Little River",
+        "address": "4235 Christchurch-Akaroa Road, Little River, 7591",
+        "lat": -43.77096,
+        "lng": 172.79023,
+        "placeId": "ChIJb76MplQhMm0R0RTqEBwHRxM",
+        "cid": "1389086827191342289"
+      },
+      {
+        "slug": "cromwell",
+        "name": "Vetlife Cromwell",
+        "town": "Cromwell",
+        "address": "9a Elspeth Street, Cromwell, 9310",
+        "lat": -45.03644,
+        "lng": 169.19294,
+        "placeId": "ChIJe92kxBjVKqgRQHQZ82c86Oc",
+        "cid": "16710672834516055104"
+      },
+      {
+        "slug": "culverden",
+        "name": "Vetlife Culverden",
+        "town": "Culverden",
+        "address": "25 Mountainview Road, Culverden, 7392",
+        "lat": -42.77473,
+        "lng": 172.84736,
+        "placeId": "ChIJaV00L79ZMG0RC3g6fxlX1Uk",
+        "cid": "5320254301828446219"
+      },
+      {
+        "slug": "diamond-harbour",
+        "name": "Vetlife Diamond Harbour",
+        "town": "Diamond Harbour",
+        "address": "9 Stoddart Terrace, Church Bay, Diamond Harbour, 8971",
+        "lat": -43.63003,
+        "lng": 172.72406,
+        "placeId": "ChIJF7muvKcnMm0RZ72QKD4c82g",
+        "cid": "7562419252579319143"
+      },
+      {
+        "slug": "dunsandel",
+        "name": "Vetlife Dunsandel",
+        "town": "Dunsandel",
+        "address": "6 Horoarata-Dunsandel Road, Dunsandel, 7657",
+        "lat": -43.65949,
+        "lng": 172.19436,
+        "placeId": "ChIJJX6tFBX4LW0R_EuU24Nlcxw",
+        "cid": "2050093872382757884"
+      },
+      {
+        "slug": "fairlie",
+        "name": "Vetlife Fairlie",
+        "town": "Fairlie",
+        "address": "31 Main Street, Fairlie, 7925",
+        "lat": -44.10193,
+        "lng": 170.82913,
+        "placeId": "ChIJFy_HgPOBLG0RZfkjaLEyb7k",
+        "cid": "13361954356969339237"
+      },
+      {
+        "slug": "mapua",
+        "name": "Vetlife Mapua",
+        "town": "Mapua",
+        "address": "69 Aranui Road, Mapua",
+        "lat": -41.25245,
+        "lng": 173.0945,
+        "placeId": "ChIJg_dNZROQO20Rq5PHTTbjiI8",
+        "cid": "10342766366629008299"
+      },
+      {
+        "slug": "methven",
+        "name": "Vetlife Methven",
+        "town": "Methven",
+        "address": "2 Line Road, Methven, 7730",
+        "lat": -43.63585,
+        "lng": 171.65362,
+        "placeId": "ChIJZ_q4bynQLW0RO1tvEvC2FxM",
+        "cid": "1375769353402669883"
+      },
+      {
+        "slug": "mornington",
+        "name": "Vetlife Mornington",
+        "town": "Mornington",
+        "address": "158 Eglinton Road, Mornington, Dunedin 9011",
+        "lat": -45.88239,
+        "lng": 170.48377,
+        "placeId": "ChIJGTotJyqrLqgR19pNIf3fuGs",
+        "cid": "7762200236051520215"
+      },
+      {
+        "slug": "motueka",
+        "name": "Vetlife Motueka",
+        "town": "Motueka",
+        "address": "400D High Street, Motueka",
+        "lat": -41.12369,
+        "lng": 173.00962,
+        "placeId": "ChIJzcw8_8OGO20RV9hixIz9zIw",
+        "cid": "10145762841590945879"
+      },
+      {
+        "slug": "mosgiel",
+        "name": "Vetlife Murrays",
+        "town": "Mosgiel",
+        "address": "10 Dukes Road South, RD 2, Mosgiel, 9092",
+        "lat": -45.86235,
+        "lng": 170.33879,
+        "placeId": "ChIJVQ3iJmwBLKgRpyQnrALDpwc",
+        "cid": "551623895621772455"
+      },
+      {
+        "slug": "new-brighton",
+        "name": "Vetlife New Brighton",
+        "town": "New Brighton",
+        "address": "20 Beresford Street, New Brighton, Christchurch, 8061",
+        "lat": -43.5078,
+        "lng": 172.72911,
+        "placeId": "ChIJFwPZ-ZuIMW0Rt7fp7f_mWi0",
+        "cid": "3268178466493282231"
+      },
+      {
+        "slug": "oamaru",
+        "name": "Vetlife Oamaru",
+        "town": "Oamaru",
+        "address": "281 Thames Street, Oamaru, 9400",
+        "lat": -45.09272,
+        "lng": 170.97382,
+        "placeId": "ChIJPdRIiH2XKagRE6EzVpDegW8",
+        "cid": "8034947921708556563"
+      },
+      {
+        "slug": "blenheim",
+        "name": "Vetlife on Alabama",
+        "town": "Blenheim",
+        "address": "165 Alabama Road, Blenheim, 7201",
+        "lat": -41.52762,
+        "lng": 173.96392,
+        "placeId": "ChIJgV8iq3wTOW0RBox1MUDxOmU",
+        "cid": "7294407804489927686"
+      },
+      {
+        "slug": "oxford",
+        "name": "Vetlife Oxford",
+        "town": "Oxford",
+        "address": "3128 Oxford Road, Oxford, 7430",
+        "lat": -43.29672,
+        "lng": 172.19968,
+        "placeId": "ChIJG6TKNeIdLm0RooHaOiM74KY",
+        "cid": "12024676027576517026"
+      },
+      {
+        "slug": "pleasant-point",
+        "name": "Vetlife Pleasant Point",
+        "town": "Pleasant Point",
+        "address": "83 Main Road, Pleasant Point, 7903",
+        "lat": -44.26038,
+        "lng": 171.13017,
+        "placeId": "ChIJv5zCZA2TLG0R2yBbLXyotaU",
+        "cid": "11940635238333096155"
+      },
+      {
+        "slug": "rai-valley",
+        "name": "Vetlife Rai Valley",
+        "town": "Rai Valley",
+        "address": "6770 State Highway 6, Rai Valley, 7190",
+        "lat": -41.22849,
+        "lng": 173.58304,
+        "placeId": "ChIJ637xTN79O20Rt8ac-ZhgDB4",
+        "cid": "2165211730997462711"
+      },
+      {
+        "slug": "ranfurly",
+        "name": "Vetlife Ranfurly",
+        "town": "Ranfurly",
+        "address": "8 Northland Street, Ranfurly, 9322",
+        "lat": -45.12893,
+        "lng": 170.10093,
+        "placeId": "ChIJAe3WrpxNKqgRt39aWJ5C9eE",
+        "cid": "16281993275682488247"
+      },
+      {
+        "slug": "rangiora",
+        "name": "Vetlife Rangiora",
+        "town": "Rangiora",
+        "address": "33 Blackett Street, Rangiora",
+        "lat": -43.30191,
+        "lng": 172.59281,
+        "placeId": "ChIJqegSy5KUMW0R1gvOjGi4e7s",
+        "cid": "13509594266406357974"
+      },
+      {
+        "slug": "richmond",
+        "name": "Vetlife Richmond",
+        "town": "Richmond",
+        "address": "79 Gladstone Road, Richmond",
+        "lat": -41.34223,
+        "lng": 173.17326,
+        "placeId": "ChIJN9GWCCOUO20RXZWj8br8Ir0",
+        "cid": "13628733302224688477"
+      },
+      {
+        "slug": "st-kilda",
+        "name": "Vetlife St Kilda",
+        "town": "St Kilda",
+        "address": "611 Andersons Bay Road, St Kilda, Dunedin, 9012",
+        "lat": -45.89819,
+        "lng": 170.51054,
+        "placeId": "ChIJ0Tbh8piuLqgRDu1zAz3fDYU",
+        "cid": "9587564634885582094"
+      },
+      {
+        "slug": "temuka",
+        "name": "Vetlife Temuka",
+        "town": "Temuka",
+        "address": "1 Waitohi-Temuka Road, Temuka, 7920",
+        "lat": -44.24567,
+        "lng": 171.27569,
+        "placeId": "ChIJpwMSQlzuLG0RYH_gJaO0Pas",
+        "cid": "12339217166873165664"
+      },
+      {
+        "slug": "timaru",
+        "name": "Vetlife Timaru",
+        "town": "Timaru",
+        "address": "41 Grasmere Street, Timaru, 7910",
+        "lat": -44.386,
+        "lng": 171.23365,
+        "placeId": "ChIJucb-Q5TBLG0REQwNFrQhAfs",
+        "cid": "18086774635844406289"
+      },
+      {
+        "slug": "twizel",
+        "name": "Vetlife Twizel",
+        "town": "Twizel",
+        "address": "1/3 Benmore Place,Twizel, 7901",
+        "lat": -44.26451,
+        "lng": 170.10091,
+        "placeId": "ChIJPTHz1P0fK20RA6Oa9t-orD4",
+        "cid": "4516170206214267651"
+      },
+      {
+        "slug": "waikouaiti",
+        "name": "Vetlife Waikouaiti",
+        "town": "Waikouaiti",
+        "address": "2 Pratt Street, Waikouaiti",
+        "lat": -45.59588,
+        "lng": 170.67116,
+        "placeId": "ChIJ56CnAqlcKagRjgbsjT3I3dg",
+        "cid": "15626866448745105038"
+      },
+      {
+        "slug": "wanaka",
+        "name": "Vetlife Wanaka",
+        "town": "Wanaka",
+        "address": "2 Balneaves Lane, RD 2, Wanaka, 9382",
+        "lat": -44.69597,
+        "lng": 169.17263,
+        "placeId": "ChIJxbPBTUxP1akRK8eV5k0LIIU",
+        "cid": "9592679635508119339"
+      }
+    ]
+  },
+  {
+    "slug": "vetsouth",
+    "group": "Comhla",
+    "name": "VetSouth",
+    "url": "https://vetsouth.co.nz",
+    "keywords": [],
+    "localKeywords": [
+      "vet {town}"
+    ],
+    "locations": [
+      {
+        "slug": "balclutha",
+        "name": "Vetsouth Balclutha",
+        "town": "Balclutha",
+        "address": "34 Essex Street, Balclutha",
+        "lat": -46.23156,
+        "lng": 169.75174,
+        "placeId": "ChIJuYXx4AxPLKgR7FnZI9g263c",
+        "cid": "8641060611982711276"
+      },
+      {
+        "slug": "clydevale",
+        "name": "Vetsouth Clydevale",
+        "town": "Clydevale",
+        "address": "2 Manse Street, Clydevale Clutha 9274",
+        "lat": -46.10146,
+        "lng": 169.5273,
+        "placeId": "ChIJhbyB9uj1LKgRC19p1K5yBgY",
+        "cid": "434160509301382923"
+      },
+      {
+        "slug": "gore",
+        "name": "Vetsouth Gore",
+        "town": "Gore",
+        "address": "8 Richmond Street, Gore",
+        "lat": -46.09625,
+        "lng": 168.94792,
+        "placeId": "ChIJHXzY1XfPLKgRhksoV8uYJKY",
+        "cid": "11971861708565662598"
+      },
+      {
+        "slug": "invercargill",
+        "name": "Vetsouth Invercargill",
+        "town": "Invercargill",
+        "address": "29 Findlay Road, Ascot Invercargill",
+        "lat": -46.39604,
+        "lng": 168.39069,
+        "placeId": "ChIJ4WTdHpfE0qkRIfBcXk1Ar4c",
+        "cid": "9777104017084444705"
+      },
+      {
+        "slug": "lumsden",
+        "name": "Vetsouth Lumsden",
+        "town": "Lumsden",
+        "address": "44 Diana St, Lumsden",
+        "lat": -45.7407,
+        "lng": 168.44146,
+        "placeId": "ChIJL8clJl5m06kRQ2d0cSHN5R8",
+        "cid": "2298468728363575107"
+      },
+      {
+        "slug": "milton",
+        "name": "Vetsouth Milton",
+        "town": "Milton",
+        "address": "113 Union St, Milton",
+        "lat": -46.12006,
+        "lng": 169.96054,
+        "placeId": "ChIJKaHIgwI_LKgRiJpt-07FaAo",
+        "cid": "750066280973572744"
+      },
+      {
+        "slug": "otautau",
+        "name": "Vetsouth Otautau",
+        "town": "Otautau",
+        "address": "203 Main St, Otautau",
+        "lat": -46.14027,
+        "lng": 167.99504,
+        "placeId": "ChIJu8Ffz-IA06kRVKDKGHxrw04",
+        "cid": "5675498136153006164"
+      },
+      {
+        "slug": "tapanui",
+        "name": "Vetsouth Tapanui",
+        "town": "Tapanui",
+        "address": "87 Tapanui-Waikoikoi Hwy, Tapanui",
+        "lat": -45.9476,
+        "lng": 169.24144,
+        "placeId": "ChIJLRc23MGVLKgRhEnDNbUIvcw",
+        "cid": "14752957528719706500"
+      },
+      {
+        "slug": "winton",
+        "name": "Vetsouth Winton",
+        "town": "Winton",
+        "address": "Cnr Great North & Welsh Roads",
+        "lat": -46.13194,
+        "lng": 168.32584,
+        "placeId": "ChIJK5mqD8gY06kR8DTC-Mar1zM",
+        "cid": "3735643286992467184"
+      }
+    ]
+  },
+  {
+    "slug": "wcvets",
+    "group": "Comhla",
+    "name": "West Coast Vets",
+    "url": "https://wcvets.co.nz",
+    "keywords": [],
+    "localKeywords": [
+      "vet {town}"
+    ],
+    "locations": [
+      {
+        "slug": "greymouth",
+        "name": "West Coast Vets - Greymouth",
+        "town": "Greymouth",
+        "address": "35 Herbert Street, Greymouth 7805",
+        "lat": -42.45122,
+        "lng": 171.2076,
+        "placeId": "ChIJTfEBgDJqL20RBAgnkdEgOv8",
+        "cid": "18391048112776349700"
+      },
+      {
+        "slug": "hokitika",
+        "name": "West Coast Vets - Hokitika",
+        "town": "Hokitika",
+        "address": "40 Brittan Street, Hokitika 7810",
+        "lat": -42.72065,
+        "lng": 170.96901,
+        "placeId": "ChIJ5-YPbWovL20RTYK0e5kcpEg",
+        "cid": "5234340112442360397"
+      }
+    ]
+  },
+  {
+    "slug": "bullervets",
+    "group": "Comhla",
+    "name": "Buller Vets",
+    "url": "https://bullervets.co.nz",
+    "keywords": [],
+    "localKeywords": [
+      "vet {town}"
+    ],
+    "locations": [
+      {
+        "slug": "westport",
+        "name": "Buller Vets",
+        "town": "Westport",
+        "address": "71 Palmerston Street, Westport, 7825",
+        "lat": -41.75101,
+        "lng": 171.59787,
+        "placeId": "ChIJ6T4uVXMGJW0RXzh81tRQcuk",
+        "cid": "16821596433243977823"
+      },
+      {
+        "slug": "murchison",
+        "name": "Buller Vets Murchison",
+        "town": "Murchison",
+        "address": "850 Waller Street, Murchison, 7007",
+        "lat": -41.8003,
+        "lng": 172.33011,
+        "placeId": "ChIJ2drN3bjROm0RMkJE_Ps5ov8",
+        "cid": "18420349180330656306"
+      }
+    ]
+  },
+  {
+    "slug": "srvets",
+    "group": "Comhla",
+    "name": "Selwyn Rakaia Vets",
+    "url": "https://srvets.co.nz",
+    "keywords": [],
+    "localKeywords": [
+      "vet {town}"
+    ],
+    "locations": [
+      {
+        "slug": "dunsandel",
+        "name": "Selwyn Rakaia Vets",
+        "town": "Dunsandel",
+        "address": "1 Browns Road, Dunsandel 7682",
+        "lat": -43.6605,
+        "lng": 172.19205,
+        "placeId": "ChIJKQwLlC34LW0R6egepjVGLwo",
+        "cid": "733882460518934761"
+      }
+    ]
+  },
+  {
+    "slug": "vcmorrinsville",
+    "group": "Comhla",
+    "name": "Vet Clinic Morrinsville",
+    "url": "https://vetclinicmorrinsville.co.nz",
+    "keywords": [],
+    "localKeywords": [
+      "vet {town}"
+    ],
+    "locations": [
+      {
+        "slug": "morrinsville",
+        "name": "Veterinary Clinic Morrinsville",
+        "town": "Morrinsville",
+        "address": "62 Moorhouse Street, Morrinsville 3300",
+        "lat": -37.65637,
+        "lng": 175.52853,
+        "placeId": "ChIJnzFFkhVIJgAREStaixWSmkk",
+        "cid": "5303712132412091153"
+      }
+    ]
+  },
+  {
+    "slug": "vetsone",
+    "group": "Comhla",
+    "name": "VetsOne (Hastings)",
+    "url": "https://vetsone.co.nz",
+    "keywords": [],
+    "localKeywords": [
+      "vet {town}"
+    ],
+    "locations": [
+      {
+        "slug": "hastings",
+        "name": "VetsOne",
+        "town": "Hastings",
+        "address": "500 Maraekakaho Road, Hastings",
+        "placeId": "ChIJoREcpSXKaW0R461YX_jDJ9c",
+        "lat": -39.6338737,
+        "lng": 176.8162394
+      }
+    ]
+  },
+  {
+    "slug": "tasvets",
+    "group": "Comhla",
+    "name": "TasVets",
+    "url": "https://tasvets.com.au",
+    "keywords": []
+  },
+  {
+    "slug": "thevetgroup",
+    "group": "Comhla",
+    "name": "The Vet Group (Australia)",
+    "url": "https://thevetgroup.com.au",
+    "keywords": []
+  },
+  {
+    "slug": "cowsmart",
+    "group": "Comhla",
+    "name": "Cowsmart",
+    "url": "https://cowsmart.co.nz",
+    "keywords": [],
+    "locations": [
+      {
+        "slug": "cowsmart",
+        "name": "Cowsmart",
+        "placeId": "ChIJ0QvMwUf1LG0RrggvS1QVJms"
+      }
+    ]
+  },
+  {
+    "slug": "heartland",
+    "group": "Nexeus Supply Chain",
+    "name": "Heartland Feeds",
+    "url": "https://www.heartlandfeeds.co.nz",
+    "keywords": []
+  },
+  {
+    "slug": "agilis",
+    "group": "Nexeus Supply Chain",
+    "name": "Agilis",
+    "url": "https://agilis.nz",
+    "keywords": []
+  },
+  {
+    "slug": "fortis",
+    "group": "Nexeus Supply Chain",
+    "name": "Fortis",
+    "url": "https://fortisnz.co.nz",
+    "keywords": []
+  },
+  {
+    "slug": "drl",
+    "group": "Nexeus Supply Chain",
+    "name": "DRL (Disease Research Limited)",
+    "url": "https://www.drl.net.nz",
+    "keywords": []
+  }
+]
