@@ -40,6 +40,7 @@ export const config = {
   access: {
     teamDomain: (process.env.CF_ACCESS_TEAM_DOMAIN || '').replace(/^https?:\/\//, '').replace(/\/$/, ''),
     aud: process.env.CF_ACCESS_AUD || '',
+    previewPassword: process.env.PREVIEW_PASSWORD || '',
     get enabled() { return Boolean(this.teamDomain && this.aud); },
   },
   crawl: {

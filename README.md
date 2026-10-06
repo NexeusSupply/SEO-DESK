@@ -24,6 +24,8 @@ Signal rules live in `brandSignal()` in `src/queries.js` and are deliberately si
 
 The app has no login of its own. Put it behind Cloudflare Access and set `CF_ACCESS_TEAM_DOMAIN` and `CF_ACCESS_AUD`; the app then verifies Cloudflare's signed header on every request and refuses anything that didn't come through Access (so the host's raw URL is a dead end). With those unset it runs open, for local development only — the startup log says so loudly.
 
+**Previewing before Access is ready:** set `PREVIEW_PASSWORD` and the browser asks for a password (any username) instead. It's a stopgap for trying the app on Railway's own `*.up.railway.app` address; once the two Access values are set it is ignored.
+
 ## DataForSEO spend cap
 
 `DFS_MONTHLY_CAP_USD` (default 10) is a hard ceiling. Every job estimates its cost before posting and skips with a logged message if the month's total would exceed it; actual costs reported by the API are recorded per month in the `dfs_spend` table and shown in the dashboard header. Local map-pack checks use the **standard queue** (posted Monday, collected over the following hours) at a fraction of the live price; brand rank checks and competitor refreshes use live endpoints because they're small. With no API keys at all you still get the site audit and dashboard.

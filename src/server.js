@@ -39,7 +39,7 @@ app.post('/api/run/:job', (req, res) => {
 
 app.listen(config.port, () => {
   console.log(`SEO Desk on http://localhost:${config.port}`);
-  console.log(`DataForSEO: ${config.dfs.enabled ? 'on' : 'off'} · Search Console: ${config.gsc.enabled ? 'on' : 'off'} · Business Profile: ${config.gbp.enabled ? 'on' : 'off'} · Access: ${config.access.enabled ? 'enforced' : 'OFF (open to anyone who can reach this port)'}`);
+  console.log(`DataForSEO: ${config.dfs.enabled ? 'on' : 'off'} · Search Console: ${config.gsc.enabled ? 'on' : 'off'} · Business Profile: ${config.gbp.enabled ? 'on' : 'off'} · Access: ${config.access.enabled ? 'enforced' : config.access.previewPassword ? 'preview password' : 'OFF (open to anyone who can reach this port)'}`);
   const sitesFile = config.sitesPaths.find((f) => fs.existsSync(f));
   console.log(sitesFile ? `Sites: ${path.relative(config.root, sitesFile)} (${loadSites().length} brands)` : 'Sites: none found — add data/sites.json or commit sites.json at the repo root');
   startScheduler();
