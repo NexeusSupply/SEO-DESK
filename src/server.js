@@ -19,7 +19,7 @@ app.use(express.static(path.join(config.root, 'public')));
 const site = (req, res) => { const s = loadSites().find((x) => x.slug === req.params.slug); if (!s) res.status(404).json({ error: 'unknown site' }); return s; };
 
 app.get('/api/status', (req, res) => res.json({ dataforseo: config.dfs.enabled, searchConsole: config.gsc.enabled, businessProfile: config.gbp.enabled, email: config.smtp.enabled,
-  access: config.access.enabled, user: req.user?.email, cron: config.cron, dfsSpendUsd: config.dfs.enabled ? +spendThisMonth().toFixed(2) : null, dfsCapUsd: config.dfs.monthlyCapUsd }));
+  access: config.access.enabled, preview: !config.access.enabled && Boolean(config.access.previewPassword), user: req.user?.email, cron: config.cron, dfsSpendUsd: config.dfs.enabled ? +spendThisMonth().toFixed(2) : null, dfsCapUsd: config.dfs.monthlyCapUsd }));
 app.get('/api/management', (_, res) => res.json(management(loadSites())));
 app.get('/api/overview', (_, res) => res.json(overview(loadSites())));
 app.get('/api/sites/:slug', (req, res) => { const s = site(req, res); if (s) res.json(siteDetail(s)); });
