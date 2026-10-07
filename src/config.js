@@ -10,7 +10,9 @@ export const config = {
   root,
   port: num(process.env.PORT, 3040),
   dbPath: path.resolve(root, process.env.DB_PATH || './data/seo-desk.sqlite'),
-  sitesPath: path.resolve(root, './data/sites.json'),
+  // First match wins: data/sites.json (local, or on a Railway volume), then sites.json at the repo root
+  // (committed, so it ships in the image — the volume mounted at /app/data hides anything committed under data/).
+  sitesPaths: [path.resolve(root, './data/sites.json'), path.resolve(root, './sites.json'), path.resolve(root, './data/sites.example.json')],
   dfs: {
     login: process.env.DATAFORSEO_LOGIN || '',
     password: process.env.DATAFORSEO_PASSWORD || '',
@@ -46,6 +48,7 @@ export const config = {
   access: {
     teamDomain: (process.env.CF_ACCESS_TEAM_DOMAIN || '').replace(/^https?:\/\//, '').replace(/\/$/, ''),
     aud: process.env.CF_ACCESS_AUD || '',
+    previewPassword: process.env.PREVIEW_PASSWORD || '',
     get enabled() { return Boolean(this.teamDomain && this.aud); },
   },
   crawl: {
@@ -77,7 +80,8 @@ export const config = {
 };
 
 export function loadSites() {
-  const p = fs.existsSync(config.sitesPath) ? config.sitesPath : path.resolve(root, './data/sites.example.json');
+  const p = config.sitesPaths.find((f) => fs.existsSync(f));
+  if (!p) return [];
   const sites = JSON.parse(fs.readFileSync(p, 'utf8'));
   for (const s of sites) {
     s.group ||= 'Ungrouped';

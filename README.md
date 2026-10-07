@@ -25,6 +25,8 @@ Signal rules live in `brandSignal()` in `src/queries.js` and are deliberately si
 
 The app has no login of its own. Put it behind Cloudflare Access and set `CF_ACCESS_TEAM_DOMAIN` and `CF_ACCESS_AUD`; the app then verifies Cloudflare's signed header on every request and refuses anything that didn't come through Access (so the host's raw URL is a dead end). With those unset it runs open, for local development only — the startup log says so loudly.
 
+**Previewing before Access is ready:** set `PREVIEW_PASSWORD` and the browser asks for a password (any username) instead. It's a stopgap for trying the app on Railway's own `*.up.railway.app` address; once the two Access values are set it is ignored.
+
 ## DataForSEO spend cap
 
 `DFS_MONTHLY_CAP_USD` (default 10) is a hard ceiling. Every job estimates its cost before posting and skips with a logged message if the month's total would exceed it; actual costs reported by the API are recorded per month in the `dfs_spend` table and shown in the dashboard header. Local map-pack checks use the **standard queue** (posted Monday, collected over the following hours) at a fraction of the live price; brand rank checks and competitor refreshes use live endpoints because they're small. With no API keys at all you still get the site audit and dashboard.
@@ -72,7 +74,12 @@ Add a `locations` list to any brand. Each location needs `slug` and `name`; the 
 
 ### Google Business Profile
 
-This is the one API that needs a formal request: Google gates Business Profile API access per Cloud project.
+Clinic listings and reviews come from one of two places, chosen per clinic:
+
+- **Without API approval (DataForSEO).** If DataForSEO is configured, any clinic with a `placeId`, `cid`, or `lat`/`lng` gets its public listing (rating, review count, open status, completeness) and its newest 50 reviews (including whether the owner replied) once a week. That costs about US$0.01 per clinic per week and counts towards the spend cap. A clinic found by name and coordinates logs its place ID, so you can paste that into `sites.json` and pin it. This route can't get the listing's private stats: search and Maps views, calls, and direction requests.
+- **With API approval (Business Profile API).** Clinics with a `gbpLocationId` use the API once it is set up below, and that adds the performance stats. The API takes over from DataForSEO for those clinics automatically.
+
+The API is the one that needs a formal request, because Google gates Business Profile API access per Cloud project. The form checks the signed-in account straight away: it has to own a listing that has been verified for at least 60 days, ideally with an email address on the listing's website domain. Otherwise it rejects the request immediately.
 
 1. In the same Cloud project, enable **My Business Account Management**, **My Business Business Information**, **Business Profile Performance** and **My Business API** (v4, for reviews), then submit the [access request form](https://developers.google.com/my-business/content/prereqs). Approval typically takes a few days.
 2. Create an **OAuth client** of type *Desktop app* and put its ID and secret in `.env`. (Service accounts do not work for Business Profile — it has to be a Google account that is an owner or manager of the listings.)
@@ -138,21 +145,24 @@ npm run ranks
 npm run gsc
 npm run competitors
 npm run digest
-npm run gbp                 # Business Profile sync
+npm run gbp                 # Business Profile sync (API, and/or DataForSEO public listing + reviews)
 npm run meta                # Facebook and Instagram sync
 npm run local               # post this week's map-pack checks + name/address/phone check
-node src/cli.js local-collect   # collect finished map-pack results (cron runs this every 2h)
+node src/cli.js local-collect   # collect finished map-pack and review results (cron runs this every 2h)
 ```
 
 Or click the buttons in the dashboard, which fire the same jobs in the background.
 
 ## Deploying on Railway (the current plan)
 
-1. Push this repo to GitHub. Railway → New Project → Deploy from GitHub repo; the `Dockerfile` is detected.
-2. Add a **Volume** mounted at `/app/data`.
-3. Add **Variables** from `.env.example`. For Search Console paste the key file's contents into `GSC_SERVICE_ACCOUNT_JSON_CONTENT` rather than uploading a file. Put the real `sites.json` on the volume (or commit it — it holds no secrets).
-4. Settings → Networking → Custom domain `seo.comhlavet.com`; IT adds the CNAME in Cloudflare, proxied.
-5. Cloudflare Zero Trust → Access → add a self-hosted application for that hostname with an email allow-list. Copy its AUD into `CF_ACCESS_AUD`, and the team domain into `CF_ACCESS_TEAM_DOMAIN`. Redeploy.
+Do these in order. Setting up Access (step 3) before the first deploy means the app is never reachable without a login.
+
+1. **Sites file.** Commit your real brands as `sites.json` at the repo root (it holds no secrets). Don't rely on `data/sites.json` there: the volume mounted at `/app/data` hides anything committed under `data/`. The app reads `data/sites.json` first, then `sites.json`, then the example.
+2. **Project.** Railway → New Project → Deploy from GitHub repo → `NexeusSupply/SEO-DESK`. The `Dockerfile` is detected. Then right-click the service → **Attach volume**, mount path `/app/data` (the SQLite database lives there). Don't add a healthcheck path; Access would refuse it.
+3. **Cloudflare Access.** Zero Trust → Access → Applications → Add → *Self-hosted*. Domain `seo.comhlavet.com`, a policy that allows your team's emails. From the application's Overview tab copy the **Application Audience (AUD) tag**; the team domain is under Settings → Custom pages (looks like `yourteam.cloudflareaccess.com`).
+4. **Variables.** Service → Variables → Raw Editor, paste from `.env.example` and fill in at least `CF_ACCESS_TEAM_DOMAIN` and `CF_ACCESS_AUD`. Leave `PORT` and `DB_PATH` out (Railway sets `PORT`; the image sets `DB_PATH` and `TZ`). For Search Console paste the key file's whole contents into `GSC_SERVICE_ACCOUNT_JSON_CONTENT`. Anything left blank just switches that module off.
+5. **Domain.** Service → Settings → Networking → Custom domain `seo.comhlavet.com`. Railway shows a CNAME target (and sometimes a TXT verification record); IT adds them in Cloudflare with the CNAME proxied, and the zone's SSL/TLS mode must be **Full**, not Flexible (Flexible causes a redirect loop). Skip "Generate domain": the `*.up.railway.app` address would only ever answer 403.
+6. **Check.** The deploy log should say `Access: enforced` and `Sites: sites.json (N brands)`. Open `https://seo.comhlavet.com`, sign in through Access, and `/api/status` shows your email and which modules are on.
 
 ## No admin rights on your PC?
 
@@ -170,7 +180,7 @@ Either way, put the dashboard behind a login (Cloudflare Access, or the host's b
 - **Your own machine** — fine to start; jobs only run while `npm start` is running.
 - **A small VPS** (any ~NZ$10/month box) — run under `pm2` or a systemd unit so it stays up.
 - **Docker** — `Dockerfile` included; mount `data/` as a volume so the SQLite file and keys persist.
-- **Zoho Catalyst** — AppSail can host the Express app, but Catalyst's filesystem is not persistent, so you would swap `better-sqlite3` for Catalyst Data Store or an external Postgres. Worth doing only once the tool has earned its place.
+- **Zoho Catalyst** — AppSail can host the Express app, but Catalyst's filesystem is not persistent, so you would swap the built-in SQLite (`node:sqlite`) for Catalyst Data Store or an external Postgres. Worth doing only once the tool has earned its place.
 
 ## Layout
 
@@ -195,6 +205,7 @@ Dockerfile            For Railway / Render / Fly / any VPS
   data/gsc.js         Search Console sync
   data/competitors.js Domain snapshots, keyword enrichment, keyword gap
   data/gbp.js         Business Profile listings, reviews, performance
+  data/listings-public.js  Public listing + reviews via DataForSEO when the API isn't available
   data/gbp-auth.js    One-time OAuth helper
   data/local.js       Map-pack rank checks and NAP consistency
   data/meta.js        Facebook and Instagram insights, posts, comments and replies

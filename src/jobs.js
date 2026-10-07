@@ -7,6 +7,7 @@ import { sendDigest } from './digest.js';
 import { syncGbp } from './data/gbp.js';
 import { syncMeta, syncMetaComments } from './data/meta.js';
 import { trackLocalRanks, collectLocalRanks, checkNap } from './data/local.js';
+import { syncPublicListings, collectPublicReviews } from './data/listings-public.js';
 
 const forEachSite = async (fn, only) => {
   const sites = loadSites().filter((s) => !only || s.slug === only);
@@ -23,9 +24,12 @@ export const jobs = {
   gsc: (only) => config.gsc.enabled ? forEachSite(syncGsc, only) : Promise.resolve(['Search Console not configured']),
   competitors: (only) => config.dfs.enabled ? forEachSite(refreshCompetitors, only) : Promise.resolve(['DataForSEO not configured']),
   digest: () => sendDigest(),
-  gbp: (only) => config.gbp.enabled ? forEachSite(syncGbp, only) : Promise.resolve(['Business Profile not configured']),
+  // Business Profile API for linked clinics; DataForSEO's public listing data for the rest (see listings-public.js).
+  gbp: (only) => config.gbp.enabled || config.dfs.enabled
+    ? forEachSite(async (s) => [config.gbp.enabled && await syncGbp(s), config.dfs.enabled && await syncPublicListings(s)].filter(Boolean).join('; '), only)
+    : Promise.resolve(['Business Profile and DataForSEO not configured']),
   local: (only) => forEachSite(async (s) => `${await trackLocalRanks(s)}; ${await checkNap(s)}`, only),
-  'local-collect': () => collectLocalRanks(loadSites()).then((r) => [r]),
+  'local-collect': async () => [await collectLocalRanks(loadSites()), await collectPublicReviews()],
   meta: (only) => config.meta.enabled ? forEachSite(syncMeta, only) : Promise.resolve(['Meta not configured']),
   'meta-comments': (only) => config.meta.enabled ? forEachSite((s) => s.meta ? syncMetaComments(s) : 'not set up', only) : Promise.resolve(['Meta not configured']),
 };

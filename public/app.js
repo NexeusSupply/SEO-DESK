@@ -118,6 +118,7 @@ window.replyComment = replyComment; window.commentAction = commentAction;
 
 function socialSection(d, slug) {
   const s = d.social, c = d.connections.social;
+  if (c === 'coming_soon') return `<h2>Facebook and Instagram <span class="sig nc">Coming soon</span></h2>${COMING_SOON}`;
   if (c === 'not_connected') return `<h2>Facebook and Instagram</h2><p class="empty">Not connected. Add <code>"meta": { "pageId": "…" }</code> to this brand in sites.json and set <code>META_ACCESS_TOKEN</code>.</p>`;
   if (c === 'no_data') return `<h2>Facebook and Instagram</h2><p class="empty">No data yet. <button class="run" onclick="run('meta','${slug}')">Sync now</button></p>`;
   const tot = (k, which = 'last28') => s.platforms.reduce((a, p) => a + (p[which][k] || 0), 0);
@@ -137,10 +138,13 @@ function socialSection(d, slug) {
     <td class="r num">${n(p.likes)}</td><td class="r num">${n(p.comments)}</td><td class="r num">${n(p.shares)}</td></tr>`).join('')}</tbody></table></div>` : ''}`;
 }
 
+const COMING_SOON = `<p class="empty">Followers, reach and engagement for each brand's Facebook Page and Instagram account, plus one inbox to read and reply to comments. This switches on once the Meta app and token are set up.</p>`;
+
 async function renderComments(status) {
+  if (!(await api('/status')).meta) { $('#main').innerHTML = `<h1>Comments <span class="sig nc">Coming soon</span></h1>${COMING_SOON}`; return; }
   const rows = await api(`/comments${status === 'all' ? '?status=all' : ''}`);
   $('#main').innerHTML = `<h1>Comments</h1><p class="sub">Facebook and Instagram comments across every brand. Replies go out publicly as the brand's account.</p>
-  <div class="actions tabs"><a class="run ${status === 'all' ? '' : 'on'}" href="#/comments">Waiting for a reply</a><a class="run ${status === 'all' ? 'on' : ''}" href="#/comments/all">All recent</a>
+  <div class="actions inbox-tabs"><a class="run ${status === 'all' ? '' : 'on'}" href="#/comments">Waiting for a reply</a><a class="run ${status === 'all' ? 'on' : ''}" href="#/comments/all">All recent</a>
     <button class="run" onclick="run('meta-comments')">Check for new comments</button></div>
   ${rows.length ? commentsList(rows, true) : `<p class="empty">${status === 'all' ? 'No comments synced yet.' : 'Nothing waiting. All caught up.'}</p>`}`;
 }
@@ -155,14 +159,17 @@ const SIGNAL = { good: ['Good', 'good'], watch: ['Watch', 'watch'], problem: ['P
 const sig = (k) => `<span class="sig ${SIGNAL[k][1]}">${SIGNAL[k][0]}</span>`;
 const nc = (label = 'Not connected') => `<span class="nc-text">${label}</span>`;
 const conn = (status, value) => status === 'not_connected' ? nc() : status === 'no_data' ? nc('No data yet') : value;
+// The first group in sites.json is the home group; the others are tucked away (menu dropdown, collapsed sections).
+let homeGroup = null;
+const groupBlock = (name, count, body) => name === homeGroup
+  ? `<section class="group"><h2 class="group-title">${esc(name)}</h2>${body}</section>`
+  : `<details class="group fold"><summary><h2 class="group-title">${esc(name)}<span class="count">${count} brand${count === 1 ? '' : 's'}</span></h2></summary>${body}</details>`;
 const pctTxt = (p) => p == null ? '' : `<span class="delta ${p > 0 ? 'up' : p < 0 ? 'down' : 'flat'}">${p > 0 ? '+' : ''}${p}%</span>`;
 
 async function renderManagement() {
   const groups = await api('/management');
   $('#main').innerHTML = `<h1>How things are going</h1><p class="sub">Search visibility and Google listings across the group, updated daily. Green is fine, amber needs a look, red needs a decision.</p>
-  ${groups.map((g) => { const h = g.headline; return `
-  <section class="group">
-    <h2 class="group-title">${esc(g.group)}</h2>
+  ${groups.map((g) => { const h = g.headline; return groupBlock(g.group, g.brands.length, `
     <div class="strip mgmt">
       <div><div class="v">${h.brandsConnected}<small>of ${h.brands} brands</small></div><div class="l">Reporting</div></div>
       ${h.listingsTotal ? `<div><div class="v">${h.listingsConnected}<small>of ${h.listingsTotal} listings</small></div><div class="l">Google listings connected</div></div>` : ''}
@@ -177,8 +184,7 @@ async function renderManagement() {
       <td>${sig(b.signal)}</td>
       <td class="why">${b.signal === 'not_connected' ? '<span class="muted">Waiting on access to this brand\u2019s Search Console or Google listings</span>' : b.reasons.length ? esc(b.reasons.join('; ')) : '<span class="muted">Nothing needs attention</span>'}</td>
       <td class="why">${b.changes.length ? esc(b.changes.join(' · ')) : '<span class="muted">—</span>'}</td>
-    </tr>`).join('')}</tbody></table></div>
-  </section>`; }).join('')}
+    </tr>`).join('')}</tbody></table></div>`); }).join('')}
   <p class="foot"><a href="#/portfolio">Open the detailed dashboard →</a></p>`;
 }
 
@@ -187,7 +193,7 @@ async function renderOverview() {
   const groups = [...new Set(sites.map((s) => s.group))];
   $('#main').innerHTML = `
   <h1>Portfolio</h1><p class="sub">Every brand, last 28 days. Open a brand for the detail.</p>
-  ${groups.map((g) => `<h2 class="group-title">${esc(g)}</h2>
+  ${groups.map((g) => groupBlock(g, sites.filter((s) => s.group === g).length, `
   <div class="wrap"><table class="ledger"><thead><tr>
     <th>Brand</th><th>Audit score</th><th class="num">Errors</th><th class="num">Clicks</th><th class="num">Impressions</th><th>Keywords in top 10</th><th class="num">Referring domains</th>
   </tr></thead><tbody>${sites.filter((s) => s.group === g).map((s) => `<tr>
@@ -198,7 +204,7 @@ async function renderOverview() {
     <td class="num">${s.gsc ? `${n(s.gsc.impressions)}${delta(s.gsc.impressions, s.gsc.prevImpressions)}` : nc()}</td>
     <td>${s.ranks ? `${s.ranks.top10} of ${s.ranks.tracked}${s.ranks.top3 ? ` <span class="delta up">${s.ranks.top3} in top 3</span>` : ''}` : nc('Not tracked')}</td>
     <td class="num">${n(s.domain?.referring_domains)}</td>
-  </tr>`).join('')}</tbody></table></div>`).join('')}
+  </tr>`).join('')}</tbody></table></div>`)).join('')}
   <div class="actions">
     <button class="run" onclick="run('audit')">Audit all sites</button>
     <button class="run" onclick="run('ranks')">Check rankings</button>
@@ -286,20 +292,26 @@ async function renderSite(slug) {
 
 async function boot() {
   const [status, sites] = await Promise.all([api('/status'), api('/overview')]);
-  $('#status').innerHTML = [['Search Console', status.searchConsole], ['DataForSEO', status.dataforseo], ['Business Profile', status.businessProfile], ['Meta', status.meta], ['Email', status.email]]
-    .map(([k, v]) => `<span class="${v ? '' : 'off'}">${k} ${v ? 'on' : 'off'}</span>`).join('')
+  $('#status').innerHTML = [['Search Console', status.searchConsole], ['DataForSEO', status.dataforseo], ['Business Profile', status.businessProfile], ['Meta', status.meta || 'soon'], ['Email', status.email]]
+    .map(([k, v]) => v === 'soon' ? `<span class="soon">${k} coming soon</span>` : `<span class="${v ? '' : 'off'}">${k} ${v ? 'on' : 'off'}</span>`).join('')
     + (status.dfsSpendUsd != null ? `<span title="DataForSEO spend this month against the cap">US$${status.dfsSpendUsd} / ${status.dfsCapUsd}</span>` : '')
     + (status.access ? `<span>${esc(status.user)}</span>` : '<span class="off">No login</span>');
   const route = async () => {
     const slug = location.hash.replace(/^#\/?/, '');
-    $('#brands').innerHTML = sites.map((s) => `<a href="#/${s.slug}" class="${s.slug === slug ? 'active' : ''}">${esc(s.name)}</a>`).join('')
+    const tab = (s) => `<a href="#/${s.slug}" class="${s.slug === slug ? 'active' : ''}">${esc(s.name)}</a>`;
+    const others = [...new Set(sites.map((s) => s.group))].filter((g) => g !== homeGroup);
+    $('#brands').innerHTML = `<div class="tabs">${sites.filter((s) => s.group === homeGroup).map(tab).join('')}</div>`
+      + others.map((g) => { const list = sites.filter((s) => s.group === g), cur = list.find((s) => s.slug === slug);
+        return `<details class="dd${cur ? ' active' : ''}"><summary>${esc(cur ? cur.name : g)}</summary><div class="menu"><div class="menu-title">${esc(g)}</div>${list.map(tab).join('')}</div></details>`; }).join('')
       + `<a href="#/clinics" class="${slug === 'clinics' ? 'active' : ''} sep">All clinics</a>`
       + `<a href="#/comments" class="${slug.startsWith('comments') ? 'active' : ''}">Comments</a>`;
     $('#home').className = slug ? '' : 'active'; $('#portfolio').className = slug === 'portfolio' ? 'active' : '';
     try { slug.startsWith('comments') ? await renderComments(slug.split('/')[1]) : slug === 'clinics' ? await renderLocations() : slug === 'portfolio' ? await renderOverview() : slug ? await renderSite(slug) : await renderManagement(); }
     catch (e) { $('#main').innerHTML = `<p class="empty">Couldn't load that view: ${esc(e.message)}. <a href="#/">Back to portfolio</a></p>`; }
   };
+  homeGroup = sites[0]?.group ?? null;
   window.addEventListener('hashchange', route);
+  document.addEventListener('click', (e) => { for (const d of document.querySelectorAll('details.dd[open]')) if (!d.contains(e.target)) d.open = false; });
   route();
 }
 boot();

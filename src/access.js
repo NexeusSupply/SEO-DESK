@@ -29,8 +29,18 @@ export async function verifyAccessJwt(token) {
   return payload;
 }
 
+// Stopgap before Access is set up: PREVIEW_PASSWORD puts the whole site behind a browser password prompt.
+function previewAuth(req, res, next) {
+  const [scheme, value] = (req.get('Authorization') || '').split(' ');
+  const [user, ...rest] = scheme === 'Basic' && value ? Buffer.from(value, 'base64').toString().split(':') : [];
+  const given = Buffer.from(rest.join(':')), want = Buffer.from(config.access.previewPassword);
+  if (given.length === want.length && crypto.timingSafeEqual(given, want)) { req.user = { email: user || 'preview' }; return next(); }
+  res.set('WWW-Authenticate', 'Basic realm="SEO Desk preview"').status(401).send('Password required.');
+}
+
 export function accessMiddleware() {
   return async (req, res, next) => {
+    if (!config.access.enabled && config.access.previewPassword) return previewAuth(req, res, next);
     if (!config.access.enabled) { req.user = { email: 'local' }; return next(); }
     const token = req.get('Cf-Access-Jwt-Assertion') || req.cookies?.CF_Authorization;
     if (!token) return res.status(403).send('Forbidden: open this site through its Cloudflare Access address.');
