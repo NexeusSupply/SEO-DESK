@@ -111,3 +111,24 @@ CREATE TABLE IF NOT EXISTS dfs_spend (
   month TEXT, kind TEXT, calls INTEGER, cost REAL, PRIMARY KEY (month, kind)
 );
 `);
+
+// ---- Facebook and Instagram (Meta Graph API) ----
+db.exec(`
+CREATE TABLE IF NOT EXISTS meta_snapshots (
+  site TEXT, platform TEXT, fetched_on TEXT, account_id TEXT, name TEXT, followers INTEGER, posts INTEGER,
+  PRIMARY KEY (site, platform, fetched_on)
+);
+CREATE TABLE IF NOT EXISTS meta_daily (
+  site TEXT, platform TEXT, date TEXT, metric TEXT, value INTEGER,
+  PRIMARY KEY (site, platform, date, metric)
+);
+CREATE TABLE IF NOT EXISTS meta_posts (
+  post_id TEXT PRIMARY KEY, site TEXT, platform TEXT, created_at TEXT, message TEXT, permalink TEXT, media_type TEXT,
+  likes INTEGER, comments INTEGER, shares INTEGER, fetched_on TEXT
+);
+CREATE TABLE IF NOT EXISTS meta_comments (
+  comment_id TEXT PRIMARY KEY, site TEXT, platform TEXT, post_id TEXT, created_at TEXT, author TEXT, message TEXT,
+  permalink TEXT, hidden INTEGER DEFAULT 0, replied INTEGER DEFAULT 0, reply_text TEXT, replied_at TEXT, replied_by TEXT
+);
+CREATE INDEX IF NOT EXISTS meta_comments_idx ON meta_comments (site, replied, created_at);
+`);

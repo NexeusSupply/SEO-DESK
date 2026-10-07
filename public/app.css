@@ -31,6 +31,8 @@ a:hover { text-decoration: underline; }
 .status span::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: #7fe0ae; }
 .status .off { color: rgba(255, 255, 255, 0.72); }
 .status .off::before { background: #ff9d8f; }
+.status .soon { color: rgba(255, 255, 255, 0.72); }
+.status .soon::before { background: #f3c969; }
 
 main { max-width: 1180px; margin: 0 auto; padding: 36px 28px 80px; }
 h1 { font-family: var(--display); font-size: 32px; font-weight: 700; letter-spacing: -0.015em; margin: 0 0 6px; color: var(--brand-deep); }
@@ -153,6 +155,30 @@ code { font-size: 13px; background: var(--brand-soft); color: var(--brand-deep);
 .foot { margin-top: 32px; color: var(--muted); }
 @media (max-width: 800px) { .primary { display: none; } }
 
+/* Facebook and Instagram */
+h3 { font-size: 15px; font-weight: 600; margin: 24px 0 10px; }
+.plat { display: inline-block; padding: 1px 7px; border-radius: 4px; font-size: 12px; font-weight: 600; }
+.plat.facebook { background: #e3ebf7; color: #1f4e79; }
+.plat.instagram { background: #f6e1ea; color: #8a2d55; }
+.cmts { list-style: none; margin: 0; padding: 0; background: var(--sheet); border: 1px solid var(--line); border-radius: 8px; }
+.cmt { padding: 14px 16px; border-bottom: 1px solid var(--line); }
+.cmt:last-child { border-bottom: 0; }
+.cmt.done { background: var(--paper); }
+.cmt-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px; font-size: 14px; }
+.cmt-body { margin: 6px 0 4px; white-space: pre-wrap; overflow-wrap: anywhere; }
+.cmt-post, .cmt-state { margin: 2px 0; font-size: 13px; overflow-wrap: anywhere; }
+.cmt-reply { margin-top: 8px; }
+.cmt-reply textarea { width: 100%; font: inherit; font-size: 14px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 6px; resize: vertical; background: var(--sheet); color: var(--ink); }
+.cmt-reply .actions { margin-top: 6px; }
+.cmt-err { margin: 6px 0 0; font-size: 13px; }
+button.primary-btn { background: var(--ink); color: var(--sheet); border-color: var(--ink); }
+button.run:disabled { opacity: 0.6; cursor: default; }
+.inbox-tabs { align-items: center; margin-bottom: 14px; }
+.inbox-tabs a.run { display: inline-block; font-size: 13px; padding: 5px 10px; border: 1px solid var(--line); background: var(--sheet); color: var(--muted); border-radius: 6px; text-decoration: none; }
+.inbox-tabs a.run.on { color: var(--ink); border-color: var(--ink); }
+h1 .sig, h2 .sig { vertical-align: middle; margin-left: 8px; font-size: 12px; }
+.strip.placeholder .v { color: var(--muted); }
+.inbox-tabs a.run:not([href]) { cursor: default; }
 /* Brand badges: circular clinic logos, or initials when there isn't one */
 .badge { flex: none; display: inline-block; width: 36px; height: 36px; border-radius: 50%; object-fit: contain; background: var(--sheet); box-shadow: 0 1px 3px rgba(0, 49, 63, 0.15); }
 .badge.xs { width: 20px; height: 20px; box-shadow: none; }

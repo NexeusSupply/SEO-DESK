@@ -5,6 +5,7 @@ import { syncGsc } from './data/gsc.js';
 import { refreshCompetitors } from './data/competitors.js';
 import { sendDigest } from './digest.js';
 import { syncGbp } from './data/gbp.js';
+import { syncMeta, syncMetaComments } from './data/meta.js';
 import { trackLocalRanks, collectLocalRanks, checkNap } from './data/local.js';
 import { syncPublicListings, collectPublicReviews } from './data/listings-public.js';
 
@@ -29,4 +30,6 @@ export const jobs = {
     : Promise.resolve(['Business Profile and DataForSEO not configured']),
   local: (only) => forEachSite(async (s) => `${await trackLocalRanks(s)}; ${await checkNap(s)}`, only),
   'local-collect': async () => [await collectLocalRanks(loadSites()), await collectPublicReviews()],
+  meta: (only) => config.meta.enabled ? forEachSite(syncMeta, only) : Promise.resolve(['Meta not configured']),
+  'meta-comments': (only) => config.meta.enabled ? forEachSite((s) => s.meta ? syncMetaComments(s) : 'not set up', only) : Promise.resolve(['Meta not configured']),
 };

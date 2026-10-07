@@ -9,6 +9,7 @@ A self-hosted SEO dashboard for a portfolio of brand websites. It covers the par
 | Rank tracking | Daily NZ Google positions for your keyword list, with 30-day sparklines and which competitors appear in the same results. | DataForSEO SERP API | ~US$0.002 per keyword check |
 | Competitors | Organic keyword count, estimated traffic, backlinks and referring domains for you and each competitor; keyword gap (what they rank for that you don't); volume and difficulty for your tracked keywords. | DataForSEO Labs + Backlinks | A few cents per domain refresh |
 | Local SEO | Per-clinic Business Profile listing (rating, review count, completeness, open status), reviews with unreplied and low-rating flags, listing performance (search/maps views, calls, direction requests), map-pack rankings checked from each town, and name/address/phone consistency between config, website and listing. A group-wide "All clinics" view sorts by who needs attention. | Google Business Profile APIs + DataForSEO | Free + ~US$0.003 per local check |
+| Facebook and Instagram | Followers, views and engagements over 28 days against the 28 before, recent posts with likes, comments and shares, and a comments inbox: read every comment across brands, reply publicly as the brand, hide spam, or mark it as needing no reply. Unanswered comments over a day old count towards a brand's Watch signal. | Meta Graph API | Free |
 | Digest | Weekly email summarising score changes, errors, rank movers and within-reach queries across all brands. | SMTP | Free |
 
 Everything is optional. Brands without a `locations` list simply don't show the clinic sections. A brand whose Search Console property or Google listing the account can't reach shows as **Not connected** everywhere — never as zero.
@@ -87,6 +88,36 @@ The API is the one that needs a formal request, because Google gates Business Pr
 
 This ties directly into the access-transfer work: a clinic whose listing isn't managed by the central account won't appear until it is.
 
+### Facebook and Instagram (Meta)
+
+Add a `meta` block to each brand that has a Facebook Page. The linked Instagram professional account is found automatically; set `instagramId` only to override it.
+
+```json
+"meta": { "pageId": "123456789012345" }
+```
+
+One token covers every brand. The steps all need someone who is an admin of the Meta Business portfolio that owns the Pages:
+
+1. **Business portfolio.** Make sure every brand's Facebook Page (and its Instagram account) sits in the same Meta Business portfolio, or is shared into it as a partner asset.
+2. **App.** At developers.facebook.com create an app of type **Business**, owned by that portfolio. Add the **Facebook Login for Business** and **Instagram** (Instagram API with Facebook Login) products.
+3. **System user.** Business Settings → Users → System users → add one (Admin role). Assign it the Pages and Instagram accounts with full control, and add the app under Apps.
+4. **Token.** Generate a token for that system user, choosing the app and these permissions, then paste it into `META_ACCESS_TOKEN`. System user tokens don't expire.
+
+   | Permission | Used for |
+   |---|---|
+   | `pages_show_list`, `business_management` | Finding the Pages (`/api/meta/pages`) |
+   | `pages_read_engagement`, `read_insights` | Page followers, posts and insights |
+   | `pages_read_user_content` | Reading comments and who wrote them |
+   | `pages_manage_engagement` | Replying to and hiding Facebook comments |
+   | `instagram_basic`, `instagram_manage_insights` | Instagram followers, posts and insights |
+   | `instagram_manage_comments` | Reading, replying to and hiding Instagram comments |
+
+5. **App review.** Because the app only touches Pages owned by the business that owns the app, Standard Access is enough and no App Review is needed. If Meta asks for one anyway (for example if a Page is owned by a different business), the same permissions above go through App Review with Business Verification.
+6. If the app's settings require **appsecret_proof** (Settings → Advanced), also set `META_APP_SECRET`.
+7. With the server running, open `/api/meta/pages` to list every Page the token can see with its Instagram ID, and copy the IDs into sites.json.
+
+Comments are checked every 30 minutes (`CRON_META_COMMENTS`) and insights daily (`CRON_META`). Replies go out publicly straight away, as the Page or Instagram account, and the dashboard records which signed-in person sent them. Meta keeps changing which insight metrics exist; each is requested on its own, so a retired one just disappears from the numbers rather than breaking the sync.
+
 ### Google Search Console
 
 1. In Google Cloud Console create a project, enable the **Search Console API**, create a **service account** and download its JSON key to `data/gsc-service-account.json`.
@@ -115,6 +146,7 @@ npm run gsc
 npm run competitors
 npm run digest
 npm run gbp                 # Business Profile sync (API, and/or DataForSEO public listing + reviews)
+npm run meta                # Facebook and Instagram sync
 npm run local               # post this week's map-pack checks + name/address/phone check
 node src/cli.js local-collect   # collect finished map-pack and review results (cron runs this every 2h)
 ```
@@ -176,6 +208,7 @@ Dockerfile            For Railway / Render / Fly / any VPS
   data/listings-public.js  Public listing + reviews via DataForSEO when the API isn't available
   data/gbp-auth.js    One-time OAuth helper
   data/local.js       Map-pack rank checks and NAP consistency
+  data/meta.js        Facebook and Instagram insights, posts, comments and replies
 public/               Dashboard (no build step)
 data/                 sites.json, SQLite database, GSC key
 ```

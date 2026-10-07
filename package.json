@@ -13,6 +13,7 @@
     "digest": "node src/cli.js digest",
     "gbp": "node src/cli.js gbp",
     "local": "node src/cli.js local",
+    "meta": "node src/cli.js meta",
     "gbp:auth": "node src/data/gbp-auth.js"
   },
   "engines": { "node": ">=22.13" },
