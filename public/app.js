@@ -98,7 +98,7 @@ function locationsTable(rows, showBrand) {
   ${rows.map((l) => {
     const packs = l.ranks.filter((r) => r.map_pack != null);
     const pack = !l.ranks.length ? '<span class="dash">—</span>' : packs.length ? `${packs.length} of ${l.ranks.length} <span class="delta flat">best #${Math.min(...packs.map((r) => r.map_pack))}</span>` : '<span class="notok">not in pack</span>';
-    return `<tr class="${l.attention >= 5 ? 'attn' : ''}">${showBrand ? `<td><a href="#/${l.site}">${esc(l.brand)}</a></td>` : ''}
+    return `<tr class="${l.attention >= 5 ? 'attn' : ''}">${showBrand ? `<td><div class="who">${badge(l.site, l.brand, 'sm')}<a href="#/${l.site}">${esc(l.brand)}</a></div></td>` : ''}
     <td><b>${esc(l.name)}</b>${l.town ? `<br><small class="muted">${esc(l.town)}</small>` : ''}</td>
     <td>${l.listing ? stars(l.listing.rating) : l.hasGbp ? '<span class="dash">—</span>' : '<small class="muted">no listing ID</small>'}</td>
     <td class="r num">${l.listing ? `${l.reviews.last30}${l.reviews.lowRecent ? ` <span class="delta down">${l.reviews.lowRecent} low</span>` : ''}` : n(null)}</td>
@@ -136,6 +136,11 @@ const nc = (label = 'Not connected') => `<span class="nc-text">${label}</span>`;
 const conn = (status, value) => status === 'not_connected' ? nc() : status === 'no_data' ? nc('No data yet') : value;
 // The first group in sites.json is the home group; the others are tucked away (menu dropdown, collapsed sections).
 let homeGroup = null;
+// Brand badge: the circular logo, or the brand's initials when there isn't one
+const logos = {};
+const badge = (slug, name, cls = '') => logos[slug]
+  ? `<img class="badge ${cls}" src="${esc(logos[slug])}" alt="" loading="lazy">`
+  : `<span class="badge mono ${cls}" aria-hidden="true">${esc((name || slug).replace(/\(.*?\)/g, '').split(/[\s&]+/).filter(Boolean).slice(0, 2).map((w) => w[0]).join('').toUpperCase())}</span>`;
 const groupBlock = (name, count, body) => name === homeGroup
   ? `<section class="group"><h2 class="group-title">${esc(name)}</h2>${body}</section>`
   : `<details class="group fold"><summary><h2 class="group-title">${esc(name)}<span class="count">${count} brand${count === 1 ? '' : 's'}</span></h2></summary>${body}</details>`;
@@ -155,7 +160,7 @@ async function renderManagement() {
     </div>
     <div class="wrap"><table class="ledger mgmt-table"><thead><tr><th>Brand</th>${th('Status', 'status')}${th('Why', 'why')}${th('Since last month', 'sinceLastMonth')}</tr></thead><tbody>
     ${g.brands.map((b) => `<tr>
-      <td class="brand"><a href="#/${b.slug}">${esc(b.name)}</a>${b.metrics.clinics ? `<small>${b.metrics.clinicsConnected} of ${b.metrics.clinics} clinics connected</small>` : ''}</td>
+      <td class="brand"><div class="who">${badge(b.slug, b.name)}<div><a href="#/${b.slug}">${esc(b.name)}</a>${b.metrics.clinics ? `<small>${b.metrics.clinicsConnected} of ${b.metrics.clinics} clinics connected</small>` : ''}</div></div></td>
       <td>${sig(b.signal)}</td>
       <td class="why">${b.signal === 'not_connected' ? '<span class="muted">Waiting on access to this brand\u2019s Search Console or Google listings</span>' : b.reasons.length ? esc(b.reasons.join('; ')) : '<span class="muted">Nothing needs attention</span>'}</td>
       <td class="why">${b.changes.length ? esc(b.changes.join(' · ')) : '<span class="muted">—</span>'}</td>
@@ -172,7 +177,7 @@ async function renderOverview() {
   <div class="wrap"><table class="ledger"><thead><tr>
     <th>Brand</th>${th('Audit score', 'auditScore')}${th('Errors', 'errors', 'num')}${th('Clicks', 'clicks', 'num')}${th('Impressions', 'impressions', 'num')}${th('Keywords in top 10', 'top10')}${th('Referring domains', 'referringDomains', 'num')}
   </tr></thead><tbody>${sites.filter((s) => s.group === g).map((s) => `<tr>
-    <td class="brand"><a href="#/${s.slug}">${esc(s.name)}</a><small>${esc(s.host)}</small></td>
+    <td class="brand"><div class="who">${badge(s.slug, s.name)}<div><a href="#/${s.slug}">${esc(s.name)}</a><small>${esc(s.host)}</small></div></div></td>
     <td>${scoreBar(s.audit?.score)}${delta(s.audit?.score, s.audit?.prevScore)}</td>
     <td class="num">${s.audit ? (s.audit.issue_counts.error || 0) : n(null)}</td>
     <td class="num">${s.gsc ? `${n(s.gsc.clicks)}${delta(s.gsc.clicks, s.gsc.prevClicks)}` : nc()}</td>
@@ -196,7 +201,7 @@ async function renderSite(slug) {
   const top10 = d.ranks.filter((r) => r.position && r.position <= 10).length;
   const mine = d.domains[0] || {};
   $('#main').innerHTML = `
-  <h1>${esc(d.site.name)}</h1><p class="sub"><a href="${esc(d.site.url)}" target="_blank">${esc(d.site.host)}</a>${d.audit ? ` · audited ${dateShort(d.audit.finished_at)}, ${d.audit.pages_crawled} pages` : ' · not audited yet'}</p>
+  <div class="site-head">${badge(d.site.slug, d.site.name, 'lg')}<div><h1>${esc(d.site.name)}</h1><p class="sub"><a href="${esc(d.site.url)}" target="_blank">${esc(d.site.host)}</a>${d.audit ? ` · audited ${dateShort(d.audit.finished_at)}, ${d.audit.pages_crawled} pages` : ' · not audited yet'}</p></div></div>
 
   <div class="strip">
     <div><div class="v">${d.audit?.score ?? '—'}<small>/100</small></div><div class="l">${tip('Audit score', 'auditScore')}${d.scoreHistory.length > 1 ? ` · ${spark(d.scoreHistory.map((s) => s.score))}` : ''}</div></div>
@@ -291,17 +296,19 @@ async function boot() {
     + (status.access ? `<span>${esc(status.user)}</span>` : '<span class="off">No login</span>');
   const route = async () => {
     const slug = location.hash.replace(/^#\/?/, '');
-    const tab = (s) => `<a href="#/${s.slug}" class="${s.slug === slug ? 'active' : ''}">${esc(s.name)}</a>`;
+    const tab = (s) => `<a href="#/${s.slug}" class="${s.slug === slug ? 'active' : ''}">${badge(s.slug, s.name, 'xs')}${esc(s.name)}</a>`;
     const others = [...new Set(sites.map((s) => s.group))].filter((g) => g !== homeGroup);
     $('#brands').innerHTML = `<div class="tabs">${sites.filter((s) => s.group === homeGroup).map(tab).join('')}</div>`
       + others.map((g) => { const list = sites.filter((s) => s.group === g), cur = list.find((s) => s.slug === slug);
         return `<details class="dd${cur ? ' active' : ''}"><summary>${esc(cur ? cur.name : g)}</summary><div class="menu"><div class="menu-title">${esc(g)}</div>${list.map(tab).join('')}</div></details>`; }).join('')
       + `<a href="#/clinics" class="${slug === 'clinics' ? 'active' : ''} sep">All clinics</a>`;
+    $('#brands .tabs a.active')?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
     $('#home').className = slug ? '' : 'active'; $('#portfolio').className = slug === 'portfolio' ? 'active' : '';
     try { slug === 'clinics' ? await renderLocations() : slug === 'portfolio' ? await renderOverview() : slug ? await renderSite(slug) : await renderManagement(); }
     catch (e) { $('#main').innerHTML = `<p class="empty">Couldn't load that view: ${esc(e.message)}. <a href="#/">Back to portfolio</a></p>`; }
   };
   homeGroup = sites[0]?.group ?? null;
+  for (const s of sites) logos[s.slug] = s.logo;
   window.addEventListener('hashchange', route);
   document.addEventListener('click', (e) => { for (const d of document.querySelectorAll('details.dd[open]')) if (!d.contains(e.target)) d.open = false; });
   route();
