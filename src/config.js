@@ -87,6 +87,8 @@ export function loadSites() {
     s.group ||= 'Ungrouped';
     if (!s.slug || !s.url) throw new Error(`Site entry missing slug or url: ${JSON.stringify(s)}`);
     s.host = new URL(s.url).host.replace(/^www\./, '');
+    // A brand logo is public/logos/<slug>.png unless sites.json names one
+    s.logo ||= fs.existsSync(path.join(root, 'public', 'logos', `${s.slug}.png`)) ? `/logos/${s.slug}.png` : null;
     s.keywords ||= [];
     s.competitors ||= [];
     s.localKeywords ||= [];

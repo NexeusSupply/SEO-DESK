@@ -17,7 +17,7 @@ export function overview(sites) {
     const ranks = rankDate ? db.prepare('SELECT position FROM ranks WHERE site=? AND checked_on=?').all(s.slug, rankDate) : [];
     const snap = db.prepare('SELECT * FROM domain_snapshots WHERE domain=? ORDER BY fetched_on DESC LIMIT 1').get(s.host);
     return {
-      slug: s.slug, name: s.name, url: s.url, host: s.host, group: s.group,
+      slug: s.slug, name: s.name, url: s.url, host: s.host, group: s.group, logo: s.logo,
       audit: audit ? { ...audit, issue_counts: JSON.parse(audit.issue_counts || '{}'), prevScore: prevAudit?.score ?? null } : null,
       gsc: gsc28?.clicks != null ? { ...gsc28, prevClicks: gscPrev?.clicks ?? null, prevImpressions: gscPrev?.impressions ?? null } : null,
       ranks: ranks.length ? {
