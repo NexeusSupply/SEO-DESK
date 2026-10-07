@@ -132,3 +132,12 @@ CREATE TABLE IF NOT EXISTS meta_comments (
 );
 CREATE INDEX IF NOT EXISTS meta_comments_idx ON meta_comments (site, replied, created_at);
 `);
+
+// ---- Ads seen in Google's Ads Transparency Center (via DataForSEO) ----
+db.exec(`
+CREATE TABLE IF NOT EXISTS google_ads (
+  site TEXT, creative_id TEXT, advertiser_id TEXT, advertiser TEXT, verified INTEGER, format TEXT, image TEXT, preview_url TEXT,
+  url TEXT, first_shown TEXT, last_shown TEXT, fetched_on TEXT,
+  PRIMARY KEY (site, creative_id)
+);
+`);

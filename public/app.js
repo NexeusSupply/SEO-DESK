@@ -61,6 +61,10 @@ const TIPS = {
   organic: 'Where the clinic\u2019s website appears in the normal Google results below the map.',
   whoInPack: 'The businesses Google shows in the map box for this search, with their star ratings.',
   replied: 'Whether the clinic has replied to the review on Google.',
+  replySoon: 'Coming soon. Replying to Google reviews from here needs Google\u2019s Business Profile API, and Google hasn\u2019t approved our access yet. Until then, reply from the clinic\u2019s Google listing.',
+  adsRunning: 'Google ads for this brand\u2019s website shown in the last 7 days, from Google\u2019s public Ads Transparency Center. Checked weekly.',
+  adsSeen: 'Every Google ad for this website seen in the last 90 days, including ones that have stopped.',
+  metaAds: 'Meta only lets apps pull ads that were shown in Europe, so New Zealand and Australian ads can\u2019t be listed here. This opens Meta\u2019s public Ad Library, which shows every ad the brand\u2019s Facebook Page is running right now.',
 };
 // The "i" marker is glued to the last word so it never wraps onto a line by itself.
 const tip = (label, key, icon = true) => `<span class="tip" tabindex="0" data-tip="${esc(TIPS[key])}">${icon ? label.replace(/(\S+)$/, '<span class="nw">$1<i class="ti" aria-hidden="true">i</i></span>') : label}</span>`;
@@ -213,6 +217,49 @@ function socialPlaceholder() {
   <h3>Recent posts</h3>${postsTable(emptyRow(4, 'Recent posts will appear here.'))}`;
 }
 
+// What replying to a Google review will look like. It can't send anything until the Business Profile API is approved.
+const mockReply = (clinic) => `<details class="mock-reply"><summary class="run" data-tip="${esc(TIPS.replySoon)}">Reply</summary>
+  <textarea rows="2" disabled placeholder="Reply publicly as ${esc(clinic || 'the clinic')} on Google…"></textarea>
+  <div class="actions"><button class="run primary-btn" type="button" disabled>Post reply</button><button class="run" type="button" disabled>No reply needed</button><span class="sig nc">Coming soon</span></div></details>`;
+
+// ---- Ads on Google and Meta ----
+const fmtTag = (f) => f ? `<span class="plat ad-${esc(f)}">${esc(f[0].toUpperCase() + f.slice(1))}</span>` : '';
+const adCard = (a) => `<a class="ad" href="${esc(a.url || '#')}" target="_blank" rel="noopener">
+  <span class="ad-img">${a.image ? `<img src="${esc(a.image)}" alt="" loading="lazy" referrerpolicy="no-referrer">` : '<span class="muted">No preview</span>'}</span>
+  <span class="ad-meta">${fmtTag(a.format)} ${a.running ? '<span class="sig good">Running</span>' : `<small class="muted">last shown ${dateShort(a.last_shown)}</small>`}</span>
+  <small class="muted">${esc(a.advertiser)}${a.first_shown ? ` · since ${dateShort(a.first_shown)}` : ''}</small></a>`;
+const adLinks = (a) => `<a class="run" href="${esc(a.googleUrl)}" target="_blank" rel="noopener">Google Ads Transparency ↗</a>
+  <a class="run" href="${esc(a.metaUrl)}" target="_blank" rel="noopener" data-tip="${esc(TIPS.metaAds)}">Meta Ad Library ↗</a>`;
+
+function adsSection(d, slug) {
+  const a = d.ads, c = d.connections.ads;
+  const note = c === 'not_connected' ? '<p class="empty">Google ads are checked through DataForSEO, which isn\u2019t configured.</p>'
+    : c === 'no_data' ? `<p class="empty">${a.pending ? 'Checking Google now. Results usually arrive within a couple of hours.' : `Not checked yet. <button class="run" onclick="run('ads','${slug}')">Check now</button>`}</p>` : '';
+  return `<h2>Ads</h2><p class="sub">Ads running for ${esc(d.site.host)}. Google ads come from Google\u2019s public Ads Transparency Center, checked weekly; Meta\u2019s are in its public Ad Library.</p>
+  <div class="strip">
+    <div><div class="v">${c === 'connected' ? a.running : dash}</div><div class="l">${tip('Google ads running now', 'adsRunning')}</div></div>
+    <div><div class="v">${c === 'connected' ? a.total : dash}</div><div class="l">${tip('Google ads, last 90 days', 'adsSeen')}</div></div>
+    <div><div class="v"><a href="${esc(a.metaUrl)}" target="_blank" rel="noopener">View ↗</a></div><div class="l">${tip('Facebook and Instagram ads', 'metaAds')}${a.metaByPage ? '' : ' <small>(search by name)</small>'}</div></div>
+  </div>
+  <div class="actions">${adLinks(a)}${c !== 'not_connected' ? `<button class="run" onclick="run('ads','${slug}')">Check Google ads</button>` : ''}</div>
+  ${note}${c === 'connected' ? (a.ads.length ? `<div class="ads">${a.ads.map(adCard).join('')}</div>${a.total > a.ads.length ? `<p class="foot"><a href="${esc(a.googleUrl)}" target="_blank" rel="noopener">All ${a.total} on Google ↗</a></p>` : ''}`
+    : `<p class="empty">No Google ads seen for this website in the last 90 days${a.checked ? ` (checked ${dateShort(a.checked)})` : ''}.</p>`) : ''}`;
+}
+
+async function renderAds() {
+  const rows = await api('/ads');
+  const groups = [...new Set(rows.map((r) => r.group))];
+  $('#main').innerHTML = `<h1>Ads</h1><p class="sub">Ads each brand is running on Google, from Google\u2019s public Ads Transparency Center (checked weekly), with a link to each brand\u2019s Facebook and Instagram ads in Meta\u2019s Ad Library.</p>
+  ${groups.map((g) => groupBlock(g, rows.filter((r) => r.group === g).length, `<div class="wrap"><table class="ledger"><thead><tr><th>Brand</th>${th('Google, running', 'adsRunning')}${th('Google, 90 days', 'adsSeen')}<th>Latest Google ads</th><th>Ad libraries</th></tr></thead><tbody>
+  ${rows.filter((r) => r.group === g).map((r) => `<tr>
+    <td class="brand"><div class="who">${badge(r.slug, r.name)}<div><a href="#/${r.slug}">${esc(r.name)}</a><small>${esc(r.host)}</small></div></div></td>
+    <td class="num">${r.checked ? r.running : r.pending ? nc('Checking') : nc('Not checked')}</td><td class="num">${r.checked ? r.total : dash}</td>
+    <td><div class="ads mini">${r.ads.filter((x) => x.image).slice(0, 4).map((x) => `<a class="ad" href="${esc(x.url || '#')}" target="_blank" rel="noopener"><span class="ad-img"><img src="${esc(x.image)}" alt="" loading="lazy" referrerpolicy="no-referrer"></span></a>`).join('') || '<span class="dash">—</span>'}</div></td>
+    <td class="links"><a href="${esc(r.googleUrl)}" target="_blank" rel="noopener">Google ↗</a> <a href="${esc(r.metaUrl)}" target="_blank" rel="noopener" data-tip="${esc(TIPS.metaAds)}">Meta ↗</a></td>
+  </tr>`).join('')}</tbody></table></div>`)).join('')}
+  <div class="actions"><button class="run" onclick="run('ads')">Check Google ads for every brand</button></div>`;
+}
+
 async function renderComments(status) {
   if (!(await api('/status')).meta) {
     $('#main').innerHTML = `<h1>Comments <span class="sig nc">Coming soon</span></h1>${COMING_SOON}
@@ -360,10 +407,12 @@ async function renderSite(slug) {
   ${d.locations.some((l) => l.ranks.length) ? `<h2>Map-pack rankings by town</h2><div class="wrap"><table class="data"><thead><tr><th>Clinic</th>${th('Search', 'townSearch')}${th('Map pack', 'packPosition', 'r')}${th('Organic', 'organic', 'r')}${th('Who\'s in the pack', 'whoInPack')}</tr></thead><tbody>
   ${d.locations.flatMap((l) => l.ranks.map((r) => `<tr><td>${esc(l.name)}</td><td>${esc(r.keyword)}</td><td class="r"><span class="pos ${r.map_pack == null ? 'none' : r.map_pack <= 3 ? 'top3' : ''}">${r.map_pack ?? 'not shown'}</span>${delta(r.map_pack, r.prev, true)}</td><td class="r num">${r.organic ?? '<span class="dash">—</span>'}</td>
     <td><small class="muted">${r.top_pack.map((p) => `#${p.p} ${esc(p.t)}${p.r ? ` (${p.r})` : ''}`).join(' · ')}</small></td></tr>`)).join('')}</tbody></table></div>` : ''}
-  ${d.recentReviews.length ? `<h2>Recent reviews</h2><div class="wrap"><table class="data"><thead><tr><th>Clinic</th>${th('Rating', 'rating')}<th>Review</th>${th('Replied', 'replied')}</tr></thead><tbody>
-  ${d.recentReviews.slice(0, 15).map((r) => { const loc = d.locations.find((l) => l.slug === r.location); return `<tr><td>${esc(loc?.name || r.location)}<br><small class="muted">${dateShort(r.created_at)}</small></td><td>${stars(r.rating)}</td><td>${esc((r.comment || '').slice(0, 220))}${(r.comment || '').length > 220 ? '…' : ''}${r.reviewer ? `<br><small class="muted">${esc(r.reviewer)}</small>` : ''}</td><td>${okmark(r.replied)}</td></tr>`; }).join('')}</tbody></table></div>` : ''}` : ''}
+  ${d.recentReviews.length ? `<h2>Recent reviews <span class="sig nc" tabindex="0" data-tip="${esc(TIPS.replySoon)}">Replies coming soon</span></h2><div class="wrap"><table class="data"><thead><tr><th>Clinic</th>${th('Rating', 'rating')}<th>Review</th>${th('Replied', 'replied')}</tr></thead><tbody>
+  ${d.recentReviews.slice(0, 15).map((r) => { const loc = d.locations.find((l) => l.slug === r.location); return `<tr><td>${esc(loc?.name || r.location)}<br><small class="muted">${dateShort(r.created_at)}</small></td><td>${stars(r.rating)}</td><td>${esc((r.comment || '').slice(0, 220))}${(r.comment || '').length > 220 ? '…' : ''}${r.reviewer ? `<br><small class="muted">${esc(r.reviewer)}</small>` : ''}${r.replied ? '' : mockReply(loc?.name)}</td><td>${okmark(r.replied)}</td></tr>`; }).join('')}</tbody></table></div>` : ''}` : ''}
 
   ${socialSection(d, slug)}
+
+  ${adsSection(d, slug)}
 
   <h2>Competitors</h2>
   ${d.domains.some((x) => x.fetched_on) ? `<div class="wrap"><table class="data"><thead><tr>${th('Domain', 'domain')}${th('Organic keywords', 'organicKeywords', 'r')}${th('Est. monthly traffic', 'traffic', 'r')}${th('Backlinks', 'backlinks', 'r')}${th('Referring domains', 'referringDomains', 'r')}${th('Domain rank', 'domainRank', 'r')}</tr></thead><tbody>
@@ -412,10 +461,11 @@ async function boot() {
       + others.map((g) => { const list = sites.filter((s) => s.group === g), cur = list.find((s) => s.slug === slug);
         return `<details class="dd${cur ? ' active' : ''}"><summary>${esc(cur ? cur.name : g)}</summary><div class="menu"><div class="menu-title">${esc(g)}</div>${list.map(tab).join('')}</div></details>`; }).join('')
       + `<a href="#/clinics" class="${slug === 'clinics' ? 'active' : ''} sep">All clinics</a>`
-      + `<a href="#/comments" class="${slug.startsWith('comments') ? 'active' : ''}">Comments</a>`;
+      + `<a href="#/comments" class="${slug.startsWith('comments') ? 'active' : ''}">Comments</a>`
+      + `<a href="#/ads" class="${slug === 'ads' ? 'active' : ''}">Ads</a>`;
     $('#brands .tabs a.active')?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
     $('#home').className = slug ? '' : 'active'; $('#portfolio').className = slug === 'portfolio' ? 'active' : '';
-    try { slug.startsWith('comments') ? await renderComments(slug.split('/')[1]) : slug === 'clinics' ? await renderLocations() : slug === 'portfolio' ? await renderOverview() : slug ? await renderSite(slug) : await renderManagement(); }
+    try { slug.startsWith('comments') ? await renderComments(slug.split('/')[1]) : slug === 'clinics' ? await renderLocations() : slug === 'ads' ? await renderAds() : slug === 'portfolio' ? await renderOverview() : slug ? await renderSite(slug) : await renderManagement(); }
     catch (e) { $('#main').innerHTML = `<p class="empty">Couldn't load that view: ${esc(e.message)}. <a href="#/">Back to portfolio</a></p>`; }
   };
   homeGroup = sites[0]?.group ?? null;

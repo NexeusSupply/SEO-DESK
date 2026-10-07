@@ -10,6 +10,7 @@ A self-hosted SEO dashboard for a portfolio of brand websites. It covers the par
 | Competitors | Organic keyword count, estimated traffic, backlinks and referring domains for you and each competitor; keyword gap (what they rank for that you don't); volume and difficulty for your tracked keywords. | DataForSEO Labs + Backlinks | A few cents per domain refresh |
 | Local SEO | Per-clinic Business Profile listing (rating, review count, completeness, open status), reviews with unreplied and low-rating flags, listing performance (search/maps views, calls, direction requests), map-pack rankings checked from each town, and name/address/phone consistency between config, website and listing. A group-wide "All clinics" view sorts by who needs attention. | Google Business Profile APIs + DataForSEO | Free + ~US$0.003 per local check |
 | Facebook and Instagram | Followers, views and engagements over 28 days against the 28 before, recent posts with likes, comments and shares, and a comments inbox: read every comment across brands, reply publicly as the brand, hide spam, or mark it as needing no reply. Unanswered comments over a day old count towards a brand's Watch signal. | Meta Graph API | Free |
+| Ads | Google ads each brand's website is running (image, text and video, with first and last shown dates) from Google's public Ads Transparency Center, checked weekly, plus a link to each brand's Facebook and Instagram ads in Meta's public Ad Library. An "Ads" page lists every brand. | DataForSEO (Google Ads Transparency) | A fraction of a cent per brand per week |
 | Digest | Weekly email summarising score changes, errors, rank movers and within-reach queries across all brands. | SMTP | Free |
 
 Everything is optional. Brands without a `locations` list simply don't show the clinic sections. A brand whose Search Console property or Google listing the account can't reach shows as **Not connected** everywhere — never as zero.
@@ -118,6 +119,14 @@ One token covers every brand. The steps all need someone who is an admin of the 
 
 Comments are checked every 30 minutes (`CRON_META_COMMENTS`) and insights daily (`CRON_META`). Replies go out publicly straight away, as the Page or Instagram account, and the dashboard records which signed-in person sent them. Meta keeps changing which insight metrics exist; each is requested on its own, so a retired one just disappears from the numbers rather than breaking the sync.
 
+### Ads
+
+Google ads are found by each brand's website domain, so nothing needs adding to sites.json. They come from Google's public Ads Transparency Center through DataForSEO, so they include ads run by anyone pointing at that domain (an agency, for example), shown with the advertiser's name. Searches go out weekly (`CRON_ADS`) through DataForSEO's standard queue and are collected with the other queued tasks, usually within a couple of hours. An ad last shown in the past 7 days counts as running.
+
+Meta's Ad Library API only returns non-political ads that were shown in the EU or UK, so NZ and Australian ads can't be pulled into the dashboard. Instead each brand links to Meta's public Ad Library: straight to the brand's Page when `meta.pageId` is set in sites.json, otherwise a search by brand name.
+
+Replying to Google reviews from the dashboard is shown as a mock-up marked "coming soon". It needs the Business Profile API (see above), because DataForSEO can only read reviews.
+
 ### Google Search Console
 
 1. In Google Cloud Console create a project, enable the **Search Console API**, create a **service account** and download its JSON key to `data/gsc-service-account.json`.
@@ -147,6 +156,7 @@ npm run competitors
 npm run digest
 npm run gbp                 # Business Profile sync (API, and/or DataForSEO public listing + reviews)
 npm run meta                # Facebook and Instagram sync
+npm run ads                 # queue this week's Google ads search per brand (collected by local-collect)
 npm run local               # post this week's map-pack checks + name/address/phone check
 node src/cli.js local-collect   # collect finished map-pack and review results (cron runs this every 2h)
 ```
@@ -209,6 +219,7 @@ Dockerfile            For Railway / Render / Fly / any VPS
   data/gbp-auth.js    One-time OAuth helper
   data/local.js       Map-pack rank checks and NAP consistency
   data/meta.js        Facebook and Instagram insights, posts, comments and replies
+  data/ads.js         Google ads via the Ads Transparency Center, Meta Ad Library links
 public/               Dashboard (no build step)
 data/                 sites.json, SQLite database, GSC key
 ```

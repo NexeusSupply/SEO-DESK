@@ -2,7 +2,7 @@ import express from 'express';
 import fs from 'node:fs';
 import path from 'node:path';
 import { config, loadSites } from './config.js';
-import { overview, siteDetail, issueDetail, allLocations, management, socialComments } from './queries.js';
+import { overview, siteDetail, issueDetail, allLocations, management, socialComments, allAds } from './queries.js';
 import { accessMiddleware } from './access.js';
 import { spendThisMonth } from './data/dataforseo.js';
 import { listAllLocations } from './data/gbp.js';
@@ -25,6 +25,7 @@ app.get('/api/management', (_, res) => res.json(management(loadSites())));
 app.get('/api/overview', (_, res) => res.json(overview(loadSites())));
 app.get('/api/sites/:slug', (req, res) => { const s = site(req, res); if (s) res.json(siteDetail(s)); });
 app.get('/api/sites/:slug/issues/:code', (req, res) => { const s = site(req, res); if (s) res.json(issueDetail(s, req.params.code)); });
+app.get('/api/ads', (_, res) => res.json(allAds(loadSites())));
 app.get('/api/locations', (_, res) => res.json(allLocations(loadSites())));
 // Finds gbpLocationId values for every listing the signed-in Google account manages
 app.get('/api/gbp/listings', (_, res) => listAllLocations().then((r) => res.json(r)).catch((e) => res.status(500).json({ error: e.message })));
