@@ -111,7 +111,7 @@ export function allLocations(sites) {
 }
 
 export function recentReviews(site, limit = 30) {
-  return db.prepare('SELECT location, created_at, rating, reviewer, comment, replied FROM gbp_reviews WHERE site=? ORDER BY created_at DESC LIMIT ?').all(site.slug, limit);
+  return db.prepare('SELECT review_id, location, created_at, rating, reviewer, comment, replied FROM gbp_reviews WHERE site=? ORDER BY created_at DESC LIMIT ?').all(site.slug, limit);
 }
 
 // ---- Ads ----

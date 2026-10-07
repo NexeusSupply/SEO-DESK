@@ -35,6 +35,12 @@ export const config = {
     version: process.env.META_GRAPH_VERSION || 'v23.0',
     get enabled() { return Boolean(this.token); },
   },
+  claude: {
+    // Drafts replies to Google reviews (src/data/reply-helper.js).
+    apiKey: process.env.ANTHROPIC_API_KEY || '',
+    model: process.env.ANTHROPIC_MODEL || 'claude-opus-5-5',
+    get enabled() { return Boolean(this.apiKey); },
+  },
   gsc: {
     keyPath: process.env.GSC_SERVICE_ACCOUNT_JSON ? path.resolve(root, process.env.GSC_SERVICE_ACCOUNT_JSON) : '',
     keyContent: process.env.GSC_SERVICE_ACCOUNT_JSON_CONTENT || '',
