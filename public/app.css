@@ -200,3 +200,26 @@ h1 .sig, h2 .sig { vertical-align: middle; margin-left: 8px; font-size: 12px; }
 .sig[data-tip] { cursor: help; }
 .tipbox { position: fixed; z-index: 50; max-width: 300px; padding: 9px 12px; border-radius: 8px; background: var(--brand-deep); color: #fff; font-size: 13px; font-weight: 400; line-height: 1.45; letter-spacing: 0; text-transform: none; box-shadow: 0 8px 24px rgba(0, 49, 63, 0.25); pointer-events: none; opacity: 0; visibility: hidden; transition: opacity 0.12s; }
 .tipbox.on { opacity: 1; visibility: visible; }
+
+/* Google review replies: a mock reply box until the Business Profile API is approved */
+.mock-reply { margin-top: 8px; }
+.mock-reply > summary.run { display: inline-block; font-size: 12px; padding: 3px 12px; }
+.mock-reply[open] > summary.run { background: var(--brand); color: #fff; }
+.mock-reply textarea { width: 100%; min-width: 220px; font: inherit; font-size: 14px; padding: 8px 10px; border: 1px dashed var(--line); border-radius: 6px; resize: none; background: var(--brand-wash); color: var(--muted); }
+.mock-reply .actions { margin-top: 6px; align-items: center; }
+
+/* Ads */
+.ads { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px; margin-top: 12px; }
+.ad { display: flex; flex-direction: column; gap: 6px; padding: 10px; background: var(--sheet); border: 1px solid var(--line); border-radius: 8px; color: var(--ink); box-shadow: var(--shadow); }
+.ad:hover { text-decoration: none; border-color: var(--brand-tint); }
+.ad-img { display: grid; place-items: center; height: 120px; background: var(--brand-wash); border-radius: 6px; overflow: hidden; }
+.ad-img img { max-width: 100%; max-height: 100%; object-fit: contain; }
+.ad-meta { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.ad-meta .sig { font-size: 11px; padding: 2px 8px; }
+.ads.mini { grid-template-columns: repeat(4, 64px); gap: 6px; margin: 0; }
+.ads.mini .ad { padding: 3px; box-shadow: none; }
+.ads.mini .ad-img { height: 44px; }
+.ledger td.links { white-space: nowrap; }
+.ledger td.links a + a { margin-left: 10px; }
+.actions a.run { display: inline-block; }
+.plat[class*="ad-"] { background: var(--brand-soft); color: var(--brand-mid); }

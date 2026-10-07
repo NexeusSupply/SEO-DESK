@@ -3,6 +3,7 @@ import { db } from './db.js';
 import { config } from './config.js';
 import { ISSUE_LABELS } from './audit/rules.js';
 import { keywordGap } from './data/competitors.js';
+import { googleTransparencyUrl, metaAdLibraryUrl, RUNNING_DAYS } from './data/ads.js';
 
 export function overview(sites) {
   return sites.map((s) => {
@@ -63,7 +64,7 @@ export function siteDetail(site) {
     gsc: { daily: gscDaily, topQueries, topPages, strikingDistance, periodEnd: qEnd },
     ranks, domains, gap: keywordGap(site), jobs,
     locations: locationRows(site), recentReviews: recentReviews(site), connections: connections(site),
-    social: socialSummary(site), comments: socialComments([site], { limit: 40 }) };
+    social: socialSummary(site), comments: socialComments([site], { limit: 40 }), ads: adsSummary(site) };
 }
 
 export function issueDetail(site, code) {
@@ -111,6 +112,24 @@ export function allLocations(sites) {
 
 export function recentReviews(site, limit = 30) {
   return db.prepare('SELECT location, created_at, rating, reviewer, comment, replied FROM gbp_reviews WHERE site=? ORDER BY created_at DESC LIMIT ?').all(site.slug, limit);
+}
+
+// ---- Ads ----
+
+/** Google ads seen for the brand's domain in the last search, running ones first, plus links to both public ad libraries. */
+export function adsSummary(site, limit = 24) {
+  const checked = db.prepare("SELECT MAX(posted_on) d FROM dfs_tasks WHERE kind='ads' AND site=? AND status='done'").get(site.slug)?.d ?? null;
+  const pending = Boolean(db.prepare("SELECT 1 FROM dfs_tasks WHERE kind='ads' AND site=? AND status='posted'").get(site.slug));
+  const rows = checked ? db.prepare(`SELECT creative_id, advertiser, advertiser_id, verified, format, image, preview_url, url, first_shown, last_shown,
+    last_shown >= strftime('%Y-%m-%dT%H:%M:%S', fetched_on, '-${RUNNING_DAYS} days') running
+    FROM google_ads WHERE site=? ORDER BY running DESC, last_shown DESC`).all(site.slug) : [];
+  return { checked, pending, running: rows.filter((r) => r.running).length, total: rows.length, ads: rows.slice(0, limit),
+    googleUrl: googleTransparencyUrl(site), metaUrl: metaAdLibraryUrl(site), metaByPage: Boolean(site.meta?.pageId) };
+}
+
+/** Every brand's ads at a glance, for the Ads page. */
+export function allAds(sites) {
+  return sites.map((s) => { const a = adsSummary(s, 6); return { slug: s.slug, name: s.name, group: s.group, host: s.host, ...a }; });
 }
 
 // ---- Facebook and Instagram ----
@@ -162,6 +181,7 @@ export function connections(site) {
     listings: st(site.locations.some(listingSource), config.gbp.enabled || config.dfs.enabled, has('SELECT 1 FROM gbp_snapshots WHERE site=?', site.slug)),
     localRanks: st(site.locations.some((l) => l.lat != null), config.dfs.enabled, has('SELECT 1 FROM local_ranks WHERE site=?', site.slug)),
     // Until the Meta token exists the whole feature is "coming soon" rather than "not connected" per brand.
+    ads: st(true, config.dfs.enabled, has("SELECT 1 FROM dfs_tasks WHERE kind='ads' AND site=? AND status='done'", site.slug)),
     social: !config.meta.enabled ? 'coming_soon' : st(Boolean(site.meta), config.meta.enabled, has('SELECT 1 FROM meta_snapshots WHERE site=?', site.slug)),
     listingsConnected: site.locations.filter(listingSource).length, listingsTotal: site.locations.length,
   };

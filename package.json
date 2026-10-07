@@ -14,6 +14,7 @@
     "gbp": "node src/cli.js gbp",
     "local": "node src/cli.js local",
     "meta": "node src/cli.js meta",
+    "ads": "node src/cli.js ads",
     "gbp:auth": "node src/data/gbp-auth.js"
   },
   "engines": { "node": ">=22.13" },

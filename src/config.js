@@ -74,6 +74,7 @@ export const config = {
     gbp: process.env.CRON_GBP || '15 7 * * *',
     local: process.env.CRON_LOCAL || '0 5 * * 1',
     'local-collect': process.env.CRON_LOCAL_COLLECT || '0 */2 * * *',
+    ads: process.env.CRON_ADS || '30 4 * * 2',
     meta: process.env.CRON_META || '45 6 * * *',
     'meta-comments': process.env.CRON_META_COMMENTS || '*/30 * * * *',
   },

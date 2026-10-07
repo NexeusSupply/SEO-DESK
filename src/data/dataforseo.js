@@ -187,3 +187,29 @@ export async function getReviewTask(id) {
     id: i.review_id, createdAt: iso(i.timestamp), rating: i.rating?.value ?? null, reviewer: i.profile_name || '',
     comment: i.review_text || '', replied: i.owner_answer ? 1 : 0 })) };
 }
+
+// ---- Google Ads Transparency Center: ads an advertiser is running (standard queue only, no live endpoint) ----
+
+/** Queue one ads search per brand. Each item: { domain, dateFrom, tag }. Returns [{ task_id, tag, cost, ok, message }]. */
+export async function postAdsTasks(items) {
+  if (!items.length) return [];
+  const tasks = await postRaw('/serp/google/ads_search/task_post', items.map((it) => ({
+    target: it.domain, location_code: config.dfs.location, platform: 'all', format: 'all', date_from: it.dateFrom, depth: 40, priority: 1, tag: it.tag })));
+  return tasks.map((t) => ({ task_id: t.id, tag: t.data?.tag, cost: t.cost || 0, ok: t.status_code === 20100, message: t.status_message }));
+}
+
+export async function adsTasksReady() {
+  const [t] = await getRaw('/serp/google/ads_search/tasks_ready');
+  return (t?.result || []).map((r) => r.id);
+}
+
+/** Fetch one finished ads search: [{ creativeId, advertiserId, advertiser, verified, format, image, previewUrl, url, firstShown, lastShown }]. */
+export async function getAdsTask(id) {
+  const [t] = await getRaw(`/serp/google/ads_search/task_get/advanced/${id}`);
+  const iso = (s) => { const d = new Date(String(s || '').replace(' ', 'T').replace(' ', '')); return isNaN(d) ? null : d.toISOString(); };
+  // 40102 is "No Search Results": the advertiser simply has no ads in the window.
+  if (t?.status_code !== 20000 && t?.status_code !== 40102) throw new Error(`DataForSEO task ${t?.status_code}: ${t?.status_message}`);
+  return { cost: t?.cost || 0, items: (t?.result?.[0]?.items || []).filter((i) => i.creative_id).map((i) => ({
+    creativeId: i.creative_id, advertiserId: i.advertiser_id, advertiser: i.title || '', verified: i.verified ? 1 : 0, format: i.format || '',
+    image: i.preview_image?.url || null, previewUrl: i.preview_url || null, url: i.url || null, firstShown: iso(i.first_shown), lastShown: iso(i.last_shown) })) };
+}
