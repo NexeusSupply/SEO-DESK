@@ -7,6 +7,7 @@ import { accessMiddleware } from './access.js';
 import { spendThisMonth } from './data/dataforseo.js';
 import { listAllLocations } from './data/gbp.js';
 import { listPages, replyToComment, hideComment, markHandled } from './data/meta.js';
+import { draftReviewReply } from './data/reply-helper.js';
 import { buildDigest } from './digest.js';
 import { jobs } from './jobs.js';
 import { startScheduler } from './scheduler.js';
@@ -19,7 +20,7 @@ app.use(express.static(path.join(config.root, 'public')));
 
 const site = (req, res) => { const s = loadSites().find((x) => x.slug === req.params.slug); if (!s) res.status(404).json({ error: 'unknown site' }); return s; };
 
-app.get('/api/status', (req, res) => res.json({ dataforseo: config.dfs.enabled, searchConsole: config.gsc.enabled, businessProfile: config.gbp.enabled, meta: config.meta.enabled, email: config.smtp.enabled,
+app.get('/api/status', (req, res) => res.json({ dataforseo: config.dfs.enabled, searchConsole: config.gsc.enabled, businessProfile: config.gbp.enabled, meta: config.meta.enabled, claude: config.claude.enabled, email: config.smtp.enabled,
   access: config.access.enabled, user: req.user?.email, cron: config.cron, dfsSpendUsd: config.dfs.enabled ? +spendThisMonth().toFixed(2) : null, dfsCapUsd: config.dfs.monthlyCapUsd }));
 app.get('/api/management', (_, res) => res.json(management(loadSites())));
 app.get('/api/overview', (_, res) => res.json(overview(loadSites())));
@@ -43,6 +44,8 @@ app.post('/api/sites/:slug/comments/:id/reply', commentAction((s, req) => {
 }));
 app.post('/api/sites/:slug/comments/:id/hide', commentAction((s, req) => hideComment(s, req.params.id, req.body?.hidden !== false)));
 app.post('/api/sites/:slug/comments/:id/handled', commentAction((s, req) => markHandled(s, req.params.id, req.user?.email)));
+// Claude drafts a reply to a Google review; a person edits it and posts it on Google themselves.
+app.post('/api/sites/:slug/reviews/:id/draft-reply', commentAction((s, req) => draftReviewReply(s, req.params.id, String(req.body?.note || '').slice(0, 500).trim())));
 app.get('/api/digest', (_, res) => res.send(buildDigest()));
 
 // Run a job now: POST /api/run/audit?site=heartland  (fires in background)

@@ -17,8 +17,11 @@
     "ads": "node src/cli.js ads",
     "gbp:auth": "node src/data/gbp-auth.js"
   },
-  "engines": { "node": ">=22.13" },
+  "engines": {
+    "node": ">=22.13"
+  },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.132.0",
     "cheerio": "^1.0.0",
     "dotenv": "^16.4.5",
     "express": "^4.21.0",

@@ -223,3 +223,7 @@ h1 .sig, h2 .sig { vertical-align: middle; margin-left: 8px; font-size: 12px; }
 .ledger td.links a + a { margin-left: 10px; }
 .actions a.run { display: inline-block; }
 .plat[class*="ad-"] { background: var(--brand-soft); color: var(--brand-mid); }
+.mock-reply .draft-note { width: 100%; font: inherit; font-size: 13px; padding: 6px 10px; margin-bottom: 6px; border: 1px solid var(--line); border-radius: 6px; background: var(--sheet); color: var(--ink); }
+.mock-reply textarea:not(:disabled) { border-style: solid; background: var(--sheet); color: var(--ink); resize: vertical; }
+.mock-reply span[data-tip] { display: inline-block; }
+.mock-reply span[data-tip] > button:disabled { pointer-events: none; }

@@ -125,7 +125,11 @@ Google ads are found by each brand's website domain, so nothing needs adding to 
 
 Meta's Ad Library API only returns non-political ads that were shown in the EU or UK, so NZ and Australian ads can't be pulled into the dashboard. Instead each brand links to Meta's public Ad Library: straight to the brand's Page when `meta.pageId` is set in sites.json, otherwise a search by brand name.
 
-Replying to Google reviews from the dashboard is shown as a mock-up marked "coming soon". It needs the Business Profile API (see above), because DataForSEO can only read reviews.
+Posting replies to Google reviews from the dashboard is shown as a mock-up marked "coming soon". It needs the Business Profile API (see above), because DataForSEO can only read reviews.
+
+### Review reply drafts (Claude)
+
+Set `ANTHROPIC_API_KEY` (from console.anthropic.com → API keys) and each unreplied review gets a **Draft with Claude** button. Claude writes a short reply in the clinic's voice from the review, the star rating and an optional note you type ("mention our new puppy classes"). Edit it, click Copy, and paste it into the reply box on the clinic's Google listing. The prompt keeps replies short, uses NZ spelling, never reveals anything about an animal or client that the review doesn't already say, and steers negative reviews towards contacting the clinic, without promises. `ANTHROPIC_MODEL` overrides the model (default `claude-opus-5-5`). Each draft costs roughly one or two US cents.
 
 ### Google Search Console
 
@@ -219,6 +223,7 @@ Dockerfile            For Railway / Render / Fly / any VPS
   data/gbp-auth.js    One-time OAuth helper
   data/local.js       Map-pack rank checks and NAP consistency
   data/meta.js        Facebook and Instagram insights, posts, comments and replies
+  data/reply-helper.js  Claude drafts replies to Google reviews
   data/ads.js         Google ads via the Ads Transparency Center, Meta Ad Library links
 public/               Dashboard (no build step)
 data/                 sites.json, SQLite database, GSC key
