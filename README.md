@@ -127,9 +127,9 @@ Meta's Ad Library API only returns non-political ads that were shown in the EU o
 
 Posting replies to Google reviews from the dashboard is shown as a mock-up marked "coming soon". It needs the Business Profile API (see above), because DataForSEO can only read reviews.
 
-### Review reply drafts (Claude)
+### Reply drafts (Claude)
 
-Set `ANTHROPIC_API_KEY` (from console.anthropic.com → API keys) and each unreplied review gets a **Draft with Claude** button. Claude writes a short reply in the clinic's voice from the review, the star rating and an optional note you type ("mention our new puppy classes"). Edit it, click Copy, and paste it into the reply box on the clinic's Google listing. The prompt keeps replies short, uses NZ spelling, never reveals anything about an animal or client that the review doesn't already say, and steers negative reviews towards contacting the clinic, without promises. `ANTHROPIC_MODEL` overrides the model (default `claude-opus-5-5`). Each draft costs roughly one or two US cents.
+Set `ANTHROPIC_API_KEY` (from console.anthropic.com → API keys) and each unreplied review gets a **Draft with Claude** button. Claude writes a short reply in the clinic's voice from the review, the star rating and an optional note you type ("mention our new puppy classes"). Edit it, click Copy, and paste it into the reply box on the clinic's Google listing. The prompt keeps replies short, uses NZ spelling, never reveals anything about an animal or client that the review doesn't already say, and steers negative reviews towards contacting the clinic, without promises. The same button sits on every Facebook and Instagram comment in the comments inbox, where the draft fills the reply box and you send it from there (written as the brand's account, one or two sentences, with no made-up hours or prices). Until real reviews or comments arrive, or while Meta is still "coming soon", a couple of clearly labelled made-up examples are shown so drafting can be demonstrated. `ANTHROPIC_MODEL` overrides the model (default `claude-opus-5-5`). Each draft costs roughly one or two US cents.
 
 ### Google Search Console
 
@@ -223,7 +223,7 @@ Dockerfile            For Railway / Render / Fly / any VPS
   data/gbp-auth.js    One-time OAuth helper
   data/local.js       Map-pack rank checks and NAP consistency
   data/meta.js        Facebook and Instagram insights, posts, comments and replies
-  data/reply-helper.js  Claude drafts replies to Google reviews
+  data/reply-helper.js  Claude drafts replies to Google reviews and Facebook/Instagram comments
   data/ads.js         Google ads via the Ads Transparency Center, Meta Ad Library links
 public/               Dashboard (no build step)
 data/                 sites.json, SQLite database, GSC key

@@ -227,3 +227,7 @@ h1 .sig, h2 .sig { vertical-align: middle; margin-left: 8px; font-size: 12px; }
 .mock-reply textarea:not(:disabled) { border-style: solid; background: var(--sheet); color: var(--ink); resize: vertical; }
 .mock-reply span[data-tip] { display: inline-block; }
 .mock-reply span[data-tip] > button:disabled { pointer-events: none; }
+.cmt .draft-note { width: 100%; font: inherit; font-size: 13px; padding: 6px 10px; margin-bottom: 6px; border: 1px solid var(--line); border-radius: 6px; background: var(--sheet); color: var(--ink); }
+.cmt span[data-tip] { display: inline-block; }
+.cmt span[data-tip] > button:disabled { pointer-events: none; }
+.cmt .cmt-head .sig { font-size: 11px; padding: 1px 8px; }

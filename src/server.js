@@ -7,7 +7,7 @@ import { accessMiddleware } from './access.js';
 import { spendThisMonth } from './data/dataforseo.js';
 import { listAllLocations } from './data/gbp.js';
 import { listPages, replyToComment, hideComment, markHandled } from './data/meta.js';
-import { draftReviewReply } from './data/reply-helper.js';
+import { draftReply, EXAMPLES } from './data/reply-helper.js';
 import { buildDigest } from './digest.js';
 import { jobs } from './jobs.js';
 import { startScheduler } from './scheduler.js';
@@ -44,8 +44,11 @@ app.post('/api/sites/:slug/comments/:id/reply', commentAction((s, req) => {
 }));
 app.post('/api/sites/:slug/comments/:id/hide', commentAction((s, req) => hideComment(s, req.params.id, req.body?.hidden !== false)));
 app.post('/api/sites/:slug/comments/:id/handled', commentAction((s, req) => markHandled(s, req.params.id, req.user?.email)));
-// Claude drafts a reply to a Google review; a person edits it and posts it on Google themselves.
-app.post('/api/sites/:slug/reviews/:id/draft-reply', commentAction((s, req) => draftReviewReply(s, req.params.id, String(req.body?.note || '').slice(0, 500).trim())));
+// Claude drafts a reply to a Google review or a Facebook/Instagram comment; a person edits it before it's posted.
+const note = (req) => String(req.body?.note || '').slice(0, 500).trim();
+app.post('/api/sites/:slug/reviews/:id/draft-reply', commentAction((s, req) => draftReply('review', s, req.params.id, note(req))));
+app.post('/api/sites/:slug/comments/:id/draft-reply', commentAction((s, req) => draftReply('comment', s, req.params.id, note(req))));
+app.get('/api/reply-examples', (_, res) => res.json(EXAMPLES));
 app.get('/api/digest', (_, res) => res.send(buildDigest()));
 
 // Run a job now: POST /api/run/audit?site=heartland  (fires in background)
