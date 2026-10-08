@@ -12,6 +12,8 @@ A self-hosted SEO dashboard for a portfolio of brand websites. It covers the par
 | Facebook and Instagram | Followers, views and engagements over 28 days against the 28 before, recent posts with likes, comments and shares, and a comments inbox: read every comment across brands, reply publicly as the brand, hide spam, or mark it as needing no reply. Unanswered comments over a day old count towards a brand's Watch signal. | Meta Graph API | Free |
 | Ads | Google ads each brand's website is running (image, text and video, with first and last shown dates) from Google's public Ads Transparency Center, checked weekly, plus a link to each brand's Facebook and Instagram ads in Meta's public Ad Library. An "Ads" page lists every brand. | DataForSEO (Google Ads Transparency) | A fraction of a cent per brand per week |
 | AI answers | Once a month, asks ChatGPT, Gemini and Perplexity (with web search, as someone in New Zealand) which vet they'd recommend in each clinic's town, and checks Google's AI Overview on the town's local search. Shows whether each clinic was named and in what position, whether its website was cited, who was named instead, and the sources the AI read. There's an "AI answers" page for every brand, plus a section on each brand and clinic page. | DataForSEO AI Optimization (LLM Responses) + SERP API | About US$0.02–0.04 per question per AI, plus US$0.004 per AI Overview check. Roughly US$5–7 a month for 54 towns |
+| Keyword research | Per clinic: searches to target on the website (SEO) and to bid on in Google Ads. Starts from the clinic's town and services (`vet feilding`, `farm vet feilding`, `emergency vet feilding`…) plus any words you add, pulls Google's related suggestions with monthly searches, a 12-month trend, ad competition and top-of-page bids, adds SEO difficulty, and marks each one SEO, Ads, both or low priority, with where the site already ranks. Download as CSV for Google Ads. Runs when someone presses the button on the clinic page and is kept for a month; clinics in the same town share results. | DataForSEO (Google Ads Keyword Planner + Labs difficulty) | About US$0.09 per clinic, about US$5 for all 54 |
+| Ideas to grow traffic | Per clinic: Claude reads everything the dashboard knows about the clinic (listing, reviews, map pack, AI answers, ads, keyword research, website health) and suggests five to eight prioritised SEO, Google Ads, listing and review ideas, each tied to a figure, plus a starter Google search ad (headlines, descriptions, keywords to bid on). Add an optional focus such as "more puppy bookings". The latest ideas are saved on the page. | Claude (Anthropic API) | A few US cents per run |
 | Digest | Weekly email summarising score changes, errors, rank movers and within-reach queries across all brands. | SMTP | Free |
 
 Everything is optional. Brands without a `locations` list simply don't show the clinic sections. A brand whose Search Console property or Google listing the account can't reach shows as **Not connected** everywhere — never as zero.
@@ -71,6 +73,8 @@ Add a `locations` list to any brand. Each location needs `slug` and `name`; the 
 | `placeId` or `cid` | Exact matching of the clinic in results (otherwise matched by phone, then name). Get the place ID from the listing's Maps URL or `GET /api/gbp/listings` |
 | `address`, `phone`, `url` | Name/address/phone consistency check against the clinic's web page |
 | `gbpLocationId` | Business Profile sync (listing, reviews, performance) |
+| `services` | Which keyword-research seeds the clinic gets: any of `companion`, `mixed`, `farm`, `equine` (from the clinic list's CA/Mixed/PA/Equine columns). Defaults to companion |
+| `keywordSeeds` | Extra keyword-research seeds, as templates like `"puppy school {town}"`. Can also go on the brand |
 
 `localKeywords` on the brand are templates: `"vet {town}"` becomes `vet feilding`, `vet otaki`, and so on. A location can add its own `keywords` too.
 
@@ -138,6 +142,12 @@ Posting replies to Google reviews from the dashboard is shown as a mock-up marke
 
 Set `ANTHROPIC_API_KEY` (from console.anthropic.com → API keys) and each unreplied review gets a **Draft with Claude** button. Claude writes a short reply in the clinic's voice from the review, the star rating and an optional note you type ("mention our new puppy classes"). Edit it, click Copy, and paste it into the reply box on the clinic's Google listing. The prompt keeps replies short, uses NZ spelling, never reveals anything about an animal or client that the review doesn't already say, and steers negative reviews towards contacting the clinic, without promises. The same button sits on every Facebook and Instagram comment in the comments inbox, where the draft fills the reply box and you send it from there (written as the brand's account, one or two sentences, with no made-up hours or prices). Until real reviews or comments arrive, or while Meta is still "coming soon", a couple of clearly labelled made-up examples are shown so drafting can be demonstrated. `ANTHROPIC_MODEL` overrides the model (default `claude-opus-5-5`). Each draft costs roughly one or two US cents.
 
+### Keyword research and ideas
+
+Each clinic page has a **Keyword research** section. Press **Research keywords** and it asks Google Ads' Keyword Planner (through DataForSEO, so no Google Ads account is needed) for searches related to the clinic's seeds, keeps the vet-related ones, and checks SEO difficulty. Volumes and bids are New Zealand-wide (Google doesn't break them down by town), and bids are in US dollars as DataForSEO reports them. The advice is deliberately simple: **SEO** when people search it (10+ a month), difficulty is under 50 and we aren't already top 3; **Ads** for urgent or "near me" searches, searches advertisers compete for, and worthwhile searches too hard to win organically. Research counts towards `DFS_MONTHLY_CAP_USD` and is refused past it.
+
+**Ideas to grow traffic** uses the same `ANTHROPIC_API_KEY` as reply drafts. Without it the section says it's not connected.
+
 ### Google Search Console
 
 1. In Google Cloud Console create a project, enable the **Search Console API**, create a **service account** and download its JSON key to `data/gsc-service-account.json`.
@@ -169,6 +179,7 @@ npm run gbp                 # Business Profile sync (API, and/or DataForSEO publ
 npm run meta                # Facebook and Instagram sync
 npm run ads                 # queue this week's Google ads search per brand (collected by local-collect)
 npm run local               # post this week's map-pack checks + name/address/phone check
+npm run keywords -- vetlife # keyword research for every clinic of a brand not researched this month (no schedule)
 node src/cli.js local-collect   # collect finished map-pack and review results (cron runs this every 2h)
 ```
 
@@ -232,6 +243,8 @@ Dockerfile            For Railway / Render / Fly / any VPS
   data/meta.js        Facebook and Instagram insights, posts, comments and replies
   data/reply-helper.js  Claude drafts replies to Google reviews and Facebook/Instagram comments
   data/ads.js         Google ads via the Ads Transparency Center, Meta Ad Library links
+  data/keywords.js    Keyword research per clinic and the SEO / Ads advice
+  data/suggestions.js Claude's traffic ideas and starter search ad per clinic
 public/               Dashboard (no build step)
 data/                 sites.json, SQLite database, GSC key
 ```
