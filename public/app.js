@@ -439,7 +439,7 @@ function aiSection(d, slug, oneClinic = false) {
   const res = (cl, key) => cl.results.find((r) => r.engine === key);
   return `${head}
   <div class="strip">
-    <div><div class="v">${a.mentioned}<small>of ${a.total}</small>${a.prevTotal ? delta(a.mentioned, a.prevMentioned) : ''}</div><div class="l">${tip('AI answers naming a clinic', 'aiNamed')}</div></div>
+    <div><div class="v">${a.mentioned}<small>of ${a.total}</small>${a.prevTotal ? delta(a.mentioned, a.prevMentioned) : ''}</div><div class="l">${tip(oneClinic ? 'AI answers naming the clinic' : 'AI answers naming a clinic', 'aiNamed')}</div></div>
     ${engines.map((e) => `<div><div class="v">${aiTally(a.byEngine[e.key])}</div><div class="l">${tip(`Named by ${e.label}`, 'aiEngine')}</div></div>`).join('')}
     ${aio ? `<div><div class="v">${aioTally(a, true)}</div><div class="l">${tip('Google AI Overviews naming or citing us', 'aiOverview')}</div></div>` : ''}
   </div>
