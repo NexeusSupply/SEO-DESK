@@ -61,6 +61,9 @@ const TIPS = {
   organic: 'Where the clinic\u2019s website appears in the normal Google results below the map.',
   whoInPack: 'The businesses Google shows in the map box for this search, with their star ratings.',
   replied: 'Whether the clinic has replied to the review on Google.',
+  draftComment: 'Claude writes a draft reply from the comment and the post it\u2019s on. Edit it before you send it. Add a note first if there\u2019s something it should mention.',
+  metaSoon: 'Coming soon. Replying from here goes live once the Meta app and token are set up. Until then, copy the draft and reply on Facebook or Instagram.',
+  example: 'A made-up example, so you can try drafting a reply before real data comes in.',
   draftReply: 'Claude writes a draft reply from the review. Edit it, copy it, and post it on the clinic\u2019s Google listing. Add a note first if there\u2019s something it should mention.',
   draftOff: 'Drafting replies with Claude needs an Anthropic API key (ANTHROPIC_API_KEY) set on the server.',
   replySoon: 'Coming soon. Replying to Google reviews from here needs Google\u2019s Business Profile API, and Google hasn\u2019t approved our access yet. Until then, reply from the clinic\u2019s Google listing.',
@@ -138,15 +141,15 @@ const ago = (iso) => { const h = (Date.now() - new Date(iso)) / 36e5; return h <
 
 function commentRow(c, showBrand) {
   const done = c.replied || c.hidden;
-  return `<li class="cmt ${done ? 'done' : ''}" id="c-${esc(c.comment_id)}" data-site="${esc(c.site)}" data-id="${esc(c.comment_id)}">
+  return `<li class="cmt ${done ? 'done' : ''}" id="c-${esc(c.comment_id)}" data-draft="comment" data-site="${esc(c.site)}" data-id="${esc(c.comment_id)}">
     <div class="cmt-head">${platformTag(c.platform)}${showBrand ? ` <a href="#/${esc(c.site)}">${esc(c.brand)}</a>` : ''} <b>${esc(c.author)}</b> <span class="muted">${ago(c.created_at)}</span>
       ${c.permalink ? `<a class="muted" href="${esc(c.permalink)}" target="_blank" rel="noopener">open</a>` : ''}</div>
     <p class="cmt-body">${esc(c.message) || '<span class="muted">(no text, probably a sticker or photo)</span>'}</p>
     ${c.post_message ? `<p class="cmt-post muted">On: ${clip(c.post_message, 120)}</p>` : ''}
     ${c.hidden ? '<p class="cmt-state muted">Hidden from the public</p>' : ''}
     ${c.replied ? `<p class="cmt-state"><span class="ok">✓</span> ${c.reply_text ? `Replied: ${esc(c.reply_text)}` : 'Marked as handled'}${c.replied_by ? ` <span class="muted">· ${esc(c.replied_by)}</span>` : ''}</p>` : ''}
-    ${!done ? `<form class="cmt-reply" onsubmit="return replyComment(event)"><textarea name="m" rows="2" placeholder="Reply publicly as the ${PLATFORM[c.platform]} account…" required></textarea>
-      <div class="actions"><button class="run primary-btn" type="submit">Reply</button><button class="run" type="button" onclick="commentAction(this,'handled')">No reply needed</button><button class="run" type="button" onclick="commentAction(this,'hide')">Hide</button></div></form>`
+    ${!done ? `<form class="cmt-reply" onsubmit="return replyComment(event)">${claudeOn ? noteInput : ''}<textarea name="m" rows="2" placeholder="Reply publicly as the ${PLATFORM[c.platform]} account…" required></textarea>
+      <div class="actions"><button class="run primary-btn" type="submit">Reply</button>${claudeOn ? `<button class="run" type="button" onclick="draftReply(this)" data-tip="${esc(TIPS.draftComment)}">Draft with Claude</button>` : ''}<button class="run" type="button" onclick="commentAction(this,'handled')">No reply needed</button><button class="run" type="button" onclick="commentAction(this,'hide')">Hide</button></div></form>`
       : c.hidden ? `<div class="actions"><button class="run" type="button" onclick="commentAction(this,'unhide')">Unhide</button></div>` : ''}
     <p class="cmt-err notok" hidden></p>
   </li>`;
@@ -180,7 +183,7 @@ window.replyComment = replyComment; window.commentAction = commentAction;
 
 function socialSection(d, slug) {
   const s = d.social, c = d.connections.social;
-  if (c === 'coming_soon') return socialPlaceholder();
+  if (c === 'coming_soon') return socialPlaceholder(slug);
   if (c === 'not_connected') return `<h2>Facebook and Instagram</h2><p class="empty">Not connected. Add <code>"meta": { "pageId": "…" }</code> to this brand in sites.json and set <code>META_ACCESS_TOKEN</code>.</p>`;
   if (c === 'no_data') return `<h2>Facebook and Instagram</h2><p class="empty">No data yet. <button class="run" onclick="run('meta','${slug}')">Sync now</button></p>`;
   const tot = (k, which = 'last28') => s.platforms.reduce((a, p) => a + (p[which][k] || 0), 0);
@@ -206,7 +209,17 @@ const postsTable = (body) => `<div class="wrap"><table class="data"><thead><tr><
 const commentsTable = (showBrand, body) => `<div class="wrap"><table class="data"><thead><tr>${showBrand ? '<th>Brand</th>' : ''}<th>Platform</th><th>From</th><th>Comment</th><th>Received</th><th>Status</th></tr></thead><tbody>${body}</tbody></table></div>`;
 
 // The layout the live section will have, with no data in it, while Meta isn't set up yet.
-function socialPlaceholder() {
+// Made-up comments with a working Claude draft, so replying can be shown before Meta is connected.
+const exampleComment = (c, site) => `<li class="cmt" data-draft="comment" data-site="${esc(site)}" data-id="${esc(c.id)}">
+  <div class="cmt-head">${platformTag(c.platform)} <b>${esc(c.author)}</b> <span class="sig nc" tabindex="0" data-tip="${esc(TIPS.example)}">Example</span></div>
+  <p class="cmt-body">${esc(c.message)}</p><p class="cmt-post muted">On: ${clip(c.post_message, 120)}</p>
+  <div class="cmt-reply">${claudeOn ? noteInput : ''}<textarea rows="2" ${claudeOn ? '' : 'disabled'} placeholder="Reply publicly as the ${PLATFORM[c.platform]} account…"></textarea>
+  <div class="actions">${draftButtons('draftComment')}<span tabindex="0" data-tip="${esc(TIPS.metaSoon)}"><button class="run primary-btn" type="button" disabled>Reply</button></span></div></div>
+  <p class="cmt-err notok" hidden></p></li>`;
+const exampleComments = (site) => examples?.comment?.length && site ? `<h3>Try replying <span class="sig nc" tabindex="0" data-tip="${esc(TIPS.example)}">Examples</span></h3>
+  <ul class="cmts">${examples.comment.map((c) => exampleComment(c, site)).join('')}</ul>` : '';
+
+function socialPlaceholder(slug) {
   return `<h2>Facebook and Instagram <span class="sig nc">Coming soon</span></h2>${COMING_SOON}
   <div class="strip placeholder">
     <div><div class="v">${dash}</div><div class="l">Facebook followers</div></div>
@@ -215,31 +228,35 @@ function socialPlaceholder() {
     <div><div class="v">${dash}</div><div class="l">Engagements, 28 days</div></div>
     <div><div class="v">${dash}</div><div class="l">Comments waiting for a reply</div></div>
   </div>
+  ${exampleComments(slug)}
   <h3>Comments</h3>${commentsTable(false, emptyRow(5, 'Comments will appear here.'))}
   <h3>Recent posts</h3>${postsTable(emptyRow(4, 'Recent posts will appear here.'))}`;
 }
 
 // Replying to a Google review. Claude can draft a reply to copy into Google; posting from here waits on the
 // Business Profile API being approved, so that part stays a mock-up.
-let claudeOn = false;
-const mockReply = (r, site, clinic) => `<details class="mock-reply" data-site="${esc(site)}" data-id="${esc(r.review_id)}"><summary class="run" data-tip="${esc(claudeOn ? TIPS.draftReply : TIPS.replySoon)}">Reply</summary>
-  ${claudeOn ? '<input class="draft-note" type="text" maxlength="300" placeholder="Anything to mention? (optional)">' : ''}
+let claudeOn = false, examples = null, homeSlug = null;
+const noteInput = '<input class="draft-note" type="text" maxlength="300" placeholder="Anything to mention? (optional)">';
+const draftButtons = (tipKey) => claudeOn ? `<button class="run" type="button" onclick="draftReply(this)" data-tip="${esc(TIPS[tipKey])}">Draft with Claude</button><button class="run copy-btn" type="button" onclick="copyReply(this)" hidden>Copy</button>`
+  : `<span tabindex="0" data-tip="${esc(TIPS.draftOff)}"><button class="run" type="button" disabled>Draft with Claude</button></span>`;
+const mockReply = (r, site, clinic) => `<details class="mock-reply" data-draft="review" data-site="${esc(site)}" data-id="${esc(r.review_id)}"><summary class="run" data-tip="${esc(claudeOn ? TIPS.draftReply : TIPS.replySoon)}">Reply</summary>
+  ${claudeOn ? noteInput : ''}
   <textarea rows="4" ${claudeOn ? '' : 'disabled'} placeholder="Reply publicly as ${esc(clinic || 'the clinic')} on Google…"></textarea>
-  <div class="actions">${claudeOn ? `<button class="run" type="button" onclick="draftReply(this)">Draft with Claude</button><button class="run" type="button" onclick="copyReply(this)" hidden>Copy</button>`
-    : `<span tabindex="0" data-tip="${esc(TIPS.draftOff)}"><button class="run" type="button" disabled>Draft with Claude</button></span>`}
+  <div class="actions">${draftButtons('draftReply')}
   <span tabindex="0" data-tip="${esc(TIPS.replySoon)}"><button class="run primary-btn" type="button" disabled>Post reply</button></span><span class="sig nc">Posting coming soon</span></div>
   <p class="cmt-err notok" hidden></p></details>`;
 async function draftReply(btn) {
-  const box = btn.closest('.mock-reply'), ta = box.querySelector('textarea'), err = box.querySelector('.cmt-err');
+  const box = btn.closest('[data-draft]'), ta = box.querySelector('textarea'), err = box.querySelector('.cmt-err');
+  const kind = box.dataset.draft === 'review' ? 'reviews' : 'comments';
   btn.disabled = true; btn.textContent = 'Drafting…'; err.hidden = true;
   try {
-    const { reply } = await post(`/sites/${box.dataset.site}/reviews/${encodeURIComponent(box.dataset.id)}/draft-reply`, { note: box.querySelector('.draft-note')?.value || '' });
-    ta.value = reply; box.querySelector('[onclick^="copyReply"]').hidden = false; btn.textContent = 'Redraft';
+    const { reply } = await post(`/sites/${box.dataset.site}/${kind}/${encodeURIComponent(box.dataset.id)}/draft-reply`, { note: box.querySelector('.draft-note')?.value || '' });
+    ta.value = reply; const copy = box.querySelector('.copy-btn'); if (copy) copy.hidden = false; btn.textContent = 'Redraft';
   } catch (e) { err.textContent = `Couldn't draft a reply: ${e.message}`; err.hidden = false; btn.textContent = 'Draft with Claude'; }
   btn.disabled = false;
 }
 async function copyReply(btn) {
-  const ta = btn.closest('.mock-reply').querySelector('textarea');
+  const ta = btn.closest('[data-draft]').querySelector('textarea');
   try { await navigator.clipboard.writeText(ta.value); } catch { ta.select(); document.execCommand('copy'); }
   btn.textContent = 'Copied'; setTimeout(() => { btn.textContent = 'Copy'; }, 1500);
 }
@@ -286,7 +303,8 @@ async function renderAds() {
 async function renderComments(status) {
   if (!(await api('/status')).meta) {
     $('#main').innerHTML = `<h1>Comments <span class="sig nc">Coming soon</span></h1>${COMING_SOON}
-    <div class="actions inbox-tabs"><a class="run on">Waiting for a reply</a><a class="run">All recent</a></div>
+    ${exampleComments(homeSlug)}
+    <h3>Inbox</h3><div class="actions inbox-tabs"><a class="run on">Waiting for a reply</a><a class="run">All recent</a></div>
     ${commentsTable(true, emptyRow(6, 'Facebook and Instagram comments from every brand will appear here, with a reply box on each.'))}`;
     return;
   }
@@ -378,6 +396,9 @@ async function renderSite(slug) {
   const sum = (arr, k) => arr.reduce((a, x) => a + x[k], 0);
   const top10 = d.ranks.filter((r) => r.position && r.position <= 10).length;
   const mine = d.domains[0] || {};
+  // Until real reviews arrive, made-up ones show how drafting a reply works.
+  const reviews = d.recentReviews.length || !d.locations.length ? d.recentReviews
+    : (examples?.review || []).map((x) => ({ ...x, review_id: x.id, location: d.locations[0].slug, replied: 0, example: true }));
   $('#main').innerHTML = `
   <div class="site-head">${badge(d.site.slug, d.site.name, 'lg')}<div><h1>${esc(d.site.name)}</h1><p class="sub"><a href="${esc(d.site.url)}" target="_blank">${esc(d.site.host)}</a>${d.audit ? ` · audited ${dateShort(d.audit.finished_at)}, ${d.audit.pages_crawled} pages` : ' · not audited yet'}</p></div></div>
 
@@ -430,8 +451,8 @@ async function renderSite(slug) {
   ${d.locations.some((l) => l.ranks.length) ? `<h2>Map-pack rankings by town</h2><div class="wrap"><table class="data"><thead><tr><th>Clinic</th>${th('Search', 'townSearch')}${th('Map pack', 'packPosition', 'r')}${th('Organic', 'organic', 'r')}${th('Who\'s in the pack', 'whoInPack')}</tr></thead><tbody>
   ${d.locations.flatMap((l) => l.ranks.map((r) => `<tr><td>${esc(l.name)}</td><td>${esc(r.keyword)}</td><td class="r"><span class="pos ${r.map_pack == null ? 'none' : r.map_pack <= 3 ? 'top3' : ''}">${r.map_pack ?? 'not shown'}</span>${delta(r.map_pack, r.prev, true)}</td><td class="r num">${r.organic ?? '<span class="dash">—</span>'}</td>
     <td><small class="muted">${r.top_pack.map((p) => `#${p.p} ${esc(p.t)}${p.r ? ` (${p.r})` : ''}`).join(' · ')}</small></td></tr>`)).join('')}</tbody></table></div>` : ''}
-  ${d.recentReviews.length ? `<h2>Recent reviews <span class="sig nc" tabindex="0" data-tip="${esc(TIPS.replySoon)}">Posting replies coming soon</span></h2><div class="wrap"><table class="data"><thead><tr><th>Clinic</th>${th('Rating', 'rating')}<th>Review</th>${th('Replied', 'replied')}</tr></thead><tbody>
-  ${d.recentReviews.slice(0, 15).map((r) => { const loc = d.locations.find((l) => l.slug === r.location); return `<tr><td>${esc(loc?.name || r.location)}<br><small class="muted">${dateShort(r.created_at)}</small></td><td>${stars(r.rating)}</td><td>${esc((r.comment || '').slice(0, 220))}${(r.comment || '').length > 220 ? '…' : ''}${r.reviewer ? `<br><small class="muted">${esc(r.reviewer)}</small>` : ''}${r.replied ? '' : mockReply(r, slug, loc?.name)}</td><td>${okmark(r.replied)}</td></tr>`; }).join('')}</tbody></table></div>` : ''}` : ''}
+  ${reviews.length ? `<h2>Recent reviews <span class="sig nc" tabindex="0" data-tip="${esc(TIPS.replySoon)}">Posting replies coming soon</span></h2>${d.recentReviews.length ? '' : '<p class="sub">No reviews synced for this brand yet, so here are two made-up ones to try drafting a reply.</p>'}<div class="wrap"><table class="data"><thead><tr><th>Clinic</th>${th('Rating', 'rating')}<th>Review</th>${th('Replied', 'replied')}</tr></thead><tbody>
+  ${reviews.slice(0, 15).map((r) => { const loc = d.locations.find((l) => l.slug === r.location); return `<tr><td>${esc(loc?.name || r.location)}<br>${r.example ? `<span class="sig nc" tabindex="0" data-tip="${esc(TIPS.example)}">Example</span>` : `<small class="muted">${dateShort(r.created_at)}</small>`}</td><td>${stars(r.rating)}</td><td>${esc((r.comment || '').slice(0, 220))}${(r.comment || '').length > 220 ? '…' : ''}${r.reviewer ? `<br><small class="muted">${esc(r.reviewer)}</small>` : ''}${r.replied ? '' : mockReply(r, slug, loc?.name)}</td><td>${okmark(r.replied)}</td></tr>`; }).join('')}</tbody></table></div>` : ''}` : ''}
 
   ${socialSection(d, slug)}
 
@@ -493,6 +514,8 @@ async function boot() {
   };
   homeGroup = sites[0]?.group ?? null;
   claudeOn = Boolean(status.claude);
+  homeSlug = sites.find((s) => s.group === homeGroup)?.slug ?? null;
+  examples = await api('/reply-examples').catch(() => null);
   for (const s of sites) logos[s.slug] = s.logo;
   window.addEventListener('hashchange', route);
   document.addEventListener('click', (e) => { for (const d of document.querySelectorAll('details.dd[open]')) if (!d.contains(e.target)) d.open = false; });
