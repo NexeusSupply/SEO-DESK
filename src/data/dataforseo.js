@@ -80,6 +80,49 @@ export async function localSerp(keyword, lat, lng, zoom = 14) {
   return { pack, organic };
 }
 
+// ---- AI answers ----
+
+const hostOf = (u) => { try { return new URL(u).host.replace(/^www\./, ''); } catch { return ''; } };
+const uniqueSources = (list) => [...new Map(list.filter((x) => x.url).map((x) => [x.url, { url: x.url, title: x.title || hostOf(x.url), domain: hostOf(x.url) }])).values()];
+
+/**
+ * Ask ChatGPT, Gemini or Perplexity one question with web search on, as someone in config.ai.country.
+ * Returns { cost, model, text, sources: [{ url, title, domain }] }.
+ */
+export async function llmAnswer(engine, model, prompt) {
+  const body = { user_prompt: prompt, model_name: model, max_output_tokens: 2048 };
+  // Perplexity's Sonar models always search; the others need asking. Gemini has no search-country option.
+  if (engine !== 'perplexity') body.web_search = true;
+  if (engine !== 'gemini') body.web_search_country_iso_code = config.ai.country;
+  const [t] = await postRaw(`/ai_optimization/${engine}/llm_responses/live`, [body]);
+  if (t?.status_code !== 20000) throw new Error(`DataForSEO ${engine} ${t?.status_code}: ${t?.status_message}`);
+  const r = t.result?.[0] || {};
+  const sections = (r.items || []).filter((i) => i.type === 'message').flatMap((i) => i.sections || []).filter((x) => x.type === 'text');
+  return { cost: t.cost || 0, model: r.model_name || model, text: sections.map((x) => x.text || '').join('\n').trim(),
+    sources: uniqueSources(sections.flatMap((x) => x.annotations || []).map((a) => ({ url: a.direct_url || a.url, title: a.title }))) };
+}
+
+/** Every reference under an AI Overview, however deeply Google nests them. */
+function overviewRefs(node, out = []) {
+  if (Array.isArray(node)) for (const x of node) overviewRefs(x, out);
+  else if (node && typeof node === 'object') {
+    for (const [k, v] of Object.entries(node)) {
+      if (k === 'references' && Array.isArray(v)) for (const r of v) { if (r?.url) out.push({ url: r.url, title: r.title || r.source }); }
+      else if (v && typeof v === 'object') overviewRefs(v, out);
+    }
+  }
+  return out;
+}
+
+/** Google's AI Overview for one search, if Google shows one. Returns { cost, present, text, sources }. */
+export async function aiOverview(keyword) {
+  const [t] = await postRaw('/serp/google/organic/live/advanced', [{ keyword, depth: 10, device: 'mobile', load_async_ai_overview: true, ...loc() }]);
+  if (t?.status_code !== 20000) throw new Error(`DataForSEO task ${t?.status_code}: ${t?.status_message}`);
+  const item = (t.result?.[0]?.items || []).find((i) => i.type === 'ai_overview');
+  const text = item ? (item.markdown || (item.items || []).map((e) => e.markdown || e.text || e.title || '').join('\n')).trim() : '';
+  return { cost: t.cost || 0, present: Boolean(item), text, sources: item ? uniqueSources(overviewRefs(item)) : [] };
+}
+
 // ---- Spend tracking & standard queue ----
 const month = () => new Date().toISOString().slice(0, 7);
 

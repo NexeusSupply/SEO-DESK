@@ -249,3 +249,13 @@ table.details td { overflow-wrap: anywhere; }
 .spread b { text-align: right; font-weight: 600; color: var(--ink); }
 .legend .spark { margin: 0 4px; }
 @media (max-width: 800px) { .picker, .picker select { width: 100%; min-width: 0; } }
+
+/* AI answers */
+.ai-answers { margin-top: 14px; }
+.wrap + p.sub { margin-top: 10px; }
+.ai-answers > summary.run { display: inline-block; }
+.ai-answers h3 { margin: 18px 0 6px; }
+.ai-answer { background: var(--sheet); border: 1px solid var(--line); border-radius: 8px; padding: 8px 12px; margin: 6px 0; }
+.ai-answer > summary { font-weight: 600; }
+.ai-answer[open] > summary { margin-bottom: 6px; }
+.ai-text { font-size: 14px; max-height: 360px; overflow: auto; overflow-wrap: anywhere; padding: 8px 10px; background: var(--brand-wash); border-radius: 6px; }

@@ -35,6 +35,17 @@ export const config = {
     version: process.env.META_GRAPH_VERSION || 'v23.0',
     get enabled() { return Boolean(this.token); },
   },
+  ai: {
+    // What ChatGPT, Gemini and Perplexity say when asked for a vet in each clinic's town (src/data/ai.js).
+    // engine:model pairs; model names come from DataForSEO's /ai_optimization/<engine>/llm_responses/models.
+    engines: (process.env.AI_ENGINES || 'chat_gpt:gpt-5-mini,gemini:gemini-2.5-flash,perplexity:sonar')
+      .split(',').map((x) => x.trim().split(':')).filter(([e, m]) => e && m).map(([engine, model]) => ({ engine, model })),
+    // Also look for Google's AI Overview on each town's local search ("vet {town}").
+    overviews: process.env.AI_OVERVIEWS !== 'off',
+    country: process.env.AI_COUNTRY || 'NZ',
+    // The question asked for every clinic of a brand with localKeywords, unless sites.json sets aiPrompts.
+    prompts: (process.env.AI_PROMPTS || 'Which vet clinic would you recommend in {town}, New Zealand?').split('|').map((x) => x.trim()).filter(Boolean),
+  },
   claude: {
     // Drafts replies to Google reviews (src/data/reply-helper.js).
     apiKey: process.env.ANTHROPIC_API_KEY || '',
@@ -83,6 +94,7 @@ export const config = {
     ads: process.env.CRON_ADS || '30 4 * * 2',
     meta: process.env.CRON_META || '45 6 * * *',
     'meta-comments': process.env.CRON_META_COMMENTS || '*/30 * * * *',
+    ai: process.env.CRON_AI || '0 4 2 * *',
   },
 };
 

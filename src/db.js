@@ -141,3 +141,11 @@ CREATE TABLE IF NOT EXISTS google_ads (
   PRIMARY KEY (site, creative_id)
 );
 `);
+
+// ---- AI answers: what ChatGPT, Gemini and Perplexity say, and Google's AI Overview (engine 'google_aio') ----
+db.exec(`
+CREATE TABLE IF NOT EXISTS ai_answers (
+  engine TEXT, prompt TEXT, checked_on TEXT, model TEXT, present INTEGER, answer TEXT, sources TEXT, cost REAL,
+  PRIMARY KEY (engine, prompt, checked_on)
+);
+`);

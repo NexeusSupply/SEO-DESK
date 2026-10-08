@@ -80,6 +80,12 @@ const TIPS = {
   ourRecords: 'What we have on file for the clinic in sites.json. Differences are worth fixing on whichever side is wrong.',
   sources: 'Where we checked the clinic\u2019s name, address and phone: its Google listing, our records and its website.',
   brandWebsite: 'Search and audit figures for the website this clinic shares with its brand. Open the brand page for the full picture.',
+  aiNamed: 'Each month we ask ChatGPT, Gemini and Perplexity which vet they would recommend in each clinic\u2019s town, with web search on, as someone in New Zealand. This counts the answers that name the clinic.',
+  aiEngine: 'How many of the towns we asked about this AI named the clinic in. The small \u201c#2\u201d is where it came in the answer, counting other businesses named before it.',
+  aiOverview: 'Google\u2019s AI Overview is the AI summary at the top of some Google searches. We check each town\u2019s local search (like \u201cvet Feilding\u201d). It counts when the overview names the clinic or links to its website. Google often shows the map instead of an overview for local searches.',
+  aiNamedInstead: 'Other businesses the AI recommended in its answer. These are who AI sees as the competition in that town.',
+  aiCited: 'The AI linked to the clinic\u2019s website as a source. Being a cited source is how websites earn their place in AI answers.',
+  aiSources: 'The websites the AI read to write its answer. Getting listed or mentioned on these sites (directories, review sites, local news) is the main way to appear in AI answers.',
   metaAds: 'Meta only lets apps pull ads that were shown in Europe, so New Zealand and Australian ads can\u2019t be listed here. This opens Meta\u2019s public Ad Library, which shows every ad the brand\u2019s Facebook Page is running right now.',
 };
 // The "i" marker is glued to the last word so it never wraps onto a line by itself.
@@ -395,6 +401,8 @@ async function renderClinic(siteSlug, locSlug) {
     <td>${esc((r.comment || '').slice(0, 400))}${(r.comment || '').length > 400 ? '…' : ''}${r.reviewer ? `<br><small class="muted">${esc(r.reviewer)}</small>` : ''}${r.replied ? '' : mockReply(r, siteSlug, c.name)}</td><td>${okmark(r.replied)}</td></tr>`).join('')}
   </tbody></table></div>` : '<p class="empty">No reviews yet.</p>'}
 
+  ${aiSection(d, siteSlug, true)}
+
   <h2>${tip('Website', 'brandWebsite')}</h2>
   <p class="sub"><a href="${esc(d.site.url)}" target="_blank" rel="noopener">${esc(d.site.host)}</a>${d.website.sharedWith > 1 ? `, shared by ${d.website.sharedWith} ${esc(d.site.name)} clinics` : ''}. <a href="#/${esc(d.site.slug)}">Open the brand page →</a></p>
   <div class="strip">
@@ -402,6 +410,64 @@ async function renderClinic(siteSlug, locSlug) {
     <div><div class="v">${d.website.errors != null ? d.website.errors : dash}</div><div class="l">${tip('Errors', 'errors')}</div></div>
     <div><div class="v">${d.website.clicks != null ? `${n(d.website.clicks)}${delta(d.website.clicks, d.website.prevClicks)}` : nc(d.connections.searchConsole === 'no_data' ? 'No data yet' : undefined)}</div><div class="l">${tip('Clicks from Google, 28 days', 'clicks')}</div></div>
   </div>`;
+}
+
+// ---- AI answers ----
+const aiCell = (r) => {
+  if (!r || !r.checked) return dash;
+  if (r.engine === 'google_aio' && !r.present) return '<small class="muted">no overview</small>';
+  const cited = r.cited ? ` <span class="sig good" tabindex="0" data-tip="${esc(TIPS.aiCited)}">cites site</span>` : '';
+  return r.mentioned ? `<span class="ok">✓</span> <span class="num">#${r.rank}</span>${r.prevMentioned === false ? ' <span class="delta up">new</span>' : ''}${cited}`
+    : `<span class="notok">✗</span>${r.prevMentioned ? ' <span class="delta down">dropped</span>' : ''}${cited}`;
+};
+// Google often shows the map instead of an AI Overview for local searches, so say so rather than "0 of 0".
+const aioTally = (a, big) => !a.overviewsChecked ? dash : !a.overviewsShown ? `<small class="muted">none shown</small>`
+  : big ? `${a.overviewsCiting}<small>of ${a.overviewsShown} shown</small>` : `${a.overviewsCiting} of ${a.overviewsShown}`;
+const aiTally = (e) => e && e.checked ? `${e.mentioned}<small>of ${e.checked}</small>` : dash;
+const aiAnswer = (r, label) => r.checked && (r.engine !== 'google_aio' || r.present) ? `<details class="ai-answer"><summary>${esc(label)} ${r.mentioned ? '<span class="ok">✓</span>' : '<span class="notok">✗</span>'} <small class="muted">${esc(r.prompt)} · ${dateShort(r.checked)}</small></summary>
+  <div class="ai-text">${esc(r.answer).replace(/\*\*([^*]+)\*\*/g, '<b>$1</b>').replace(/\n/g, '<br>')}</div>
+  ${r.sources.length ? `<p class="muted"><small>${tip('Sources', 'aiSources')}: ${r.sources.map((x) => `<a href="${esc(x.url)}" target="_blank" rel="noopener">${esc(x.domain || x.title)}</a>`).join(' · ')}</small></p>` : ''}</details>` : '';
+
+// The brand page shows every clinic; a clinic page passes its own one (oneClinic) and the brand's slug for the run button.
+function aiSection(d, slug, oneClinic = false) {
+  const a = d.ai, c = d.connections.ai;
+  if (!a.questions) return '';
+  const head = `<h2>AI answers</h2><p class="sub">What ChatGPT, Gemini and Perplexity say when someone asks for a vet in ${oneClinic ? 'this clinic\u2019s town' : 'each clinic\u2019s town'}, and whether Google\u2019s AI Overview names or links to the clinic. Checked monthly.</p>`;
+  if (c === 'not_connected') return `${head}<p class="empty">AI answers come through DataForSEO, which isn\u2019t configured.</p>`;
+  if (c === 'no_data' || !a.checked) return `${head}<p class="empty">Not checked yet. <button class="run" onclick="run('ai','${slug}')">Ask the AIs now</button></p>`;
+  const engines = a.engines.filter((e) => e.key !== 'google_aio'), aio = a.engines.find((e) => e.key === 'google_aio');
+  const res = (cl, key) => cl.results.find((r) => r.engine === key);
+  return `${head}
+  <div class="strip">
+    <div><div class="v">${a.mentioned}<small>of ${a.total}</small>${a.prevTotal ? delta(a.mentioned, a.prevMentioned) : ''}</div><div class="l">${tip('AI answers naming a clinic', 'aiNamed')}</div></div>
+    ${engines.map((e) => `<div><div class="v">${aiTally(a.byEngine[e.key])}</div><div class="l">${tip(`Named by ${e.label}`, 'aiEngine')}</div></div>`).join('')}
+    ${aio ? `<div><div class="v">${aioTally(a, true)}</div><div class="l">${tip('Google AI Overviews naming or citing us', 'aiOverview')}</div></div>` : ''}
+  </div>
+  <div class="actions"><button class="run" onclick="run('ai','${slug}')">Ask the AIs again</button></div>
+  <div class="wrap"><table class="data"><thead><tr><th>Clinic</th>${engines.map((e) => th(e.label, 'aiEngine')).join('')}${aio ? th('AI Overview', 'aiOverview') : ''}${th('Named instead', 'aiNamedInstead')}</tr></thead><tbody>
+  ${a.clinics.map((cl) => { const named = [...new Set(cl.results.flatMap((r) => r.named || []))].slice(0, 5); return `<tr><td>${oneClinic ? `<b>${esc(cl.name)}</b>` : `<a class="clinic-link" href="${clinicHref(slug, cl.slug)}"><b>${esc(cl.name)}</b></a>`}<br><small class="muted">${esc(cl.town)}</small></td>
+    ${engines.map((e) => `<td>${aiCell(res(cl, e.key))}</td>`).join('')}${aio ? `<td>${aiCell(res(cl, 'google_aio'))}</td>` : ''}
+    <td><small class="muted">${named.length ? named.map(esc).join(' · ') : '—'}</small></td></tr>`; }).join('')}
+  </tbody></table></div>
+  ${a.competitors.length ? `<p class="sub">Named most often instead: ${a.competitors.map((x) => `${esc(x.name)} <span class="num muted">×${x.n}</span>`).join(' · ')}</p>` : ''}
+  <details class="ai-answers"><summary class="run">Read the answers</summary>
+  ${a.clinics.map((cl) => `${oneClinic ? '' : `<h3>${esc(cl.name)}</h3>`}${cl.results.map((r) => aiAnswer(r, a.engines.find((e) => e.key === r.engine)?.label || r.engine)).join('') || '<p class="muted">Not checked yet.</p>'}`).join('')}</details>`;
+}
+
+async function renderAi() {
+  const { engines, brands } = await api('/ai');
+  const groups = [...new Set(brands.map((r) => r.group))];
+  const llms = engines.filter((e) => e.key !== 'google_aio'), aio = engines.find((e) => e.key === 'google_aio');
+  $('#main').innerHTML = `<h1>AI answers</h1><p class="sub">Each month we ask ${llms.map((e) => e.label).join(', ').replace(/, ([^,]*)$/, ' and $1')} which vet they would recommend in every clinic\u2019s town, and check Google\u2019s AI Overview for the town\u2019s local search. Open a brand to read the answers.</p>
+  ${brands.length ? groups.map((g) => groupBlock(g, brands.filter((r) => r.group === g).length, `<div class="wrap"><table class="ledger"><thead><tr><th>Brand</th>${th('Named in AI answers', 'aiNamed')}${llms.map((e) => th(e.label, 'aiEngine')).join('')}${aio ? th('AI Overview', 'aiOverview') : ''}${th('Named instead', 'aiNamedInstead')}</tr></thead><tbody>
+  ${brands.filter((r) => r.group === g).map((r) => `<tr>
+    <td class="brand"><div class="who">${badge(r.slug, r.name)}<div><a href="#/${r.slug}">${esc(r.name)}</a><small>${r.clinics} clinic${r.clinics === 1 ? '' : 's'}${r.checked ? ` · checked ${dateShort(r.checked)}` : ''}</small></div></div></td>
+    <td class="num">${r.total ? `${r.mentioned} of ${r.total}${r.prevTotal ? delta(r.mentioned, r.prevMentioned) : ''}` : nc('Not checked')}</td>
+    ${llms.map((e) => `<td class="num">${r.byEngine[e.key]?.checked ? `${r.byEngine[e.key].mentioned} of ${r.byEngine[e.key].checked}` : dash}</td>`).join('')}
+    ${aio ? `<td class="num">${aioTally(r)}</td>` : ''}
+    <td class="why"><small class="muted">${r.competitors.slice(0, 3).map((x) => esc(x.name)).join(' · ') || '—'}</small></td>
+  </tr>`).join('')}</tbody></table></div>`)).join('') : '<p class="empty">No brands have AI questions. Clinics need a <code>town</code>, and the brand needs <code>localKeywords</code> or <code>aiPrompts</code> in sites.json.</p>'}
+  <div class="actions"><button class="run" onclick="run('ai')">Ask the AIs for every brand</button></div>`;
 }
 
 async function renderAds() {
@@ -572,6 +638,8 @@ async function renderSite(slug) {
   ${reviews.length ? `<h2>Recent reviews <span class="sig nc" tabindex="0" data-tip="${esc(TIPS.replySoon)}">Posting replies coming soon</span></h2>${d.recentReviews.length ? '' : '<p class="sub">No reviews synced for this brand yet, so here are two made-up ones to try drafting a reply.</p>'}<div class="wrap"><table class="data"><thead><tr><th>Clinic</th>${th('Rating', 'rating')}<th>Review</th>${th('Replied', 'replied')}</tr></thead><tbody>
   ${reviews.slice(0, 15).map((r) => { const loc = d.locations.find((l) => l.slug === r.location); return `<tr><td>${esc(loc?.name || r.location)}<br>${r.example ? `<span class="sig nc" tabindex="0" data-tip="${esc(TIPS.example)}">Example</span>` : `<small class="muted">${dateShort(r.created_at)}</small>`}</td><td>${stars(r.rating)}</td><td>${esc((r.comment || '').slice(0, 220))}${(r.comment || '').length > 220 ? '…' : ''}${r.reviewer ? `<br><small class="muted">${esc(r.reviewer)}</small>` : ''}${r.replied ? '' : mockReply(r, slug, loc?.name)}</td><td>${okmark(r.replied)}</td></tr>`; }).join('')}</tbody></table></div>` : ''}` : ''}
 
+  ${aiSection(d, slug)}
+
   ${socialSection(d, slug)}
 
   ${adsSection(d, slug)}
@@ -624,10 +692,11 @@ async function boot() {
         return `<details class="dd${cur ? ' active' : ''}"><summary>${esc(cur ? cur.name : g)}</summary><div class="menu"><div class="menu-title">${esc(g)}</div>${list.map(tab).join('')}</div></details>`; }).join('')
       + `<a href="#/clinics" class="${slug === 'clinics' || slug.startsWith('clinic/') ? 'active' : ''} sep">All clinics</a>`
       + `<a href="#/comments" class="${slug.startsWith('comments') ? 'active' : ''}">Comments</a>`
-      + `<a href="#/ads" class="${slug === 'ads' ? 'active' : ''}">Ads</a>`;
+      + `<a href="#/ads" class="${slug === 'ads' ? 'active' : ''}">Ads</a>`
+      + `<a href="#/ai" class="${slug === 'ai' ? 'active' : ''}">AI answers</a>`;
     $('#brands .tabs a.active')?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
     $('#home').className = slug ? '' : 'active'; $('#portfolio').className = slug === 'portfolio' ? 'active' : '';
-    try { slug.startsWith('comments') ? await renderComments(slug.split('/')[1]) : slug === 'clinics' ? await renderLocations() : slug.startsWith('clinic/') ? await renderClinic(...slug.split('/').slice(1, 3).map(decodeURIComponent)) : slug === 'ads' ? await renderAds() : slug === 'portfolio' ? await renderOverview() : slug ? await renderSite(slug) : await renderManagement(); }
+    try { slug.startsWith('comments') ? await renderComments(slug.split('/')[1]) : slug === 'clinics' ? await renderLocations() : slug.startsWith('clinic/') ? await renderClinic(...slug.split('/').slice(1, 3).map(decodeURIComponent)) : slug === 'ads' ? await renderAds() : slug === 'ai' ? await renderAi() : slug === 'portfolio' ? await renderOverview() : slug ? await renderSite(slug) : await renderManagement(); }
     catch (e) { $('#main').innerHTML = `<p class="empty">Couldn't load that view: ${esc(e.message)}. <a href="#/">Back to portfolio</a></p>`; }
   };
   homeGroup = sites[0]?.group ?? null;
