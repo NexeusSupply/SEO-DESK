@@ -40,15 +40,17 @@ export async function checkAi(sites, only) {
   return logJob('ai', only || 'all', async () => {
     const models = Object.fromEntries(config.ai.engines.map((e) => [e.engine, e.model]));
     const ins = db.prepare('INSERT OR REPLACE INTO ai_answers (engine,prompt,checked_on,model,present,answer,sources,cost) VALUES (?,?,?,?,?,?,?,?)');
-    let done = 0, failed = 0, capped = 0, spent = 0;
+    let done = 0, failed = 0, capped = 0, spent = 0, inflight = 0; // inflight: estimated cost of questions still being answered
     const ask = async (q) => {
       const est = q.engine === 'google_aio' ? COST_EST.google_aio : COST_EST.llm;
-      if (!underCap(est)) { capped++; return; }
+      if (!underCap(est + inflight)) { capped++; return; }
+      inflight += est;
       try {
         const r = q.engine === 'google_aio' ? await aiOverview(q.prompt) : await llmAnswer(q.engine, models[q.engine], q.prompt);
         ins.run(q.engine, q.prompt, today(), r.model || null, r.present === false ? 0 : 1, r.text.slice(0, 20000), JSON.stringify(r.sources.slice(0, 30)), r.cost);
         recordSpend(`ai-${q.engine}`, r.cost, 1); spent += r.cost; done++;
       } catch (e) { failed++; console.warn(`[ai] ${q.engine} "${q.prompt}": ${e.message}`); }
+      finally { inflight -= est; }
     };
     for (let i = 0; i < todo.length; i += PARALLEL) await Promise.all(todo.slice(i, i + PARALLEL).map(ask));
     if (!done && failed) throw new Error(`all ${failed} AI questions failed; see the server log`);
