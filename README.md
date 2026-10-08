@@ -11,6 +11,7 @@ A self-hosted SEO dashboard for a portfolio of brand websites. It covers the par
 | Local SEO | Per-clinic Business Profile listing (rating, review count, completeness, open status), reviews with unreplied and low-rating flags, listing performance (search/maps views, calls, direction requests), map-pack rankings checked from each town, and name/address/phone consistency between config, website and listing. A group-wide "All clinics" view sorts by who needs attention, and each clinic has its own page (pick one from the clinic menu or click its name) with its listing details, reviews, listing performance, map-pack trend and website figures. | Google Business Profile APIs + DataForSEO | Free + ~US$0.003 per local check |
 | Facebook and Instagram | Followers, views and engagements over 28 days against the 28 before, recent posts with likes, comments and shares, and a comments inbox: read every comment across brands, reply publicly as the brand, hide spam, or mark it as needing no reply. Unanswered comments over a day old count towards a brand's Watch signal. | Meta Graph API | Free |
 | Ads | Google ads each brand's website is running (image, text and video, with first and last shown dates) from Google's public Ads Transparency Center, checked weekly, plus a link to each brand's Facebook and Instagram ads in Meta's public Ad Library. An "Ads" page lists every brand. | DataForSEO (Google Ads Transparency) | A fraction of a cent per brand per week |
+| AI answers | Once a month, asks ChatGPT, Gemini and Perplexity (with web search, as someone in New Zealand) which vet they'd recommend in each clinic's town, and checks Google's AI Overview on the town's local search. Shows whether each clinic was named and in what position, whether its website was cited, who was named instead, and the sources the AI read. There's an "AI answers" page for every brand, plus a section on each brand and clinic page. | DataForSEO AI Optimization (LLM Responses) + SERP API | About US$0.02–0.04 per question per AI, plus US$0.004 per AI Overview check. Roughly US$5–7 a month for 54 towns |
 | Digest | Weekly email summarising score changes, errors, rank movers and within-reach queries across all brands. | SMTP | Free |
 
 Everything is optional. Brands without a `locations` list simply don't show the clinic sections. A brand whose Search Console property or Google listing the account can't reach shows as **Not connected** everywhere — never as zero.
@@ -72,6 +73,12 @@ Add a `locations` list to any brand. Each location needs `slug` and `name`; the 
 | `gbpLocationId` | Business Profile sync (listing, reviews, performance) |
 
 `localKeywords` on the brand are templates: `"vet {town}"` becomes `vet feilding`, `vet otaki`, and so on. A location can add its own `keywords` too.
+
+### AI answers
+
+Brands with `localKeywords` get one question per clinic town each month: `Which vet clinic would you recommend in {town}, New Zealand?` (change it for everyone with `AI_PROMPTS`, separating several with `|`). A brand or a single location can set its own list with `"aiPrompts": ["…{town}…"]`, and `"aiNames": ["…"]` adds other names the clinic goes by, so answers that use them still count. Clinics in the same town share one answer. Google's AI Overview is checked on the same local searches as the map pack (`vet {town}`); Google often shows the map instead of an overview for these, which the dashboard reports as "none shown".
+
+`AI_ENGINES` picks the AIs and models as `engine:model` pairs (default `chat_gpt:gpt-5-mini,gemini:gemini-2.5-flash,perplexity:sonar`). Model names come from DataForSEO's `/v3/ai_optimization/<engine>/llm_responses/models`. `AI_OVERVIEWS=off` skips the Google check. Answers are stored as given, and whether a clinic was named is worked out when the page loads. A question answered in the last 25 days isn't asked again, so pressing "Ask the AIs again" doesn't spend twice. The job stops asking once the monthly spend cap is reached; raise `DFS_MONTHLY_CAP_USD` to about 20 to leave room for everything else.
 
 ### Google Business Profile
 

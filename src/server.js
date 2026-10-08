@@ -2,7 +2,7 @@ import express from 'express';
 import fs from 'node:fs';
 import path from 'node:path';
 import { config, loadSites } from './config.js';
-import { overview, siteDetail, issueDetail, allLocations, management, socialComments, allAds, clinicDetail } from './queries.js';
+import { overview, siteDetail, issueDetail, allLocations, management, socialComments, allAds, clinicDetail, allAi } from './queries.js';
 import { accessMiddleware } from './access.js';
 import { spendThisMonth } from './data/dataforseo.js';
 import { listAllLocations } from './data/gbp.js';
@@ -32,6 +32,7 @@ app.get('/api/sites/:slug/clinics/:loc', (req, res) => {
   if (!loc) return res.status(404).json({ error: 'unknown clinic' });
   res.json(clinicDetail(s, loc));
 });
+app.get('/api/ai', (_, res) => res.json(allAi(loadSites())));
 app.get('/api/ads', (_, res) => res.json(allAds(loadSites())));
 app.get('/api/locations', (_, res) => res.json(allLocations(loadSites())));
 // Finds gbpLocationId values for every listing the signed-in Google account manages

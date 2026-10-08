@@ -4,6 +4,7 @@ import { config } from './config.js';
 import { ISSUE_LABELS } from './audit/rules.js';
 import { keywordGap } from './data/competitors.js';
 import { googleTransparencyUrl, metaAdLibraryUrl, RUNNING_DAYS } from './data/ads.js';
+import { aiSummary, engineList } from './data/ai.js';
 
 export function overview(sites) {
   return sites.map((s) => {
@@ -64,7 +65,8 @@ export function siteDetail(site) {
     gsc: { daily: gscDaily, topQueries, topPages, strikingDistance, periodEnd: qEnd },
     ranks, domains, gap: keywordGap(site), jobs,
     locations: locationRows(site), recentReviews: recentReviews(site), connections: connections(site),
-    social: socialSummary(site), comments: socialComments([site], { limit: 40 }), ads: adsSummary(site) };
+    social: socialSummary(site), comments: socialComments([site], { limit: 40 }), ads: adsSummary(site),
+    ai: { ...aiSummary(site), engines: engineList() } };
 }
 
 export function issueDetail(site, code) {
@@ -132,6 +134,15 @@ export function allAds(sites) {
   return sites.map((s) => { const a = adsSummary(s, 6); return { slug: s.slug, name: s.name, group: s.group, host: s.host, ...a }; });
 }
 
+// ---- AI answers ----
+
+/** Every brand with AI questions, for the AI page. */
+export function allAi(sites) {
+  const brands = sites.map((s) => { const a = aiSummary(s); return { slug: s.slug, name: s.name, group: s.group, host: s.host, ...a, clinics: a.clinics.length }; })
+    .filter((b) => b.questions);
+  return { engines: engineList(), brands };
+}
+
 // ---- Facebook and Instagram ----
 
 /** Followers, 28-day insight totals against the 28 days before, and recent posts, per platform. */
@@ -182,6 +193,7 @@ export function connections(site) {
     localRanks: st(site.locations.some((l) => l.lat != null), config.dfs.enabled, has('SELECT 1 FROM local_ranks WHERE site=?', site.slug)),
     // Until the Meta token exists the whole feature is "coming soon" rather than "not connected" per brand.
     ads: st(true, config.dfs.enabled, has("SELECT 1 FROM dfs_tasks WHERE kind='ads' AND site=? AND status='done'", site.slug)),
+    ai: st(site.locations.some((l) => l.town) && (site.localKeywords.length > 0 || Boolean(site.aiPrompts)), config.dfs.enabled, aiSummary(site).checked != null),
     social: !config.meta.enabled ? 'coming_soon' : st(Boolean(site.meta), config.meta.enabled, has('SELECT 1 FROM meta_snapshots WHERE site=?', site.slug)),
     listingsConnected: site.locations.filter(listingSource).length, listingsTotal: site.locations.length,
   };
@@ -236,6 +248,8 @@ export function brandSignal(site) {
     if (social.platforms.some((p) => p.prevFollowers != null) && gained) changes.push(`${gained > 0 ? '+' : ''}${gained} social followers`);
     if (social.unansweredOld >= 5) { level = Math.max(level, 1); reasons.push(`${social.unansweredOld} Facebook/Instagram comments unanswered`); }
   }
+  const ai = aiSummary(site);
+  if (ai.total) changes.push(`named in ${ai.mentioned} of ${ai.total} AI answers`);
   const anyConnected = ['searchConsole', 'ranks', 'listings', 'localRanks', 'social'].some((k) => conn[k] === 'connected') || conn.audit === 'connected';
   return {
     slug: site.slug, name: site.name, group: site.group, host: site.host,
@@ -312,10 +326,12 @@ export function clinicDetail(site, loc) {
     listingHistory,
     performance: { daily, last28: end ? totals(sumDays(shift(28), end)) : null, prev28: end ? totals(sumDays(shift(56), shift(28))) : null },
     reviews, ratingSpread, rankHistory, rankDate,
+    ai: { ...aiSummary({ ...site, locations: [loc] }), engines: engineList() },
     // Data already synced counts as connected even if the source has since been switched off.
     connections: { listings: snap ? 'connected' : row.hasGbp ? 'no_data' : 'not_connected',
       localRanks: row.ranks.length ? 'connected' : loc.lat != null && config.dfs.enabled ? 'no_data' : 'not_connected',
-      performance: daily.length ? 'connected' : loc.gbpLocationId && config.gbp.enabled ? 'no_data' : 'not_connected', searchConsole: conn.searchConsole },
+      performance: daily.length ? 'connected' : loc.gbpLocationId && config.gbp.enabled ? 'no_data' : 'not_connected', searchConsole: conn.searchConsole,
+      ai: config.dfs.enabled ? 'connected' : 'not_connected' },
     website: { score: brand.audit?.score ?? null, prevScore: brand.audit?.prevScore ?? null, errors: brand.audit?.issue_counts?.error ?? null, clicks: brand.gsc?.clicks ?? null, prevClicks: brand.gsc?.prevClicks ?? null,
       sharedWith: site.locations.length },
   };

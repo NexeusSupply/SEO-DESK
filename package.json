@@ -15,6 +15,7 @@
     "local": "node src/cli.js local",
     "meta": "node src/cli.js meta",
     "ads": "node src/cli.js ads",
+    "ai": "node src/cli.js ai",
     "gbp:auth": "node src/data/gbp-auth.js"
   },
   "engines": {
