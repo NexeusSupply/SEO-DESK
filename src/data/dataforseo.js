@@ -80,6 +80,31 @@ export async function localSerp(keyword, lat, lng, zoom = 14) {
   return { pack, organic };
 }
 
+// ---- Keyword research ----
+
+/**
+ * Google Ads Keyword Planner ideas for up to 20 seed searches, NZ-wide. Returns { cost, items } where each item is
+ * { keyword, volume, cpc, competition ('LOW'|'MEDIUM'|'HIGH'|null), competitionIndex, lowBid, highBid, trend } and
+ * trend is the last 12 months of searches, oldest first. Google gives no volume (null) for very rare searches.
+ */
+export async function keywordIdeas(seeds) {
+  const [t] = await postRaw('/keywords_data/google_ads/keywords_for_keywords/live', [{ keywords: seeds.slice(0, 20), sort_by: 'search_volume', ...loc() }]);
+  if (t?.status_code !== 20000) throw new Error(`DataForSEO task ${t?.status_code}: ${t?.status_message}`);
+  // Google Ads endpoints put the keywords straight in result, not in result[0].items.
+  return { cost: t.cost || 0, items: (t.result || []).filter((k) => k?.keyword).map((k) => ({
+    keyword: k.keyword, volume: k.search_volume ?? null, cpc: k.cpc ?? null, competition: k.competition ?? null,
+    competitionIndex: k.competition_index ?? null, lowBid: k.low_top_of_page_bid ?? null, highBid: k.high_top_of_page_bid ?? null,
+    trend: (k.monthly_searches || []).slice(0, 12).reverse().map((m) => m.search_volume ?? null) })) };
+}
+
+/** Keyword difficulty (0-100) with the task's cost: { cost, items: [{ keyword, difficulty }] }. */
+export async function keywordDifficultyRaw(keywords) {
+  if (!keywords.length) return { cost: 0, items: [] };
+  const [t] = await postRaw('/dataforseo_labs/google/bulk_keyword_difficulty/live', [{ keywords: keywords.slice(0, 1000), ...loc() }]);
+  if (t?.status_code !== 20000) throw new Error(`DataForSEO task ${t?.status_code}: ${t?.status_message}`);
+  return { cost: t.cost || 0, items: (t.result?.[0]?.items || []).map((k) => ({ keyword: k.keyword, difficulty: k.keyword_difficulty ?? null })) };
+}
+
 // ---- AI answers ----
 
 const hostOf = (u) => { try { return new URL(u).host.replace(/^www\./, ''); } catch { return ''; } };

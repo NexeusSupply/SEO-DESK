@@ -86,6 +86,17 @@ const TIPS = {
   aiNamedInstead: 'Other businesses the AI recommended in its answer. These are who AI sees as the competition in that town.',
   aiCited: 'The AI linked to the clinic\u2019s website as a source. Being a cited source is how websites earn their place in AI answers.',
   aiSources: 'The websites the AI read to write its answer. Getting listed or mentioned on these sites (directories, review sites, local news) is the main way to appear in AI answers.',
+  kwResearch: 'Asks Google Ads\u2019 Keyword Planner (through DataForSEO) for searches related to this clinic\u2019s town and services, then checks how hard each is to rank for. Costs about US$0.10 and counts towards the monthly DataForSEO cap. Clinics in the same town share results.',
+  kwFound: 'Searches related to the clinic\u2019s town and services that Google suggested, plus the ones we started from.',
+  kwSeo: 'Searches with real volume that aren\u2019t too hard to rank for (difficulty under 50) and where we aren\u2019t already in the top 3. Write or improve a page on the website for these.',
+  kwAds: 'Urgent or \u201cnear me\u201d searches (people ready to call), searches other advertisers compete for, and worthwhile searches too hard to win organically. Bid on these in Google Ads.',
+  kwRanking: 'Of these searches, how many the website already shows on Google\u2019s first page for, from our rank checks.',
+  kwTrend: 'Monthly searches over the last 12 months.',
+  kwBid: 'What advertisers typically pay per click to show at the top of the page, low to high range, from Google Ads (in US dollars).',
+  kwCompetition: 'How many advertisers bid on this search in Google Ads: low, medium or high.',
+  kwPosition: 'Where the website ranks in Google for this search now. \u201cmap #2\u201d means it isn\u2019t in the normal results but the clinic shows second in the map box.',
+  kwAdvice: 'Our suggestion: SEO (target it on the website), Ads (bid on it), or both. The reasons are underneath.',
+  adDraft: 'A starting point for a Google responsive search ad: Google mixes the headlines and descriptions. Headlines can be 30 characters, descriptions 90. Check every line before using it.',
   metaAds: 'Meta only lets apps pull ads that were shown in Europe, so New Zealand and Australian ads can\u2019t be listed here. This opens Meta\u2019s public Ad Library, which shows every ad the brand\u2019s Facebook Page is running right now.',
 };
 // The "i" marker is glued to the last word so it never wraps onto a line by itself.
@@ -403,6 +414,10 @@ async function renderClinic(siteSlug, locSlug) {
 
   ${aiSection(d, siteSlug, true)}
 
+  ${keywordSection(d, siteSlug)}
+
+  ${ideasSection(d, siteSlug)}
+
   <h2>${tip('Website', 'brandWebsite')}</h2>
   <p class="sub"><a href="${esc(d.site.url)}" target="_blank" rel="noopener">${esc(d.site.host)}</a>${d.website.sharedWith > 1 ? `, shared by ${d.website.sharedWith} ${esc(d.site.name)} clinics` : ''}. <a href="#/${esc(d.site.slug)}">Open the brand page →</a></p>
   <div class="strip">
@@ -411,6 +426,109 @@ async function renderClinic(siteSlug, locSlug) {
     <div><div class="v">${d.website.clicks != null ? `${n(d.website.clicks)}${delta(d.website.clicks, d.website.prevClicks)}` : nc(d.connections.searchConsole === 'no_data' ? 'No data yet' : undefined)}</div><div class="l">${tip('Clicks from Google, 28 days', 'clicks')}</div></div>
   </div>`;
 }
+
+// ---- Keyword research and Claude's traffic ideas (one clinic) ----
+const ADVICE = {
+  both: ['SEO + Ads', 'good', 'Worth targeting on the website and bidding on in Google Ads.'],
+  seo: ['SEO', 'good', 'Worth targeting on the website: people search for it and it isn’t too hard to rank for.'],
+  ads: ['Ads', 'watch', 'Worth bidding on in Google Ads: urgent or “near me” searches, ones advertisers compete for, or ones too hard to win organically.'],
+  watch: ['Low priority', 'nc', 'Too few searches to be worth much effort right now, or already in the top 3.'],
+};
+const usd = (v) => v == null ? null : `$${Number(v).toFixed(2)}`;
+const kdBar = (k) => k == null ? '<small class="muted">?</small>' : `<span class="score"><b>${k}</b><i style="--w:${k}%;--c:${k < 30 ? 'var(--good)' : k < 50 ? 'var(--warn)' : 'var(--bad)'}"></i></span>`;
+const kwRow = (k) => `<tr data-advice="${k.advice}"><td>${esc(k.keyword)}${k.seed ? '' : ' <small class="muted">suggested</small>'}</td>
+  <td class="r num">${k.volume == null ? '<small class="muted">too few</small>' : n(k.volume)}</td><td>${spark(k.trend || [])}</td>
+  <td>${kdBar(k.difficulty)}</td>
+  <td class="r num">${k.lowBid != null ? `${usd(k.lowBid)}–${usd(k.highBid ?? k.lowBid)}` : k.cpc ? usd(k.cpc) : dash}</td>
+  <td><small class="muted">${k.competition ? esc(k.competition.toLowerCase()) : '—'}</small></td>
+  <td class="r">${k.position != null ? `<span class="pos ${k.position <= 3 ? 'top3' : ''}">${k.position}</span>` : k.mapPack != null ? `<small class="muted">map #${k.mapPack}</small>` : '<small class="muted">not ranking</small>'}</td>
+  <td><span class="sig ${ADVICE[k.advice][1]}" tabindex="0" data-tip="${esc(ADVICE[k.advice][2])}">${ADVICE[k.advice][0]}</span>${k.why.length ? `<br><small class="muted">${esc(k.why.join(', '))}</small>` : ''}</td></tr>`;
+
+function keywordSection(d, siteSlug) {
+  const k = d.keywords, c = d.connections.keywords, here = `data-site="${esc(siteSlug)}" data-loc="${esc(d.clinic.slug)}"`;
+  const head = `<h2>Keyword research</h2><p class="sub">Searches to target on the website (SEO) and to bid on in Google Ads, built from ${esc(d.clinic.town || 'the clinic’s town')} and the clinic’s services. Monthly searches and bids are New Zealand-wide figures from Google Ads’ Keyword Planner; difficulty is from DataForSEO.</p>`;
+  if (!k.available) return `${head}<p class="empty">Add this clinic’s <code>town</code> in sites.json to research keywords for it.</p>`;
+  if (c === 'not_connected') return `${head}<p class="empty">Keyword research runs through DataForSEO, which isn’t configured.</p>`;
+  const form = (label) => `<form class="kw-form" ${here} onsubmit="return researchKeywords(event)">
+    <input class="draft-note" name="extra" type="text" maxlength="300" placeholder="Add your own words, separated by commas (optional), e.g. puppy school, cat boarding">
+    <button class="run" type="submit" data-tip="${esc(TIPS.kwResearch)}">${label}</button><p class="cmt-err notok" hidden></p></form>`;
+  if (!k.researched) return `${head}<p class="empty">Not researched yet. We’ll start from: ${k.seeds.map((x) => `<code>${esc(x)}</code>`).join(' ')}</p>${form('Research keywords')}`;
+  const ct = k.counts, top = 40;
+  return `${head}
+  <div class="strip">
+    <div><div class="v">${ct.total}</div><div class="l">${tip('Keywords found', 'kwFound')}</div></div>
+    <div><div class="v">${n(ct.volume)}</div><div class="l">${tip('Searches a month', 'volume')}</div></div>
+    <div><div class="v">${ct.seo}</div><div class="l">${tip('Worth targeting with SEO', 'kwSeo')}</div></div>
+    <div><div class="v">${ct.ads}</div><div class="l">${tip('Worth bidding on in Ads', 'kwAds')}</div></div>
+    <div><div class="v">${ct.ranking}</div><div class="l">${tip('Already on page one', 'kwRanking')}</div></div>
+  </div>
+  <div class="actions inbox-tabs kw-tabs"><a class="run on" onclick="kwFilter(this,'')">All</a><a class="run" onclick="kwFilter(this,'seo')">SEO</a><a class="run" onclick="kwFilter(this,'ads')">Google Ads</a>
+    <button class="run" type="button" onclick="kwCsv(this)" ${here}>Download CSV</button><small class="muted">Researched ${dateShort(k.fetched)}</small></div>
+  <div class="wrap kw-table"><table class="data"><thead><tr>${th('Search', 'keyword')}${th('Monthly searches', 'volume', 'r')}${th('Trend', 'kwTrend')}${th('Difficulty', 'difficulty')}${th('Top-of-page bid (US$)', 'kwBid', 'r')}${th('Ad competition', 'kwCompetition')}${th('Our position', 'kwPosition', 'r')}${th('Suggested for', 'kwAdvice')}</tr></thead>
+  <tbody>${k.items.map((x, i) => kwRow(x).replace('<tr ', `<tr${i >= top ? ' hidden data-more' : ''} `)).join('')}</tbody></table></div>
+  ${k.items.length > top ? `<p class="foot"><button class="run" type="button" onclick="kwMore(this)">Show all ${k.items.length}</button></p>` : ''}
+  <details class="kw-again"><summary class="run">Research again with more words</summary>${form('Research again')}</details>`;
+}
+
+const CHANNEL = { seo: 'SEO', google_ads: 'Google Ads', google_listing: 'Google listing', reviews: 'Reviews', website: 'Website', ai_answers: 'AI answers', social: 'Social' };
+// Green is the good end: high impact, low effort.
+const level = (v, label, lowIsGood = false) => `<span class="sig ${v === (lowIsGood ? 'low' : 'high') ? 'good' : v === 'medium' ? 'watch' : 'nc'}">${label} ${esc(v)}</span>`;
+const charCount = (t, max) => `<small class="${t.length > max ? 'notok' : 'muted'}">${t.length}/${max}</small>`;
+
+function ideasSection(d, siteSlug) {
+  const s = d.suggestions, on = d.connections.claude === 'connected', here = `data-site="${esc(siteSlug)}" data-loc="${esc(d.clinic.slug)}"`;
+  const head = `<h2>Ideas to grow traffic <span class="sig nc">Claude</span></h2><p class="sub">Claude reads everything on this page (listing, reviews, map pack, AI answers, ads and keyword research) and suggests what to do next for SEO and Google Ads, with a starter search ad.${d.keywords.researched ? '' : ' Research keywords first for sharper Ads ideas.'}</p>`;
+  if (!on) return `${head}<p class="empty">Ideas from Claude need an Anthropic API key (<code>ANTHROPIC_API_KEY</code>) set on the server.</p>`;
+  const form = `<form class="kw-form" ${here} onsubmit="return getIdeas(event)"><input class="draft-note" name="focus" type="text" maxlength="300" placeholder="Anything to focus on? (optional), e.g. more puppy bookings, a new vet starting">
+    <button class="run" type="submit">${s ? 'Get new ideas' : 'Get ideas'}</button><p class="cmt-err notok" hidden></p></form>`;
+  if (!s) return `${head}${form}`;
+  const copyList = (items, label) => `<button class="run copy-btn" type="button" data-copy="${esc(items.join('\n'))}" onclick="copyText(this)">Copy ${label}</button>`;
+  return `${head}
+  <p class="ideas-summary">${esc(s.summary)}</p>
+  <ol class="ideas">${s.ideas.map((i) => `<li class="idea"><div class="idea-head"><b>${esc(i.title)}</b><span class="plat ad-text">${esc(CHANNEL[i.channel] || i.channel)}</span>${level(i.impact, 'impact')}${level(i.effort, 'effort', true)}</div>
+    <p class="muted">${esc(i.why)}</p>${i.steps.length ? `<ul>${i.steps.map((x) => `<li>${esc(x)}</li>`).join('')}</ul>` : ''}</li>`).join('')}</ol>
+  <h3>${tip('Starter Google search ad', 'adDraft')}</h3>
+  <div class="ad-draft">
+    <div><h4>Headlines</h4><ul>${s.ad.headlines.map((h) => `<li>${esc(h)} ${charCount(h, 30)}</li>`).join('')}</ul>${copyList(s.ad.headlines, 'headlines')}</div>
+    <div><h4>Descriptions</h4><ul>${s.ad.descriptions.map((h) => `<li>${esc(h)} ${charCount(h, 90)}</li>`).join('')}</ul>${copyList(s.ad.descriptions, 'descriptions')}</div>
+    <div><h4>Keywords to bid on</h4><ul>${s.ad.keywords.map((h) => `<li>${esc(h)}</li>`).join('')}</ul>${copyList(s.ad.keywords, 'keywords')}</div>
+  </div>
+  <p class="foot muted"><small>Generated ${dateShort(s.created)}${s.focus ? ` with the focus “${esc(s.focus)}”` : ''}${s.by ? ` by ${esc(s.by)}` : ''}. Check ideas and ad copy before using them.</small></p>
+  ${form}`;
+}
+
+async function busy(ev, label, fn) {
+  ev.preventDefault();
+  const f = ev.target, btn = f.querySelector('button'), err = f.querySelector('.cmt-err'), was = btn.textContent;
+  btn.disabled = true; btn.textContent = label; err.hidden = true;
+  try { await fn(f); } catch (e) { err.textContent = e.message; err.hidden = false; btn.disabled = false; btn.textContent = was; }
+  return false;
+}
+// Re-render only this clinic page once new research or ideas are saved, keeping the scroll position.
+const rerender = async (f) => { const y = scrollY; await renderClinic(f.dataset.site, f.dataset.loc); scrollTo(0, y); };
+function researchKeywords(ev) {
+  return busy(ev, 'Researching… (up to a minute)', async (f) => { await post(`/sites/${f.dataset.site}/clinics/${f.dataset.loc}/keywords`, { extra: f.extra.value }); await rerender(f); });
+}
+function getIdeas(ev) {
+  return busy(ev, 'Claude is thinking… (up to a minute)', async (f) => { await post(`/sites/${f.dataset.site}/clinics/${f.dataset.loc}/suggestions`, { focus: f.focus.value }); await rerender(f); });
+}
+function kwFilter(a, advice) {
+  a.parentElement.querySelectorAll('a.run').forEach((x) => x.classList.toggle('on', x === a));
+  const rows = document.querySelectorAll('.kw-table tbody tr');
+  rows.forEach((r) => { r.hidden = advice ? !(r.dataset.advice === advice || r.dataset.advice === 'both') : r.hasAttribute('data-more'); });
+}
+function kwMore(btn) { document.querySelectorAll('.kw-table tr[data-more]').forEach((r) => { r.hidden = false; r.removeAttribute('data-more'); }); btn.remove(); }
+function kwCsv(btn) {
+  const cells = (tr) => [...tr.children].map((td) => `"${td.innerText.replace(/\s+/g, ' ').trim().replace(/"/g, '""')}"`).join(',');
+  const rows = [...document.querySelectorAll('.kw-table tr')].map(cells).join('\n');
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([rows], { type: 'text/csv' })); a.download = `keywords-${btn.dataset.site}-${btn.dataset.loc}.csv`; a.click();
+}
+async function copyText(btn) {
+  try { await navigator.clipboard.writeText(btn.dataset.copy); } catch { /* clipboard blocked */ }
+  const was = btn.textContent; btn.textContent = 'Copied'; setTimeout(() => { btn.textContent = was; }, 1500);
+}
+Object.assign(window, { researchKeywords, getIdeas, kwFilter, kwMore, kwCsv, copyText });
 
 // ---- AI answers ----
 const aiCell = (r) => {

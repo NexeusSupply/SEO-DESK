@@ -10,6 +10,7 @@ import { trackLocalRanks, collectLocalRanks, checkNap } from './data/local.js';
 import { syncPublicListings, collectPublicReviews } from './data/listings-public.js';
 import { syncAds, collectAds } from './data/ads.js';
 import { checkAi } from './data/ai.js';
+import { researchSite } from './data/keywords.js';
 
 const forEachSite = async (fn, only) => {
   const sites = loadSites().filter((s) => !only || s.slug === only);
@@ -36,5 +37,7 @@ export const jobs = {
   meta: (only) => config.meta.enabled ? forEachSite(syncMeta, only) : Promise.resolve(['Meta not configured']),
   // Monthly: what ChatGPT, Gemini and Perplexity say when asked for a vet in each clinic's town, plus Google's AI Overview.
   ai: async (only) => [await checkAi(loadSites(), only)],
+  // On demand (no schedule): keyword research for every clinic of a brand not researched in the last month.
+  keywords: (only) => config.dfs.enabled ? forEachSite(researchSite, only) : Promise.resolve(['DataForSEO not configured']),
   'meta-comments': (only) => config.meta.enabled ? forEachSite((s) => s.meta ? syncMetaComments(s) : 'not set up', only) : Promise.resolve(['Meta not configured']),
 };

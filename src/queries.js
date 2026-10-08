@@ -5,6 +5,8 @@ import { ISSUE_LABELS } from './audit/rules.js';
 import { keywordGap } from './data/competitors.js';
 import { googleTransparencyUrl, metaAdLibraryUrl, RUNNING_DAYS } from './data/ads.js';
 import { aiSummary, engineList } from './data/ai.js';
+import { keywordSummary } from './data/keywords.js';
+import { latestSuggestions } from './data/suggestions.js';
 
 export function overview(sites) {
   return sites.map((s) => {
@@ -320,18 +322,21 @@ export function clinicDetail(site, loc) {
   return {
     site: { slug: site.slug, name: site.name, url: site.url, host: site.host, group: site.group },
     clinic: { slug: loc.slug, name: loc.name, town: loc.town ?? null, address: loc.address ?? null, phone: loc.phone ?? null, url: loc.url ?? null,
-      placeId: loc.placeId ?? null, cid: loc.cid ?? null, lat: loc.lat ?? null, lng: loc.lng ?? null, gbpLinked: Boolean(loc.gbpLocationId), mapsUrl: mapsUrl(loc) },
+      services: loc.services ?? [], placeId: loc.placeId ?? null, cid: loc.cid ?? null, lat: loc.lat ?? null, lng: loc.lng ?? null, gbpLinked: Boolean(loc.gbpLocationId), mapsUrl: mapsUrl(loc) },
     summary: row,
     listing: snap ? { ...snap, has_hours: Boolean(snap.has_hours), has_description: Boolean(snap.has_description) } : null,
     listingHistory,
     performance: { daily, last28: end ? totals(sumDays(shift(28), end)) : null, prev28: end ? totals(sumDays(shift(56), shift(28))) : null },
     reviews, ratingSpread, rankHistory, rankDate,
     ai: { ...aiSummary({ ...site, locations: [loc] }), engines: engineList() },
+    ads: (({ running, total, checked }) => ({ running, total, checked }))(adsSummary(site, 0)),
+    keywords: keywordSummary(site, loc),
+    suggestions: latestSuggestions(site, loc),
     // Data already synced counts as connected even if the source has since been switched off.
     connections: { listings: snap ? 'connected' : row.hasGbp ? 'no_data' : 'not_connected',
       localRanks: row.ranks.length ? 'connected' : loc.lat != null && config.dfs.enabled ? 'no_data' : 'not_connected',
       performance: daily.length ? 'connected' : loc.gbpLocationId && config.gbp.enabled ? 'no_data' : 'not_connected', searchConsole: conn.searchConsole,
-      ai: config.dfs.enabled ? 'connected' : 'not_connected' },
+      ai: config.dfs.enabled ? 'connected' : 'not_connected', keywords: config.dfs.enabled ? 'connected' : 'not_connected', claude: config.claude.enabled ? 'connected' : 'not_connected' },
     website: { score: brand.audit?.score ?? null, prevScore: brand.audit?.prevScore ?? null, errors: brand.audit?.issue_counts?.error ?? null, clicks: brand.gsc?.clicks ?? null, prevClicks: brand.gsc?.prevClicks ?? null,
       sharedWith: site.locations.length },
   };
