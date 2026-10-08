@@ -231,3 +231,21 @@ h1 .sig, h2 .sig { vertical-align: middle; margin-left: 8px; font-size: 12px; }
 .cmt span[data-tip] { display: inline-block; }
 .cmt span[data-tip] > button:disabled { pointer-events: none; }
 .cmt .cmt-head .sig { font-size: 11px; padding: 1px 8px; }
+
+/* One clinic: the picker, the listing details and the star split */
+.page-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 20px; flex-wrap: wrap; }
+.page-head .site-head { flex: 1; min-width: 260px; }
+.picker { display: flex; flex-direction: column; gap: 6px; font-size: 13px; color: var(--muted); margin-bottom: 20px; }
+.picker select { font: inherit; font-size: 14px; color: var(--ink); min-width: 280px; max-width: 100%; padding: 9px 36px 9px 14px; border: 1px solid var(--brand-tint); border-radius: 999px; background: var(--sheet) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%23004860' stroke-width='1.6'/%3E%3C/svg%3E") no-repeat right 14px center; appearance: none; cursor: pointer; box-shadow: var(--shadow); }
+.picker select:hover, .picker select:focus { border-color: var(--brand); }
+.clinic-link b { color: var(--brand); }
+table.details th[scope="row"] { width: 150px; font-size: 13px; font-weight: 600; color: var(--muted); text-transform: none; letter-spacing: 0; background: var(--brand-wash); }
+table.details td { overflow-wrap: anywhere; }
+.reviews-head { margin-bottom: 14px; font-size: 13px; color: var(--muted); }
+.spread { display: grid; gap: 4px; max-width: 360px; margin-top: 8px; }
+.spread > div { display: grid; grid-template-columns: 36px 1fr 36px; align-items: center; gap: 10px; }
+.spread i { height: 8px; background: var(--brand-soft); border-radius: 4px; overflow: hidden; }
+.spread i::after { content: ""; display: block; height: 100%; width: var(--w); background: var(--c); border-radius: 4px; }
+.spread b { text-align: right; font-weight: 600; color: var(--ink); }
+.legend .spark { margin: 0 4px; }
+@media (max-width: 800px) { .picker, .picker select { width: 100%; min-width: 0; } }

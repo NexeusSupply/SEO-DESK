@@ -69,6 +69,17 @@ const TIPS = {
   replySoon: 'Coming soon. Replying to Google reviews from here needs Google\u2019s Business Profile API, and Google hasn\u2019t approved our access yet. Until then, reply from the clinic\u2019s Google listing.',
   adsRunning: 'Google ads for this brand\u2019s website shown in the last 7 days, from Google\u2019s public Ads Transparency Center. Checked weekly.',
   adsSeen: 'Every Google ad for this website seen in the last 90 days, including ones that have stopped.',
+  pickClinic: 'Jump straight to one clinic\u2019s page: its Google listing, reviews, map-pack rankings and whether its details match. Type to search.',
+  clinicViews: 'How many times the clinic\u2019s Google listing was seen in Google Search and Maps in the last 28 days, with the change on the 28 days before. Needs Business Profile API access for this clinic.',
+  websiteClicks: 'Clicks from the clinic\u2019s Google listing through to its website in the last 28 days.',
+  calls: 'Phone calls made by tapping Call on the clinic\u2019s Google listing in the last 28 days.',
+  directions: 'Requests for directions to the clinic from its Google listing in the last 28 days.',
+  reviewCount: 'The clinic\u2019s star rating on Google and how many reviews it has in total.',
+  ratingSpread: 'How the clinic\u2019s synced Google reviews split across 1 to 5 stars.',
+  onGoogle: 'What the clinic\u2019s Google Business Profile shows today, from the latest sync.',
+  ourRecords: 'What we have on file for the clinic in sites.json. Differences are worth fixing on whichever side is wrong.',
+  sources: 'Where we checked the clinic\u2019s name, address and phone: its Google listing, our records and its website.',
+  brandWebsite: 'Search and audit figures for the website this clinic shares with its brand. Open the brand page for the full picture.',
   metaAds: 'Meta only lets apps pull ads that were shown in Europe, so New Zealand and Australian ads can\u2019t be listed here. This opens Meta\u2019s public Ad Library, which shows every ad the brand\u2019s Facebook Page is running right now.',
 };
 // The "i" marker is glued to the last word so it never wraps onto a line by itself.
@@ -87,28 +98,29 @@ function spark(values, invert) {
   return `<svg class="spark" viewBox="0 0 ${w} ${h}" aria-hidden="true"><path d="${d}"/></svg>`;
 }
 
-function lineChart(daily) {
-  if (!daily.length) return '<p class="empty">No Search Console data yet.</p>';
+function lineChart(daily, { a = 'impressions', b = 'clicks', label = '<b>Clicks</b> and impressions', empty = 'No Search Console data yet.' } = {}) {
+  if (!daily.length) return `<p class="empty">${empty}</p>`;
   const w = 1000, h = 160, pad = 8;
   const line = (key, cls) => {
     const max = Math.max(...daily.map((d) => d[key])) || 1;
     return `<path class="${cls}" d="${daily.map((d, i) => `${i ? 'L' : 'M'}${(pad + i / (daily.length - 1) * (w - 2 * pad)).toFixed(1)},${(h - pad - d[key] / max * (h - 2 * pad)).toFixed(1)}`).join('')}"/>`;
   };
-  return `<svg class="chart" viewBox="0 0 ${w} ${h}" preserveAspectRatio="none" role="img" aria-label="Clicks and impressions over the last 90 days">${line('impressions', 'imp')}${line('clicks', 'clicks')}</svg>
-  <p class="legend"><b>Clicks</b> and impressions, ${dateShort(daily[0].date)} to ${dateShort(daily[daily.length - 1].date)}</p>`;
+  return `<svg class="chart" viewBox="0 0 ${w} ${h}" preserveAspectRatio="none" role="img" aria-label="${esc(label.replace(/<[^>]+>/g, ''))} over the last 90 days">${line(a, 'imp')}${line(b, 'clicks')}</svg>
+  <p class="legend">${label}, ${dateShort(daily[0].date)} to ${dateShort(daily[daily.length - 1].date)}</p>`;
 }
 
 const stars = (r) => r == null ? '<span class="dash">—</span>' : `<span class="num">${Number(r).toFixed(1)}</span> <span class="star">★</span>`;
 const okmark = (v) => v ? '<span class="ok">✓</span>' : '<span class="notok">✗</span>';
 
-function locationsTable(rows, showBrand) {
+const clinicHref = (site, loc) => `#/clinic/${encodeURIComponent(site)}/${encodeURIComponent(loc)}`;
+function locationsTable(rows, showBrand, site) {
   if (!rows.length) return '';
   return `<div class="wrap"><table class="data"><thead><tr>${showBrand ? '<th>Brand</th>' : ''}${th('Clinic', 'clinic')}${th('Rating', 'rating')}${th('Reviews (30d)', 'reviews30', 'r')}${th('Unreplied', 'unreplied', 'r')}${th('Listing', 'listing', 'r')}${th('Map pack', 'mapPack')}${th('Calls / directions (28d)', 'callsDirections', 'r')}${th('Details match', 'detailsMatch')}</tr></thead><tbody>
   ${rows.map((l) => {
     const packs = l.ranks.filter((r) => r.map_pack != null);
     const pack = !l.ranks.length ? '<span class="dash">—</span>' : packs.length ? `${packs.length} of ${l.ranks.length} <span class="delta flat">best #${Math.min(...packs.map((r) => r.map_pack))}</span>` : '<span class="notok">not in pack</span>';
     return `<tr class="${l.attention >= 5 ? 'attn' : ''}">${showBrand ? `<td><div class="who">${badge(l.site, l.brand, 'sm')}<a href="#/${l.site}">${esc(l.brand)}</a></div></td>` : ''}
-    <td><b>${esc(l.name)}</b>${l.town ? `<br><small class="muted">${esc(l.town)}</small>` : ''}</td>
+    <td><a class="clinic-link" href="${clinicHref(l.site || site, l.slug)}"><b>${esc(l.name)}</b></a>${l.town ? `<br><small class="muted">${esc(l.town)}</small>` : ''}</td>
     <td>${l.listing ? stars(l.listing.rating) : l.hasGbp ? '<span class="dash">—</span>' : '<small class="muted">no listing ID</small>'}</td>
     <td class="r num">${l.listing ? `${l.reviews.last30}${l.reviews.lowRecent ? ` <span class="delta down">${l.reviews.lowRecent} low</span>` : ''}` : n(null)}</td>
     <td class="r num ${l.reviews.unreplied ? 'notok' : ''}">${l.listing ? l.reviews.unreplied : n(null)}</td>
@@ -119,9 +131,21 @@ function locationsTable(rows, showBrand) {
   </tbody></table></div>`;
 }
 
+// Every clinic, for the picker. Fetched once; it only changes when sites.json does.
+let clinicList = null;
+const loadClinics = async () => clinicList ||= await api('/locations');
+function clinicPicker(rows, current = '') {
+  const brands = [...new Map(rows.map((l) => [l.site, l.brand])).entries()].sort((a, b) => a[1].localeCompare(b[1]));
+  return `<label class="picker"><span>${tip('Go to a clinic', 'pickClinic')}</span>
+  <select onchange="if (this.value) location.hash = this.value"><option value="">Choose a clinic…</option>
+  ${brands.map(([site, brand]) => `<optgroup label="${esc(brand)}">${rows.filter((l) => l.site === site).sort((a, b) => a.name.localeCompare(b.name))
+    .map((l) => { const h = clinicHref(site, l.slug); return `<option value="${h}"${h === current ? ' selected' : ''}>${esc(l.name)}${l.town && !l.name.includes(l.town) ? ` (${esc(l.town)})` : ''}</option>`; }).join('')}</optgroup>`).join('')}
+  </select></label>`;
+}
+
 async function renderLocations() {
-  const rows = await api('/locations');
-  $('#main').innerHTML = `<h1>Clinics</h1><p class="sub">Every location across the group, the ones needing attention first.</p>
+  const rows = await api('/locations'); clinicList = rows;
+  $('#main').innerHTML = `<div class="page-head"><div><h1>Clinics</h1><p class="sub">Every location across the group, the ones needing attention first. Open a clinic for its own page.</p></div>${rows.length ? clinicPicker(rows) : ''}</div>
   ${rows.length ? locationsTable(rows, true) : '<p class="empty">No locations configured. Add a <code>locations</code> list to a brand in data/sites.json.</p>'}
   <div class="actions"><button class="run" onclick="run('gbp')">Sync Business Profiles</button><button class="run" onclick="run('local')">Check map-pack ranks and details</button></div>`;
 }
@@ -286,6 +310,100 @@ function adsSection(d, slug) {
     : `<p class="empty">No Google ads seen for this website in the last 90 days${a.checked ? ` (checked ${dateShort(a.checked)})` : ''}.</p>`) : ''}`;
 }
 
+// ---- One clinic ----
+const pct = (cur, prev) => cur == null || !prev ? '' : (() => { const p = Math.round(((cur - prev) / prev) * 100); return `<span class="delta ${p > 0 ? 'up' : p < 0 ? 'down' : 'flat'}">${p > 0 ? '+' : ''}${p}%</span>`; })();
+const yes = (v, text) => v == null ? dash : v ? `<span class="ok">✓</span> ${text || 'Yes'}` : '<span class="notok">✗</span> Missing';
+
+function ratingBars(spread) {
+  const total = Object.values(spread).reduce((a, b) => a + b, 0);
+  if (!total) return '';
+  return `<div class="spread">${[5, 4, 3, 2, 1].map((s) => `<div><span>${s} <span class="star">★</span></span><i style="--w:${(spread[s] / total * 100).toFixed(1)}%;--c:${s >= 4 ? 'var(--good)' : s === 3 ? 'var(--warn)' : 'var(--bad)'}"></i><b class="num">${spread[s]}</b></div>`).join('')}</div>`;
+}
+
+async function renderClinic(siteSlug, locSlug) {
+  const [d, rows] = await Promise.all([api(`/sites/${encodeURIComponent(siteSlug)}/clinics/${encodeURIComponent(locSlug)}`), loadClinics().catch(() => [])]);
+  const c = d.clinic, s = d.summary, g = d.listing, p = d.performance, cn = d.connections;
+  const here = clinicHref(siteSlug, locSlug);
+  // Until real reviews arrive, made-up ones show how drafting a reply works.
+  const reviews = d.reviews.length ? d.reviews : (examples?.review || []).map((x) => ({ ...x, review_id: x.id, location: c.slug, replied: 0, example: true }));
+  const packs = s.ranks.filter((r) => r.map_pack != null);
+  const listingNote = cn.listings === 'not_connected'
+    ? `<p class="empty">We can\u2019t read this clinic\u2019s Google listing yet. ${c.placeId || c.cid ? 'It has a place ID, so it will sync once DataForSEO or the Business Profile API is switched on.' : 'Add its <code>placeId</code> or <code>cid</code> in sites.json.'}</p>`
+    : `<p class="empty">Not synced yet. <button class="run" onclick="run('gbp','${siteSlug}')">Sync ${esc(d.site.name)} listings</button></p>`;
+  const detailRow = (label, google, ours, ok) => `<tr><th scope="row">${label}</th><td>${google ?? dash}</td><td>${ours ?? dash}${ok === false ? ' <span class="notok">✗</span>' : ''}</td></tr>`;
+  // The ✗ beside our records only reflects the Google listing check; the website check has its own table below.
+  const gbpNap = s.nap.find((x) => x.source === 'business-profile');
+  const napFor = (field) => gbpNap ? Boolean(gbpNap[`${field}_ok`]) : undefined;
+  const NAP_SOURCE = { 'business-profile': 'Google listing', website: 'Website' };
+
+  $('#main').innerHTML = `
+  <div class="page-head">
+    <div class="site-head">${badge(d.site.slug, d.site.name, 'lg')}<div><h1>${esc(c.name)}</h1>
+      <p class="sub">${c.town ? `${esc(c.town)} · ` : ''}<a href="#/${esc(d.site.slug)}">${esc(d.site.name)}</a>${c.mapsUrl ? ` · <a href="${esc(c.mapsUrl)}" target="_blank" rel="noopener">Google Maps ↗</a>` : ''}${c.url || d.site.url ? ` · <a href="${esc(c.url || d.site.url)}" target="_blank" rel="noopener">Website ↗</a>` : ''}</p></div></div>
+    ${rows.length ? clinicPicker(rows, here) : ''}
+  </div>
+
+  <div class="strip">
+    <div><div class="v">${g ? `${g.rating != null ? Number(g.rating).toFixed(1) : '—'} <span class="star">★</span><small>${n(g.review_count)} reviews</small>` : nc(cn.listings === 'no_data' ? 'No data yet' : 'Not connected')}</div><div class="l">${tip('Google rating', 'reviewCount')}</div></div>
+    <div><div class="v">${g ? `${s.reviews.last30}${s.reviews.lowRecent ? `<small class="notok">${s.reviews.lowRecent} low</small>` : ''}` : dash}</div><div class="l">${tip('New reviews, 30 days', 'reviews30')}</div></div>
+    <div><div class="v ${s.reviews.unreplied ? 'notok' : ''}">${g ? s.reviews.unreplied : dash}</div><div class="l">${tip('Unreplied reviews', 'unreplied')}</div></div>
+    <div><div class="v ${g && g.completeness < 80 ? 'notok' : ''}">${g ? `${g.completeness}<small>%</small>` : dash}</div><div class="l">${tip('Listing complete', 'listing')}</div></div>
+    <div><div class="v">${s.ranks.length ? `${packs.length}<small>of ${s.ranks.length} searches</small>` : nc(cn.localRanks === 'no_data' ? 'No data yet' : 'Not checked')}</div><div class="l">${tip('In the map pack', 'mapPack')}</div></div>
+  </div>
+  <div class="actions"><button class="run" onclick="run('gbp','${siteSlug}')">Sync Business Profiles</button><button class="run" onclick="run('local','${siteSlug}')">Check map-pack ranks and details</button></div>
+
+  <h2>Google Business Profile${g?.open_status && g.open_status !== 'OPEN' ? ` <span class="sig problem">${esc(g.open_status.replace(/_/g, ' ').toLowerCase())}</span>` : ''}</h2>
+  ${g ? `<p class="sub">Last synced ${dateShort(g.fetched_on)}.${c.gbpLinked ? '' : ' Read from Google\u2019s public listing; performance figures need Business Profile API access.'}</p>
+  <div class="wrap"><table class="data details"><thead><tr><th></th>${th('On Google', 'onGoogle')}${th('Our records', 'ourRecords')}</tr></thead><tbody>
+    ${detailRow('Name', esc(g.title), esc(c.name), napFor('name'))}
+    ${detailRow('Category', esc(g.primary_category), null)}
+    ${detailRow('Address', esc(g.address), esc(c.address), napFor('address'))}
+    ${detailRow('Phone', esc(g.phone), esc(c.phone), napFor('phone'))}
+    ${detailRow('Website', g.website ? `<a href="${esc(g.website)}" target="_blank" rel="noopener">${esc(g.website.replace(/^https?:\/\/(www\.)?/, '').replace(/\/$/, ''))}</a>` : null, c.url || d.site.url ? esc((c.url || d.site.url).replace(/^https?:\/\/(www\.)?/, '').replace(/\/$/, '')) : null)}
+    ${detailRow('Opening hours', yes(g.has_hours, 'Set'), null)}
+    ${detailRow('Description', yes(g.has_description, 'Written'), null)}
+    ${detailRow('Photos', g.photo_count != null ? n(g.photo_count) : null, null)}
+    ${detailRow('Status', g.open_status ? esc(g.open_status.replace(/_/g, ' ').toLowerCase()) : null, null)}
+  </tbody></table></div>` : listingNote}
+  ${d.listingHistory.length > 1 ? `<p class="legend">Rating over time ${spark(d.listingHistory.map((h) => h.rating))} · reviews ${spark(d.listingHistory.map((h) => h.review_count))}</p>` : ''}
+
+  ${s.nap.length ? `<h3>${tip('Do the details match?', 'detailsMatch')}</h3><div class="wrap"><table class="data"><thead><tr>${th('Source', 'sources')}<th>Name</th><th>Address</th><th>Phone</th><th>Notes</th></tr></thead><tbody>
+    ${s.nap.map((x) => `<tr><td>${esc(NAP_SOURCE[x.source] || x.source)}</td><td>${okmark(x.name_ok)}</td><td>${okmark(x.address_ok)}</td><td>${okmark(x.phone_ok)}</td><td><small class="muted">${esc(x.detail || '')}</small></td></tr>`).join('')}
+  </tbody></table></div>` : ''}
+
+  <h2>How people find the listing</h2>
+  ${cn.performance === 'not_connected' ? '<p class="empty">Views, calls and direction requests come from the Business Profile API, which isn\u2019t connected for this clinic yet.</p>' : `
+  <div class="strip">
+    <div><div class="v">${p.last28 ? `${n(p.last28.views)}${pct(p.last28.views, p.prev28?.views)}` : nc('No data yet')}</div><div class="l">${tip('Listing views, 28 days', 'clinicViews')}</div></div>
+    <div><div class="v">${p.last28 ? `${n(p.last28.calls)}${pct(p.last28.calls, p.prev28?.calls)}` : dash}</div><div class="l">${tip('Calls', 'calls')}</div></div>
+    <div><div class="v">${p.last28 ? `${n(p.last28.directions)}${pct(p.last28.directions, p.prev28?.directions)}` : dash}</div><div class="l">${tip('Direction requests', 'directions')}</div></div>
+    <div><div class="v">${p.last28 ? `${n(p.last28.website)}${pct(p.last28.website, p.prev28?.website)}` : dash}</div><div class="l">${tip('Website clicks', 'websiteClicks')}</div></div>
+  </div>
+  ${p.daily.length ? `<div style="margin-top:16px">${lineChart(p.daily, { a: 'views', b: 'calls', label: '<b>Calls</b> and listing views' })}</div>` : ''}`}
+
+  <h2>Local search</h2>
+  ${s.ranks.length ? `<p class="sub">Searched as if from ${esc(c.town || c.name)}${d.rankDate ? `, checked ${dateShort(d.rankDate)}` : ''}.</p><div class="wrap"><table class="data"><thead><tr>${th('Search', 'townSearch')}${th('Map pack', 'packPosition', 'r')}${th('Trend', 'trend')}${th('Organic', 'organic', 'r')}${th('Who\'s in the pack', 'whoInPack')}</tr></thead><tbody>
+  ${s.ranks.map((r) => `<tr><td>${esc(r.keyword)}</td><td class="r"><span class="pos ${r.map_pack == null ? 'none' : r.map_pack <= 3 ? 'top3' : ''}">${r.map_pack ?? 'not shown'}</span>${delta(r.map_pack, r.prev, true)}</td>
+    <td>${spark(d.rankHistory[r.keyword] || [], true)}</td><td class="r num">${r.organic ?? dash}</td>
+    <td><small class="muted">${r.top_pack.map((x) => `#${x.p} ${esc(x.t)}${x.r ? ` (${x.r})` : ''}`).join(' · ')}</small></td></tr>`).join('')}</tbody></table></div>`
+    : `<p class="empty">${cn.localRanks === 'not_connected' ? (c.lat == null ? 'Add this clinic\u2019s <code>lat</code> and <code>lng</code> in sites.json to check where it shows on the map.' : 'Map-pack checks run through DataForSEO, which isn\u2019t configured.') : `Not checked yet. <button class="run" onclick="run('local','${siteSlug}')">Check now</button>`}</p>`}
+
+  <h2>Reviews${reviews.length ? ` <span class="sig nc" tabindex="0" data-tip="${esc(TIPS.replySoon)}">Posting replies coming soon</span>` : ''}</h2>
+  ${d.reviews.length ? `<div class="reviews-head"><div>${tip('Star split', 'ratingSpread')}${ratingBars(d.ratingSpread)}</div></div>` : reviews.length ? '<p class="sub">No reviews synced for this clinic yet, so here are two made-up ones to try drafting a reply.</p>' : ''}
+  ${reviews.length ? `<div class="wrap"><table class="data"><thead><tr><th>Date</th>${th('Rating', 'rating')}<th>Review</th>${th('Replied', 'replied')}</tr></thead><tbody>
+  ${reviews.map((r) => `<tr><td>${r.example ? `<span class="sig nc" tabindex="0" data-tip="${esc(TIPS.example)}">Example</span>` : `<small class="muted">${dateShort(r.created_at)}</small>`}</td><td>${stars(r.rating)}</td>
+    <td>${esc((r.comment || '').slice(0, 400))}${(r.comment || '').length > 400 ? '…' : ''}${r.reviewer ? `<br><small class="muted">${esc(r.reviewer)}</small>` : ''}${r.replied ? '' : mockReply(r, siteSlug, c.name)}</td><td>${okmark(r.replied)}</td></tr>`).join('')}
+  </tbody></table></div>` : '<p class="empty">No reviews yet.</p>'}
+
+  <h2>${tip('Website', 'brandWebsite')}</h2>
+  <p class="sub"><a href="${esc(d.site.url)}" target="_blank" rel="noopener">${esc(d.site.host)}</a>${d.website.sharedWith > 1 ? `, shared by ${d.website.sharedWith} ${esc(d.site.name)} clinics` : ''}. <a href="#/${esc(d.site.slug)}">Open the brand page →</a></p>
+  <div class="strip">
+    <div><div class="v">${d.website.score != null ? `${d.website.score}<small>/100</small>${delta(d.website.score, d.website.prevScore)}` : nc('Not audited')}</div><div class="l">${tip('Audit score', 'auditScore')}</div></div>
+    <div><div class="v">${d.website.errors != null ? d.website.errors : dash}</div><div class="l">${tip('Errors', 'errors')}</div></div>
+    <div><div class="v">${d.website.clicks != null ? `${n(d.website.clicks)}${delta(d.website.clicks, d.website.prevClicks)}` : nc(d.connections.searchConsole === 'no_data' ? 'No data yet' : undefined)}</div><div class="l">${tip('Clicks from Google, 28 days', 'clicks')}</div></div>
+  </div>`;
+}
+
 async function renderAds() {
   const rows = await api('/ads');
   const groups = [...new Set(rows.map((r) => r.group))];
@@ -446,7 +564,7 @@ async function renderSite(slug) {
       ${g.topPages.slice(0, 20).map((p) => `<tr><td><a href="${esc(p.page)}" target="_blank">${esc(host(p.page))}</a></td><td class="r num">${n(p.clicks)}</td><td class="r num">${n(p.impressions)}</td></tr>`).join('')}</tbody></table></div>` : '<p class="empty">Connect Search Console to see pages.</p>'}</div>
   </div>
 
-  ${d.locations.length ? `<h2>Clinics</h2>${locationsTable(d.locations, false)}
+  ${d.locations.length ? `<h2>Clinics</h2>${locationsTable(d.locations, false, slug)}
   <div class="actions"><button class="run" onclick="run('gbp','${slug}')">Sync Business Profiles</button><button class="run" onclick="run('local','${slug}')">Check map-pack ranks and details</button></div>
   ${d.locations.some((l) => l.ranks.length) ? `<h2>Map-pack rankings by town</h2><div class="wrap"><table class="data"><thead><tr><th>Clinic</th>${th('Search', 'townSearch')}${th('Map pack', 'packPosition', 'r')}${th('Organic', 'organic', 'r')}${th('Who\'s in the pack', 'whoInPack')}</tr></thead><tbody>
   ${d.locations.flatMap((l) => l.ranks.map((r) => `<tr><td>${esc(l.name)}</td><td>${esc(r.keyword)}</td><td class="r"><span class="pos ${r.map_pack == null ? 'none' : r.map_pack <= 3 ? 'top3' : ''}">${r.map_pack ?? 'not shown'}</span>${delta(r.map_pack, r.prev, true)}</td><td class="r num">${r.organic ?? '<span class="dash">—</span>'}</td>
@@ -504,12 +622,12 @@ async function boot() {
     $('#brands').innerHTML = `<div class="tabs">${sites.filter((s) => s.group === homeGroup).map(tab).join('')}</div>`
       + others.map((g) => { const list = sites.filter((s) => s.group === g), cur = list.find((s) => s.slug === slug);
         return `<details class="dd${cur ? ' active' : ''}"><summary>${esc(cur ? cur.name : g)}</summary><div class="menu"><div class="menu-title">${esc(g)}</div>${list.map(tab).join('')}</div></details>`; }).join('')
-      + `<a href="#/clinics" class="${slug === 'clinics' ? 'active' : ''} sep">All clinics</a>`
+      + `<a href="#/clinics" class="${slug === 'clinics' || slug.startsWith('clinic/') ? 'active' : ''} sep">All clinics</a>`
       + `<a href="#/comments" class="${slug.startsWith('comments') ? 'active' : ''}">Comments</a>`
       + `<a href="#/ads" class="${slug === 'ads' ? 'active' : ''}">Ads</a>`;
     $('#brands .tabs a.active')?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
     $('#home').className = slug ? '' : 'active'; $('#portfolio').className = slug === 'portfolio' ? 'active' : '';
-    try { slug.startsWith('comments') ? await renderComments(slug.split('/')[1]) : slug === 'clinics' ? await renderLocations() : slug === 'ads' ? await renderAds() : slug === 'portfolio' ? await renderOverview() : slug ? await renderSite(slug) : await renderManagement(); }
+    try { slug.startsWith('comments') ? await renderComments(slug.split('/')[1]) : slug === 'clinics' ? await renderLocations() : slug.startsWith('clinic/') ? await renderClinic(...slug.split('/').slice(1, 3).map(decodeURIComponent)) : slug === 'ads' ? await renderAds() : slug === 'portfolio' ? await renderOverview() : slug ? await renderSite(slug) : await renderManagement(); }
     catch (e) { $('#main').innerHTML = `<p class="empty">Couldn't load that view: ${esc(e.message)}. <a href="#/">Back to portfolio</a></p>`; }
   };
   homeGroup = sites[0]?.group ?? null;
