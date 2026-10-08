@@ -274,3 +274,49 @@ export function management(sites) {
     };
   });
 }
+
+// ---- One clinic ----
+
+/** Links that open the clinic's Google listing: by CID when we have it, otherwise by place ID or coordinates. */
+const mapsUrl = (l) => l.cid ? `https://maps.google.com/?cid=${l.cid}`
+  : l.placeId ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(l.name)}&query_place_id=${l.placeId}`
+  : l.lat != null ? `https://www.google.com/maps/search/?api=1&query=${l.lat},${l.lng}` : null;
+
+/** Everything we hold on one clinic: its Google listing, reviews, listing performance, map-pack rankings and contact-detail checks. */
+export function clinicDetail(site, loc) {
+  const row = locationRows({ ...site, locations: [loc] })[0];
+  const q = (sql, ...a) => db.prepare(sql).all(site.slug, loc.slug, ...a);
+  const snap = db.prepare('SELECT * FROM gbp_snapshots WHERE site=? AND location=? ORDER BY fetched_on DESC LIMIT 1').get(site.slug, loc.slug);
+  const listingHistory = q('SELECT fetched_on, rating, review_count, completeness FROM gbp_snapshots WHERE site=? AND location=? ORDER BY fetched_on DESC LIMIT 26').reverse();
+  const daily = q(`SELECT date, impressions_search+impressions_maps views, impressions_search search, impressions_maps maps, calls, directions, website_clicks website
+    FROM gbp_daily WHERE site=? AND location=? AND date > date((SELECT MAX(date) FROM gbp_daily WHERE site=? AND location=?), '-90 days') ORDER BY date`, site.slug, loc.slug);
+  const sumDays = (from, to) => daily.filter((d) => d.date > from && d.date <= to);
+  const end = daily.at(-1)?.date;
+  const shift = (days) => end ? new Date(Date.parse(end) - days * 864e5).toISOString().slice(0, 10) : null;
+  const totals = (rows) => rows.length ? ['views', 'search', 'maps', 'calls', 'directions', 'website'].reduce((o, k) => ({ ...o, [k]: rows.reduce((a, r) => a + (r[k] || 0), 0) }), {}) : null;
+  const reviews = q('SELECT review_id, location, created_at, rating, reviewer, comment, replied FROM gbp_reviews WHERE site=? AND location=? ORDER BY created_at DESC LIMIT 50');
+  const ratingSpread = Object.fromEntries([5, 4, 3, 2, 1].map((s) => [s, 0]));
+  for (const r of q('SELECT rating, COUNT(*) n FROM gbp_reviews WHERE site=? AND location=? GROUP BY rating')) if (r.rating in ratingSpread) ratingSpread[r.rating] = r.n;
+  // Last 12 checks per search, so the page can show whether the clinic is climbing or slipping in the map pack.
+  const rankHistory = Object.fromEntries(row.ranks.map((r) => [r.keyword,
+    q('SELECT map_pack FROM local_ranks WHERE site=? AND location=? AND keyword=? ORDER BY checked_on DESC LIMIT 12', r.keyword).map((h) => h.map_pack).reverse()]));
+  const rankDate = db.prepare('SELECT MAX(checked_on) d FROM local_ranks WHERE site=? AND location=?').get(site.slug, loc.slug)?.d ?? null;
+  const conn = connections(site);
+  const brand = overview([site])[0];
+  return {
+    site: { slug: site.slug, name: site.name, url: site.url, host: site.host, group: site.group },
+    clinic: { slug: loc.slug, name: loc.name, town: loc.town ?? null, address: loc.address ?? null, phone: loc.phone ?? null, url: loc.url ?? null,
+      placeId: loc.placeId ?? null, cid: loc.cid ?? null, lat: loc.lat ?? null, lng: loc.lng ?? null, gbpLinked: Boolean(loc.gbpLocationId), mapsUrl: mapsUrl(loc) },
+    summary: row,
+    listing: snap ? { ...snap, has_hours: Boolean(snap.has_hours), has_description: Boolean(snap.has_description) } : null,
+    listingHistory,
+    performance: { daily, last28: end ? totals(sumDays(shift(28), end)) : null, prev28: end ? totals(sumDays(shift(56), shift(28))) : null },
+    reviews, ratingSpread, rankHistory, rankDate,
+    // Data already synced counts as connected even if the source has since been switched off.
+    connections: { listings: snap ? 'connected' : row.hasGbp ? 'no_data' : 'not_connected',
+      localRanks: row.ranks.length ? 'connected' : loc.lat != null && config.dfs.enabled ? 'no_data' : 'not_connected',
+      performance: daily.length ? 'connected' : loc.gbpLocationId && config.gbp.enabled ? 'no_data' : 'not_connected', searchConsole: conn.searchConsole },
+    website: { score: brand.audit?.score ?? null, prevScore: brand.audit?.prevScore ?? null, errors: brand.audit?.issue_counts?.error ?? null, clicks: brand.gsc?.clicks ?? null, prevClicks: brand.gsc?.prevClicks ?? null,
+      sharedWith: site.locations.length },
+  };
+}
