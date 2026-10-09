@@ -83,12 +83,21 @@ export async function localSerp(keyword, lat, lng, zoom = 14) {
 // ---- Keyword research ----
 
 /**
- * Google Ads Keyword Planner ideas for up to 20 seed searches, NZ-wide. Returns { cost, items } where each item is
+ * Google Ads Keyword Planner ideas for up to 20 seed searches, country-wide (NZ unless a location is given). Returns { cost, items } where each item is
  * { keyword, volume, cpc, competition ('LOW'|'MEDIUM'|'HIGH'|null), competitionIndex, lowBid, highBid, trend } and
  * trend is the last 12 months of searches, oldest first. Google gives no volume (null) for very rare searches.
  */
-export async function keywordIdeas(seeds) {
-  const [t] = await postRaw('/keywords_data/google_ads/keywords_for_keywords/live', [{ keywords: seeds.slice(0, 20), sort_by: 'search_volume', ...loc() }]);
+export async function keywordIdeas(seeds, location = config.dfs.location) {
+  return adsIdeas('/keywords_data/google_ads/keywords_for_keywords/live', { keywords: seeds.slice(0, 20) }, location);
+}
+
+/** Keyword Planner ideas for a website (what Google thinks the site is about), same shape as keywordIdeas. */
+export async function keywordsForSite(domain, location = config.dfs.location) {
+  return adsIdeas('/keywords_data/google_ads/keywords_for_site/live', { target: domain, target_type: 'site' }, location);
+}
+
+async function adsIdeas(path, params, location) {
+  const [t] = await postRaw(path, [{ ...params, sort_by: 'search_volume', location_code: location, language_code: config.dfs.language }]);
   if (t?.status_code !== 20000) throw new Error(`DataForSEO task ${t?.status_code}: ${t?.status_message}`);
   // Google Ads endpoints put the keywords straight in result, not in result[0].items.
   return { cost: t.cost || 0, items: (t.result || []).filter((k) => k?.keyword).map((k) => ({
@@ -98,9 +107,9 @@ export async function keywordIdeas(seeds) {
 }
 
 /** Keyword difficulty (0-100) with the task's cost: { cost, items: [{ keyword, difficulty }] }. */
-export async function keywordDifficultyRaw(keywords) {
+export async function keywordDifficultyRaw(keywords, location = config.dfs.location) {
   if (!keywords.length) return { cost: 0, items: [] };
-  const [t] = await postRaw('/dataforseo_labs/google/bulk_keyword_difficulty/live', [{ keywords: keywords.slice(0, 1000), ...loc() }]);
+  const [t] = await postRaw('/dataforseo_labs/google/bulk_keyword_difficulty/live', [{ keywords: keywords.slice(0, 1000), location_code: location, language_code: config.dfs.language }]);
   if (t?.status_code !== 20000) throw new Error(`DataForSEO task ${t?.status_code}: ${t?.status_message}`);
   return { cost: t.cost || 0, items: (t.result?.[0]?.items || []).map((k) => ({ keyword: k.keyword, difficulty: k.keyword_difficulty ?? null })) };
 }
@@ -111,14 +120,14 @@ const hostOf = (u) => { try { return new URL(u).host.replace(/^www\./, ''); } ca
 const uniqueSources = (list) => [...new Map(list.filter((x) => x.url).map((x) => [x.url, { url: x.url, title: x.title || hostOf(x.url), domain: hostOf(x.url) }])).values()];
 
 /**
- * Ask ChatGPT, Gemini or Perplexity one question with web search on, as someone in config.ai.country.
+ * Ask ChatGPT, Gemini or Perplexity one question with web search on, as someone in `country` (default config.ai.country).
  * Returns { cost, model, text, sources: [{ url, title, domain }] }.
  */
-export async function llmAnswer(engine, model, prompt) {
+export async function llmAnswer(engine, model, prompt, country = config.ai.country) {
   const body = { user_prompt: prompt, model_name: model, max_output_tokens: 2048 };
   // Perplexity's Sonar models always search; the others need asking. Gemini has no search-country option.
   if (engine !== 'perplexity') body.web_search = true;
-  if (engine !== 'gemini') body.web_search_country_iso_code = config.ai.country;
+  if (engine !== 'gemini') body.web_search_country_iso_code = country;
   const [t] = await postRaw(`/ai_optimization/${engine}/llm_responses/live`, [body]);
   if (t?.status_code !== 20000) throw new Error(`DataForSEO ${engine} ${t?.status_code}: ${t?.status_message}`);
   const r = t.result?.[0] || {};

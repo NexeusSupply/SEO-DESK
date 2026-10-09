@@ -9,7 +9,7 @@ import { listAllLocations } from './data/gbp.js';
 import { listPages, replyToComment, hideComment, markHandled } from './data/meta.js';
 import { draftReply, EXAMPLES } from './data/reply-helper.js';
 import { researchClinic, keywordSummary } from './data/keywords.js';
-import { suggestForClinic } from './data/suggestions.js';
+import { suggestForClinic, clinicSnapshot, brandSnapshot } from './data/suggestions.js';
 import { buildDigest } from './digest.js';
 import { jobs } from './jobs.js';
 import { startScheduler } from './scheduler.js';
@@ -43,8 +43,17 @@ const clinicAction = (fn) => (req, res) => {
 };
 const words = (v) => (Array.isArray(v) ? v : String(v || '').split(/[,\n]/)).map((x) => String(x).trim().slice(0, 80)).filter(Boolean).slice(0, 10);
 app.post('/api/sites/:slug/clinics/:loc/keywords', clinicAction(async (s, loc, req) => { await researchClinic(s, loc, words(req.body?.extra)); return keywordSummary(s, loc); }));
+const focus = (req) => String(req.body?.focus || '').slice(0, 500).trim();
 app.post('/api/sites/:slug/clinics/:loc/suggestions', clinicAction((s, loc, req) =>
-  suggestForClinic(s, loc, clinicDetail(s, loc), keywordSummary(s, loc), String(req.body?.focus || '').slice(0, 500).trim(), req.user?.email)));
+  suggestForClinic(s, loc, clinicSnapshot(clinicDetail(s, loc), keywordSummary(s, loc)), focus(req), req.user?.email)));
+// The same two for a whole brand: what Cowsmart, the supply chain businesses and brand websites use.
+const brandAction = (fn) => (req, res) => {
+  const s = site(req, res); if (!s) return;
+  Promise.resolve().then(() => fn(s, req)).then((r) => res.json(r)).catch((e) => { console.warn(`[${req.path}] ${e.message}`); res.status(502).json({ error: e.message }); });
+};
+app.post('/api/sites/:slug/keywords', brandAction(async (s, req) => { await researchClinic(s, null, words(req.body?.extra)); return keywordSummary(s, null); }));
+app.post('/api/sites/:slug/suggestions', brandAction((s, req) =>
+  suggestForClinic(s, null, brandSnapshot(s, siteDetail(s), keywordSummary(s, null)), focus(req), req.user?.email)));
 app.get('/api/ai', (_, res) => res.json(allAi(loadSites())));
 app.get('/api/ads', (_, res) => res.json(allAds(loadSites())));
 app.get('/api/locations', (_, res) => res.json(allLocations(loadSites())));

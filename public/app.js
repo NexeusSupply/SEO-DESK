@@ -80,14 +80,14 @@ const TIPS = {
   ourRecords: 'What we have on file for the clinic in sites.json. Differences are worth fixing on whichever side is wrong.',
   sources: 'Where we checked the clinic\u2019s name, address and phone: its Google listing, our records and its website.',
   brandWebsite: 'Search and audit figures for the website this clinic shares with its brand. Open the brand page for the full picture.',
-  aiNamed: 'Each month we ask ChatGPT, Gemini and Perplexity which vet they would recommend in each clinic\u2019s town, with web search on, as someone in New Zealand. This counts the answers that name the clinic.',
-  aiEngine: 'How many of the towns we asked about this AI named the clinic in. The small \u201c#2\u201d is where it came in the answer, counting other businesses named before it.',
+  aiNamed: 'Each month we ask ChatGPT, Gemini and Perplexity which vet they would recommend in each clinic\u2019s town (or, for a business without clinics, the questions set for it), with web search on, as someone in New Zealand or Australia. This counts the answers that name the clinic or business.',
+  aiEngine: 'How many of the questions we asked this AI named the clinic or business in. The small \u201c#2\u201d is where it came in the answer, counting other businesses named before it.',
   aiOverview: 'Google\u2019s AI Overview is the AI summary at the top of some Google searches. We check each town\u2019s local search (like \u201cvet Feilding\u201d). It counts when the overview names the clinic or links to its website. Google often shows the map instead of an overview for local searches.',
   aiNamedInstead: 'Other businesses the AI recommended in its answer. These are who AI sees as the competition in that town.',
   aiCited: 'The AI linked to the clinic\u2019s website as a source. Being a cited source is how websites earn their place in AI answers.',
   aiSources: 'The websites the AI read to write its answer. Getting listed or mentioned on these sites (directories, review sites, local news) is the main way to appear in AI answers.',
-  kwResearch: 'Asks Google Ads\u2019 Keyword Planner (through DataForSEO) for searches related to this clinic\u2019s town and services, then checks how hard each is to rank for. Costs about US$0.10 and counts towards the monthly DataForSEO cap. Clinics in the same town share results.',
-  kwFound: 'Searches related to the clinic\u2019s town and services that Google suggested, plus the ones we started from.',
+  kwResearch: 'Asks Google Ads\u2019 Keyword Planner (through DataForSEO) for searches related to this clinic\u2019s town and services (or, on a brand page, the brand\u2019s products or website), then checks how hard each is to rank for. Costs about US$0.10 and counts towards the monthly DataForSEO cap. Clinics in the same town share results.',
+  kwFound: 'Searches Google suggested from the words we started with (the clinic\u2019s town and services, or the brand\u2019s products), plus those words themselves.',
   kwSeo: 'Searches with real volume that aren\u2019t too hard to rank for (difficulty under 50) and where we aren\u2019t already in the top 3. Write or improve a page on the website for these.',
   kwAds: 'Urgent or \u201cnear me\u201d searches (people ready to call), searches other advertisers compete for, and worthwhile searches too hard to win organically. Bid on these in Google Ads.',
   kwRanking: 'Of these searches, how many the website already shows on Google\u2019s first page for, from our rank checks.',
@@ -444,15 +444,22 @@ const kwRow = (k) => `<tr data-advice="${k.advice}"><td>${esc(k.keyword)}${k.see
   <td class="r">${k.position != null ? `<span class="pos ${k.position <= 3 ? 'top3' : ''}">${k.position}</span>` : k.mapPack != null ? `<small class="muted">map #${k.mapPack}</small>` : '<small class="muted">not ranking</small>'}</td>
   <td><span class="sig ${ADVICE[k.advice][1]}" tabindex="0" data-tip="${esc(ADVICE[k.advice][2])}">${ADVICE[k.advice][0]}</span>${k.why.length ? `<br><small class="muted">${esc(k.why.join(', '))}</small>` : ''}</td></tr>`;
 
+// Keyword research and Claude ideas run for a clinic or, on brand pages, for the brand itself.
+const scopeAttrs = (d, siteSlug) => `data-site="${esc(siteSlug)}" data-loc="${esc(d.clinic ? d.clinic.slug : '')}"`;
+const COUNTRY = { NZ: 'New Zealand', AU: 'Australia' };
 function keywordSection(d, siteSlug) {
-  const k = d.keywords, c = d.connections.keywords, here = `data-site="${esc(siteSlug)}" data-loc="${esc(d.clinic.slug)}"`;
-  const head = `<h2>Keyword research</h2><p class="sub">Searches to target on the website (SEO) and to bid on in Google Ads, built from ${esc(d.clinic.town || 'the clinic’s town')} and the clinic’s services. Monthly searches and bids are New Zealand-wide figures from Google Ads’ Keyword Planner; difficulty is from DataForSEO.</p>`;
+  const k = d.keywords, c = d.connections.keywords, here = scopeAttrs(d, siteSlug);
+  const where = COUNTRY[k.market] || 'New Zealand';
+  const from = d.clinic ? `built from ${esc(d.clinic.town || 'the clinic’s town')} and the clinic’s services`
+    : k.fromSite ? `built from what Google thinks ${esc(d.site.host)} is about` : 'built from what the business sells';
+  const head = `<h2>Keyword research</h2><p class="sub">Searches to target on the website (SEO) and to bid on in Google Ads, ${from}. Monthly searches and bids are ${where}-wide figures from Google Ads’ Keyword Planner; difficulty is from DataForSEO.</p>`;
   if (!k.available) return `${head}<p class="empty">Add this clinic’s <code>town</code> in sites.json to research keywords for it.</p>`;
   if (c === 'not_connected') return `${head}<p class="empty">Keyword research runs through DataForSEO, which isn’t configured.</p>`;
   const form = (label) => `<form class="kw-form" ${here} onsubmit="return researchKeywords(event)">
-    <input class="draft-note" name="extra" type="text" maxlength="300" placeholder="Add your own words, separated by commas (optional), e.g. puppy school, cat boarding">
+    <input class="draft-note" name="extra" type="text" maxlength="300" placeholder="Add your own words, separated by commas (optional), e.g. ${d.clinic ? 'puppy school, cat boarding' : 'a product or service you want found for'}">
     <button class="run" type="submit" data-tip="${esc(TIPS.kwResearch)}">${label}</button><p class="cmt-err notok" hidden></p></form>`;
-  if (!k.researched) return `${head}<p class="empty">Not researched yet. We’ll start from: ${k.seeds.map((x) => `<code>${esc(x)}</code>`).join(' ')}</p>${form('Research keywords')}`;
+  const start = k.seeds.length ? `We’ll start from: ${k.seeds.map((x) => `<code>${esc(x)}</code>`).join(' ')}` : `We’ll start from the searches Google matches to <code>${esc(d.site.host)}</code>.`;
+  if (!k.researched) return `${head}<p class="empty">Not researched yet. ${start}</p>${form('Research keywords')}`;
   const ct = k.counts, top = 40;
   return `${head}
   <div class="strip">
@@ -476,10 +483,11 @@ const level = (v, label, lowIsGood = false) => `<span class="sig ${v === (lowIsG
 const charCount = (t, max) => `<small class="${t.length > max ? 'notok' : 'muted'}">${t.length}/${max}</small>`;
 
 function ideasSection(d, siteSlug) {
-  const s = d.suggestions, on = d.connections.claude === 'connected', here = `data-site="${esc(siteSlug)}" data-loc="${esc(d.clinic.slug)}"`;
-  const head = `<h2>Ideas to grow traffic <span class="sig nc">Claude</span></h2><p class="sub">Claude reads everything on this page (listing, reviews, map pack, AI answers, ads and keyword research) and suggests what to do next for SEO and Google Ads, with a starter search ad.${d.keywords.researched ? '' : ' Research keywords first for sharper Ads ideas.'}</p>`;
+  const s = d.suggestions, on = d.connections.claude === 'connected', here = scopeAttrs(d, siteSlug);
+  const reads = d.clinic ? 'listing, reviews, map pack, AI answers, ads and keyword research' : 'website audit, Search Console, rankings, competitors, AI answers, ads and keyword research';
+  const head = `<h2>Ideas to grow traffic <span class="sig nc">Claude</span></h2><p class="sub">Claude reads everything on this page (${reads}) and suggests what to do next for SEO and Google Ads, with a starter search ad.${d.keywords.researched ? '' : ' Research keywords first for sharper Ads ideas.'}</p>`;
   if (!on) return `${head}<p class="empty">Ideas from Claude need an Anthropic API key (<code>ANTHROPIC_API_KEY</code>) set on the server.</p>`;
-  const form = `<form class="kw-form" ${here} onsubmit="return getIdeas(event)"><input class="draft-note" name="focus" type="text" maxlength="300" placeholder="Anything to focus on? (optional), e.g. more puppy bookings, a new vet starting">
+  const form = `<form class="kw-form" ${here} onsubmit="return getIdeas(event)"><input class="draft-note" name="focus" type="text" maxlength="300" placeholder="Anything to focus on? (optional), e.g. ${d.clinic ? 'more puppy bookings, a new vet starting' : 'more trade enquiries, a new product launch'}">
     <button class="run" type="submit">${s ? 'Get new ideas' : 'Get ideas'}</button><p class="cmt-err notok" hidden></p></form>`;
   if (!s) return `${head}${form}`;
   const copyList = (items, label) => `<button class="run copy-btn" type="button" data-copy="${esc(items.join('\n'))}" onclick="copyText(this)">Copy ${label}</button>`;
@@ -504,13 +512,14 @@ async function busy(ev, label, fn) {
   try { await fn(f); } catch (e) { err.textContent = e.message; err.hidden = false; btn.disabled = false; btn.textContent = was; }
   return false;
 }
-// Re-render only this clinic page once new research or ideas are saved, keeping the scroll position.
-const rerender = async (f) => { const y = scrollY; await renderClinic(f.dataset.site, f.dataset.loc); scrollTo(0, y); };
+// Re-render only this page once new research or ideas are saved, keeping the scroll position.
+const rerender = async (f) => { const y = scrollY; await (f.dataset.loc ? renderClinic(f.dataset.site, f.dataset.loc) : renderSite(f.dataset.site)); scrollTo(0, y); };
+const scopePath = (f) => `/sites/${f.dataset.site}${f.dataset.loc ? `/clinics/${f.dataset.loc}` : ''}`;
 function researchKeywords(ev) {
-  return busy(ev, 'Researching… (up to a minute)', async (f) => { await post(`/sites/${f.dataset.site}/clinics/${f.dataset.loc}/keywords`, { extra: f.extra.value }); await rerender(f); });
+  return busy(ev, 'Researching… (up to a minute)', async (f) => { await post(`${scopePath(f)}/keywords`, { extra: f.extra.value }); await rerender(f); });
 }
 function getIdeas(ev) {
-  return busy(ev, 'Claude is thinking… (up to a minute)', async (f) => { await post(`/sites/${f.dataset.site}/clinics/${f.dataset.loc}/suggestions`, { focus: f.focus.value }); await rerender(f); });
+  return busy(ev, 'Claude is thinking… (up to a minute)', async (f) => { await post(`${scopePath(f)}/suggestions`, { focus: f.focus.value }); await rerender(f); });
 }
 function kwFilter(a, advice) {
   a.parentElement.querySelectorAll('a.run').forEach((x) => x.classList.toggle('on', x === a));
@@ -522,7 +531,7 @@ function kwCsv(btn) {
   const cells = (tr) => [...tr.children].map((td) => `"${td.innerText.replace(/\s+/g, ' ').trim().replace(/"/g, '""')}"`).join(',');
   const rows = [...document.querySelectorAll('.kw-table tr')].map(cells).join('\n');
   const a = document.createElement('a');
-  a.href = URL.createObjectURL(new Blob([rows], { type: 'text/csv' })); a.download = `keywords-${btn.dataset.site}-${btn.dataset.loc}.csv`; a.click();
+  a.href = URL.createObjectURL(new Blob([rows], { type: 'text/csv' })); a.download = `keywords-${[btn.dataset.site, btn.dataset.loc].filter(Boolean).join('-')}.csv`; a.click();
 }
 async function copyText(btn) {
   try { await navigator.clipboard.writeText(btn.dataset.copy); } catch { /* clipboard blocked */ }
@@ -546,25 +555,29 @@ const aiAnswer = (r, label) => r.checked && (r.engine !== 'google_aio' || r.pres
   <div class="ai-text">${esc(r.answer).replace(/\*\*([^*]+)\*\*/g, '<b>$1</b>').replace(/\n/g, '<br>')}</div>
   ${r.sources.length ? `<p class="muted"><small>${tip('Sources', 'aiSources')}: ${r.sources.map((x) => `<a href="${esc(x.url)}" target="_blank" rel="noopener">${esc(x.domain || x.title)}</a>`).join(' · ')}</small></p>` : ''}</details>` : '';
 
+// A brand-wide question gets a table row of its own; clinics keep one row each.
+const aiRows = (a) => a.clinics.flatMap((cl) => cl.brand ? [...new Set(cl.results.map((r) => r.prompt))].map((p) => ({ brand: true, name: p, results: cl.results.filter((r) => r.prompt === p) })) : [cl]);
 // The brand page shows every clinic; a clinic page passes its own one (oneClinic) and the brand's slug for the run button.
 function aiSection(d, slug, oneClinic = false) {
   const a = d.ai, c = d.connections.ai;
   if (!a.questions) return '';
-  const head = `<h2>AI answers</h2><p class="sub">What ChatGPT, Gemini and Perplexity say when someone asks for a vet in ${oneClinic ? 'this clinic\u2019s town' : 'each clinic\u2019s town'}, and whether Google\u2019s AI Overview names or links to the clinic. Checked monthly.</p>`;
+  const brandOnly = a.clinics.every((cl) => cl.brand), brandQs = a.clinics.find((cl) => cl.brand)?.results.map((r) => r.prompt).filter((x, i, l) => l.indexOf(x) === i) || [];
+  const head = `<h2>AI answers</h2><p class="sub">${brandOnly ? 'What ChatGPT, Gemini and Perplexity say when asked the questions below, with web search on, and whether they name or cite us. Checked monthly.'
+    : `What ChatGPT, Gemini and Perplexity say when someone asks for a vet in ${oneClinic ? 'this clinic\u2019s town' : 'each clinic\u2019s town'}, and whether Google\u2019s AI Overview names or links to the clinic.${brandQs.length ? ' The last rows are brand-wide questions.' : ''} Checked monthly.`}</p>`;
   if (c === 'not_connected') return `${head}<p class="empty">AI answers come through DataForSEO, which isn\u2019t configured.</p>`;
   if (c === 'no_data' || !a.checked) return `${head}<p class="empty">Not checked yet. <button class="run" onclick="run('ai','${slug}')">Ask the AIs now</button></p>`;
   const engines = a.engines.filter((e) => e.key !== 'google_aio'), aio = a.engines.find((e) => e.key === 'google_aio');
   const res = (cl, key) => cl.results.find((r) => r.engine === key);
   return `${head}
   <div class="strip">
-    <div><div class="v">${a.mentioned}<small>of ${a.total}</small>${a.prevTotal ? delta(a.mentioned, a.prevMentioned) : ''}</div><div class="l">${tip(oneClinic ? 'AI answers naming the clinic' : 'AI answers naming a clinic', 'aiNamed')}</div></div>
+    <div><div class="v">${a.mentioned}<small>of ${a.total}</small>${a.prevTotal ? delta(a.mentioned, a.prevMentioned) : ''}</div><div class="l">${tip(oneClinic ? 'AI answers naming the clinic' : brandOnly ? 'AI answers naming us' : 'AI answers naming a clinic', 'aiNamed')}</div></div>
     ${engines.map((e) => `<div><div class="v">${aiTally(a.byEngine[e.key])}</div><div class="l">${tip(`Named by ${e.label}`, 'aiEngine')}</div></div>`).join('')}
     ${aio ? `<div><div class="v">${aioTally(a, true)}</div><div class="l">${tip('Google AI Overviews naming or citing us', 'aiOverview')}</div></div>` : ''}
   </div>
   <div class="actions"><button class="run" onclick="run('ai','${slug}')">Ask the AIs again</button></div>
-  <div class="wrap"><table class="data"><thead><tr><th>Clinic</th>${engines.map((e) => th(e.label, 'aiEngine')).join('')}${aio ? th('AI Overview', 'aiOverview') : ''}${th('Named instead', 'aiNamedInstead')}</tr></thead><tbody>
-  ${a.clinics.map((cl) => { const named = [...new Set(cl.results.flatMap((r) => r.named || []))].slice(0, 5); return `<tr><td>${oneClinic ? `<b>${esc(cl.name)}</b>` : `<a class="clinic-link" href="${clinicHref(slug, cl.slug)}"><b>${esc(cl.name)}</b></a>`}<br><small class="muted">${esc(cl.town)}</small></td>
-    ${engines.map((e) => `<td>${aiCell(res(cl, e.key))}</td>`).join('')}${aio ? `<td>${aiCell(res(cl, 'google_aio'))}</td>` : ''}
+  <div class="wrap"><table class="data"><thead><tr><th>${brandOnly ? 'Asked about' : 'Clinic'}</th>${engines.map((e) => th(e.label, 'aiEngine')).join('')}${aio && !brandOnly ? th('AI Overview', 'aiOverview') : ''}${th('Named instead', 'aiNamedInstead')}</tr></thead><tbody>
+  ${aiRows(a).map((cl) => { const named = [...new Set(cl.results.flatMap((r) => r.named || []))].slice(0, 5); return `<tr><td>${cl.brand ? `\u201c${esc(cl.name)}\u201d<br><small class="muted">Brand question</small>` : `${oneClinic ? `<b>${esc(cl.name)}</b>` : `<a class="clinic-link" href="${clinicHref(slug, cl.slug)}"><b>${esc(cl.name)}</b></a>`}<br><small class="muted">${esc(cl.town)}</small>`}</td>
+    ${engines.map((e) => `<td>${aiCell(res(cl, e.key))}</td>`).join('')}${aio && !brandOnly ? `<td>${aiCell(res(cl, 'google_aio'))}</td>` : ''}
     <td><small class="muted">${named.length ? named.map(esc).join(' · ') : '—'}</small></td></tr>`; }).join('')}
   </tbody></table></div>
   ${a.competitors.length ? `<p class="sub">Named most often instead: ${a.competitors.map((x) => `${esc(x.name)} <span class="num muted">×${x.n}</span>`).join(' · ')}</p>` : ''}
@@ -576,10 +589,10 @@ async function renderAi() {
   const { engines, brands } = await api('/ai');
   const groups = [...new Set(brands.map((r) => r.group))];
   const llms = engines.filter((e) => e.key !== 'google_aio'), aio = engines.find((e) => e.key === 'google_aio');
-  $('#main').innerHTML = `<h1>AI answers</h1><p class="sub">Each month we ask ${llms.map((e) => e.label).join(', ').replace(/, ([^,]*)$/, ' and $1')} which vet they would recommend in every clinic\u2019s town, and check Google\u2019s AI Overview for the town\u2019s local search. Open a brand to read the answers.</p>
+  $('#main').innerHTML = `<h1>AI answers</h1><p class="sub">Each month we ask ${llms.map((e) => e.label).join(', ').replace(/, ([^,]*)$/, ' and $1')} which vet they would recommend in every clinic\u2019s town, and check Google\u2019s AI Overview for the town\u2019s local search. Businesses without clinics get their own questions, such as where to buy what they sell. Open a brand to read the answers.</p>
   ${brands.length ? groups.map((g) => groupBlock(g, brands.filter((r) => r.group === g).length, `<div class="wrap"><table class="ledger"><thead><tr><th>Brand</th>${th('Named in AI answers', 'aiNamed')}${llms.map((e) => th(e.label, 'aiEngine')).join('')}${aio ? th('AI Overview', 'aiOverview') : ''}${th('Named instead', 'aiNamedInstead')}</tr></thead><tbody>
   ${brands.filter((r) => r.group === g).map((r) => `<tr>
-    <td class="brand"><div class="who">${badge(r.slug, r.name)}<div><a href="#/${r.slug}">${esc(r.name)}</a><small>${r.clinics} clinic${r.clinics === 1 ? '' : 's'}${r.checked ? ` · checked ${dateShort(r.checked)}` : ''}</small></div></div></td>
+    <td class="brand"><div class="who">${badge(r.slug, r.name)}<div><a href="#/${r.slug}">${esc(r.name)}</a><small>${r.clinics ? `${r.clinics} clinic${r.clinics === 1 ? '' : 's'}` : 'Brand questions'}${r.checked ? ` · checked ${dateShort(r.checked)}` : ''}</small></div></div></td>
     <td class="num">${r.total ? `${r.mentioned} of ${r.total}${r.prevTotal ? delta(r.mentioned, r.prevMentioned) : ''}` : nc('Not checked')}</td>
     ${llms.map((e) => `<td class="num">${r.byEngine[e.key]?.checked ? `${r.byEngine[e.key].mentioned} of ${r.byEngine[e.key].checked}` : dash}</td>`).join('')}
     ${aio ? `<td class="num">${aioTally(r)}</td>` : ''}
@@ -761,6 +774,10 @@ async function renderSite(slug) {
   ${socialSection(d, slug)}
 
   ${adsSection(d, slug)}
+
+  ${!d.brandLevel ? '' : `${keywordSection(d, slug)}
+
+  ${ideasSection(d, slug)}`}
 
   <h2>Competitors</h2>
   ${d.domains.some((x) => x.fetched_on) ? `<div class="wrap"><table class="data"><thead><tr>${th('Domain', 'domain')}${th('Organic keywords', 'organicKeywords', 'r')}${th('Est. monthly traffic', 'traffic', 'r')}${th('Backlinks', 'backlinks', 'r')}${th('Referring domains', 'referringDomains', 'r')}${th('Domain rank', 'domainRank', 'r')}</tr></thead><tbody>
