@@ -888,21 +888,65 @@
     "group": "Comhla",
     "name": "TasVets",
     "url": "https://tasvets.com.au",
-    "keywords": []
+    "market": "AU",
+    "description": "The Vet Group’s Tasmanian vet clinic, in Smithton in north-west Tasmania.",
+    "keywords": [],
+    "keywordSeeds": [
+      "vet smithton",
+      "smithton vet",
+      "vet north west tasmania",
+      "dairy vet tasmania",
+      "farm vet tasmania",
+      "vet circular head"
+    ],
+    "aiPrompts": [
+      "What is a good vet clinic in Smithton, Tasmania?",
+      "Which vets look after dairy herds in north-west Tasmania?"
+    ]
   },
   {
     "slug": "thevetgroup",
     "group": "Comhla",
     "name": "The Vet Group (Australia)",
     "url": "https://thevetgroup.com.au",
-    "keywords": []
+    "market": "AU",
+    "description": "Group of six vet clinics across South West Victoria with a head office in Warrnambool.",
+    "keywords": [],
+    "keywordSeeds": [
+      "vet warrnambool",
+      "warrnambool vet",
+      "dairy vet victoria",
+      "vet south west victoria",
+      "farm vet warrnambool",
+      "large animal vet victoria"
+    ],
+    "aiPrompts": [
+      "What are the best vets in Warrnambool?",
+      "Which vet clinics look after dairy herds in South West Victoria?",
+      "Who is a good farm and large animal vet near Warrnambool?"
+    ]
   },
   {
     "slug": "cowsmart",
     "group": "Comhla",
     "name": "Cowsmart",
     "url": "https://cowsmart.co.nz",
+    "description": "Veterinary data consultancy for dairy farmers (herd data, reproduction and mastitis), based at the Centre for Dairy Excellence in Geraldine.",
     "keywords": [],
+    "keywordSeeds": [
+      "dairy herd data analysis",
+      "herd reproduction report",
+      "mastitis data",
+      "dairy consultant",
+      "herd improvement",
+      "dairy farm consultant nz",
+      "in calf rate"
+    ],
+    "aiPrompts": [
+      "Who can analyse my dairy herd data in New Zealand?",
+      "Which consultants help dairy farmers improve herd reproduction and in-calf rates in NZ?",
+      "How do I get help interpreting my herd test and mastitis data?"
+    ],
     "locations": [
       {
         "slug": "cowsmart",
@@ -916,27 +960,87 @@
     "group": "Nexeus Supply Chain",
     "name": "Heartland Feeds",
     "url": "https://www.heartlandfeeds.co.nz",
-    "keywords": []
+    "description": "Custom feeds, minerals and supplements for livestock (dairy, beef, sheep, deer), based in Christchurch.",
+    "keywords": [],
+    "keywordSeeds": [
+      "dairy cow feed",
+      "calf meal",
+      "livestock minerals",
+      "stock feed nz",
+      "dairy supplements",
+      "calf feed",
+      "mineral supplements for cattle",
+      "pellets for cows"
+    ],
+    "aiPrompts": [
+      "Where can I buy calf meal and dairy feed in Canterbury?",
+      "Who makes custom mineral supplements for dairy cows in New Zealand?",
+      "What are good stock feed suppliers for South Island farmers?"
+    ]
   },
   {
     "slug": "agilis",
     "group": "Nexeus Supply Chain",
     "name": "Agilis",
     "url": "https://agilis.nz",
-    "keywords": []
+    "description": "Animal health products and technical support for veterinary practices in New Zealand; runs the IBR Hub (infectious bovine rhinotracheitis).",
+    "keywords": [],
+    "keywordSeeds": [
+      "ibr vaccine",
+      "ibr in cattle",
+      "animal health products nz",
+      "veterinary products",
+      "bvd vaccine",
+      "cattle vaccine nz",
+      "calf scours"
+    ],
+    "aiPrompts": [
+      "Who supplies animal health products to vet clinics in New Zealand?",
+      "Where can I find information about IBR in New Zealand cattle?",
+      "Which companies provide technical support for cattle vaccines to NZ vets?"
+    ]
   },
   {
     "slug": "fortis",
     "group": "Nexeus Supply Chain",
     "name": "Fortis",
     "url": "https://fortisnz.co.nz",
-    "keywords": []
+    "description": "Wholesale supplier of veterinary products to vet clinics in New Zealand.",
+    "keywords": [],
+    "keywordSeeds": [
+      "veterinary wholesaler",
+      "veterinary supplies nz",
+      "vet clinic supplies",
+      "veterinary wholesale nz",
+      "animal health wholesale"
+    ],
+    "aiPrompts": [
+      "Who are the veterinary wholesalers in New Zealand?",
+      "Where do New Zealand vet clinics buy their veterinary supplies?"
+    ]
   },
   {
     "slug": "drl",
     "group": "Nexeus Supply Chain",
     "name": "DRL (Disease Research Limited)",
     "url": "https://www.drl.net.nz",
-    "keywords": []
+    "description": "Independent veterinary diagnostic laboratory at Invermay near Mosgiel, best known for Johne’s disease testing for deer, cattle and sheep.",
+    "aiNames": [
+      "Disease Research Limited",
+      "Disease Research Ltd"
+    ],
+    "keywords": [],
+    "keywordSeeds": [
+      "johne's disease test",
+      "johnes disease deer",
+      "johnes testing cattle",
+      "veterinary diagnostic laboratory",
+      "animal disease testing nz",
+      "paratuberculosis test"
+    ],
+    "aiPrompts": [
+      "Where can I get Johne's disease testing for deer or cattle in New Zealand?",
+      "Which veterinary diagnostic labs in New Zealand test for animal diseases?"
+    ]
   }
 ]

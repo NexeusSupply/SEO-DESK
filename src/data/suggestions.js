@@ -1,4 +1,4 @@
-// Claude's ideas for getting a clinic more traffic, from SEO, Google Ads, its Google listing, reviews and AI answers.
+// Claude's ideas for getting a clinic, or a whole brand, more traffic, from SEO, Google Ads, its Google listing, reviews and AI answers.
 // It reads what the dashboard already knows about the clinic (listing, reviews, map-pack checks, AI answers, ads,
 // keyword research, website health) and returns a short, prioritised list plus a starter Google search ad. Each run
 // is saved so the page shows the latest ideas without asking again; someone presses "Get new ideas" to refresh.
@@ -18,7 +18,7 @@ const LEVEL = { type: 'string', enum: ['low', 'medium', 'high'] };
 const SCHEMA = {
   type: 'object',
   properties: {
-    summary: { type: 'string', description: 'Two or three sentences: where this clinic stands and the single biggest opportunity.' },
+    summary: { type: 'string', description: 'Two or three sentences: where this clinic or brand stands and the single biggest opportunity.' },
     ideas: {
       type: 'array',
       description: 'Five to eight ideas, most valuable first.',
@@ -30,7 +30,7 @@ const SCHEMA = {
           impact: LEVEL,
           effort: LEVEL,
           why: { type: 'string', description: 'One or two sentences tying the idea to a specific figure or finding in the data.' },
-          steps: { type: 'array', items: { type: 'string' }, description: 'Two to four concrete steps someone at the clinic or the marketing team can do.' },
+          steps: { type: 'array', items: { type: 'string' }, description: 'Two to four concrete steps someone at the clinic, the business or the marketing team can do.' },
         },
         required: ['title', 'channel', 'impact', 'effort', 'why', 'steps'],
         additionalProperties: false,
@@ -38,7 +38,7 @@ const SCHEMA = {
     },
     ad: {
       type: 'object',
-      description: 'A starter Google responsive search ad for this clinic.',
+      description: 'A starter Google responsive search ad for this clinic or brand.',
       properties: {
         keywords: { type: 'array', items: { type: 'string' }, description: 'Five to ten searches to bid on, taken from the keyword research when there is any.' },
         headlines: { type: 'array', items: { type: 'string' }, description: 'Eight to ten headlines, each 30 characters or fewer.' },
@@ -92,8 +92,39 @@ export function clinicSnapshot(d, kw) {
   return out;
 }
 
-/** Ask Claude for ideas for one clinic, save them, and return the saved row. */
-export async function suggestForClinic(site, loc, d, kw, focus, user) {
+const BRAND_SYSTEM = `You are an SEO and paid search specialist advising the marketing team of a New Zealand group that owns veterinary clinic brands and animal-health businesses (livestock feed, a diagnostic lab, wholesale vet products, a dairy data consultancy), some of them in Australia. You get a snapshot of what our SEO dashboard knows about one brand's website and suggest what to do next to get it more of the right traffic and enquiries.
+
+- Base every idea on the data given and name the figure or finding behind it (an audit problem, a query ranking 8-20, a keyword with real volume and low difficulty, a competitor with more referring domains, an AI answer that named someone else). Where data is missing or not connected, say what connecting it would show instead of guessing.
+- Fit the ideas to who buys from this business. Many sell to farmers or to vet clinics rather than the public, so think about what those buyers search for and where they look (industry sites, vets, field days, rural media), not just consumer search.
+- Prefer cheap, high-impact wins first: fixing site problems, improving pages that already nearly rank, product or service pages for searches with real volume, then Google Ads for high-intent searches too hard to win organically. Don't recommend bidding on competitors' names.
+- Keep it practical for a small shared marketing team. No jargon without a plain explanation.
+- Ad copy: New Zealand English (Australian English for an Australian brand), no prices or offers we don't know about, no health or efficacy claims, no superlatives that can't be backed up. Headlines 30 characters or fewer, descriptions 90 or fewer.
+- Never invent facts about the business (products, services, prices, staff) beyond what the data and description say.`;
+
+/** A compact snapshot of a whole brand for the prompt, from siteDetail() and its brand-wide keywordSummary(). */
+export function brandSnapshot(site, d, kw) {
+  const g = d.gsc, daily = g.daily.slice(-28), a = d.ai;
+  let out = `<brand>\n${line('Brand', site.name)}${line('Website', site.url)}${line('What it does', site.description)}${line('Market', site.market === 'AU' ? 'Australia' : 'New Zealand')}${line('Group', site.group)}${line('Clinics', site.locations.length || null)}</brand>\n\n`;
+  out += `<website_audit>\n${d.audit ? `${line('Score (0-100)', d.audit.score)}${line('Pages crawled', d.audit.pages_crawled)}${d.issues.slice(0, 10).map((i) => `- ${i.severity}: ${i.label} (${i.n} pages)`).join('\n')}\n` : 'Not audited yet.\n'}</website_audit>\n\n`;
+  out += '<google_search_console>\n' + (daily.length
+    ? `Last 28 days: ${daily.reduce((x, r) => x + r.clicks, 0)} clicks, ${daily.reduce((x, r) => x + r.impressions, 0)} impressions.\n${g.topQueries.length ? `Top queries: ${g.topQueries.slice(0, 15).map((q) => `"${q.query}" (${q.clicks} clicks, pos ${Number(q.position).toFixed(1)})`).join('; ')}\n` : ''}${g.strikingDistance.length ? `Ranking 8-20 with impressions: ${g.strikingDistance.slice(0, 10).map((q) => `"${q.query}" pos ${Number(q.position).toFixed(1)}, ${q.impressions} impressions`).join('; ')}\n` : ''}`
+    : 'Not connected.\n') + '</google_search_console>\n\n';
+  if (d.ranks.length) out += `<tracked_keywords>\n${d.ranks.map((r) => `- "${r.keyword}": position ${r.position ?? 'not in top 100'}${r.volume ? `, ${r.volume}/mo` : ''}`).join('\n')}\n</tracked_keywords>\n\n`;
+  const doms = d.domains.filter((x) => x.fetched_on);
+  if (doms.length) out += `<domains note="ours first, then competitors">\n${doms.map((x) => `- ${x.domain}: ${x.organic_keywords ?? '?'} organic keywords, ${x.referring_domains ?? '?'} referring domains`).join('\n')}\n</domains>\n\n`;
+  if (d.gap.length) out += `<keyword_gap note="competitors rank, we don't">\n${d.gap.slice(0, 15).map((x) => `- "${x.keyword}"${x.volume ? ` ${x.volume}/mo` : ''}`).join('\n')}\n</keyword_gap>\n\n`;
+  if (d.locations.length) out += `<clinics>\n${d.locations.slice(0, 30).map((l) => `- ${l.name}${l.listing?.rating != null ? `: ${l.listing.rating}★ (${l.listing.reviews ?? '?'} reviews)` : ''}`).join('\n')}\n</clinics>\n\n`;
+  out += `<social>\n${d.social.platforms.length ? d.social.platforms.map((p) => `- ${p.platform}: ${p.followers} followers`).join('\n') + '\n' : 'Not connected.\n'}</social>\n\n`;
+  out += `<google_ads>\n${d.ads.checked ? `${line('Ads running now', d.ads.running)}${line('Ads seen in last 90 days', d.ads.total)}` : 'Not checked.\n'}</google_ads>\n\n`;
+  out += '<ai_answers>\n' + (a?.checked ? `Named in ${a.mentioned} of ${a.total} AI answers.\n${a.competitors.length ? `Named instead: ${a.competitors.map((x) => x.name).join(', ')}\n` : ''}` : 'Not checked yet.\n') + '</ai_answers>\n\n';
+  out += `<keyword_research note="${site.market === 'AU' ? 'Australia' : 'NZ'}-wide monthly Google searches; difficulty 0-100; bids in USD per click">\n` + (kw?.researched
+    ? kw.items.filter((k) => k.volume).slice(0, 40).map((k) => `- "${k.keyword}": ${k.volume}/mo, difficulty ${k.difficulty ?? '?'}, competition ${k.competition ?? '?'}, our position ${k.position ?? 'not ranking'}`).join('\n') + '\n'
+    : 'Not researched yet.\n') + '</keyword_research>';
+  return out;
+}
+
+/** Ask Claude for ideas for one clinic (loc) or a whole brand (loc null), save them, and return the saved row. */
+export async function suggestForClinic(site, loc, snapshot, focus, user) {
   if (!config.claude.enabled) throw new Error('Claude is not configured (ANTHROPIC_API_KEY)');
   const msg = await anthropic().beta.messages.create({
     model: config.claude.model,
@@ -102,21 +133,21 @@ export async function suggestForClinic(site, loc, d, kw, focus, user) {
     // On a safety decline, let the API retry on a fallback model instead of returning nothing.
     betas: ['server-side-fallback-2026-07-01'],
     fallbacks: 'default',
-    system: SYSTEM,
-    messages: [{ role: 'user', content: `${clinicSnapshot(d, kw)}${focus ? `\n\nWhat the team wants to focus on: ${focus}` : ''}\n\nSuggest how this clinic can get more traffic and more enquiries.` }],
+    system: loc ? SYSTEM : BRAND_SYSTEM,
+    messages: [{ role: 'user', content: `${snapshot}${focus ? `\n\nWhat the team wants to focus on: ${focus}` : ''}\n\nSuggest how ${loc ? 'this clinic' : 'this business'} can get more traffic and more enquiries.` }],
   });
-  if (msg.stop_reason === 'refusal') throw new Error('Claude declined to suggest ideas for this clinic');
+  if (msg.stop_reason === 'refusal') throw new Error('Claude declined to suggest ideas for this one');
   if (msg.stop_reason === 'max_tokens') throw new Error('Claude ran out of room; try again');
   const text = msg.content.filter((b) => b.type === 'text').map((b) => b.text).join('');
   let result;
-  try { result = JSON.parse(text); } catch { throw new Error('Claude returned something that wasn’t valid ideas; try again'); }
+  try { result = JSON.parse(text); } catch { throw new Error('Claude returned something that wasn\u2019t valid ideas; try again'); }
   db.prepare('INSERT INTO clinic_suggestions (site,location,created_at,focus,model,result,created_by) VALUES (?,?,?,?,?,?,?)')
-    .run(site.slug, loc.slug, now(), focus || null, msg.model, JSON.stringify(result), user || null);
+    .run(site.slug, loc ? loc.slug : '', now(), focus || null, msg.model, JSON.stringify(result), user || null);
   return latestSuggestions(site, loc);
 }
 
-/** The clinic's most recent ideas, or null. */
+/** The clinic's (or, with loc null, the brand's) most recent ideas, or null. */
 export function latestSuggestions(site, loc) {
-  const r = db.prepare('SELECT * FROM clinic_suggestions WHERE site=? AND location=? ORDER BY id DESC LIMIT 1').get(site.slug, loc.slug);
+  const r = db.prepare('SELECT * FROM clinic_suggestions WHERE site=? AND location=? ORDER BY id DESC LIMIT 1').get(site.slug, loc ? loc.slug : '');
   return r ? { created: r.created_at, focus: r.focus, by: r.created_by, ...JSON.parse(r.result) } : null;
 }

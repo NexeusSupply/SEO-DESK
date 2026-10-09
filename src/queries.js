@@ -4,7 +4,7 @@ import { config } from './config.js';
 import { ISSUE_LABELS } from './audit/rules.js';
 import { keywordGap } from './data/competitors.js';
 import { googleTransparencyUrl, metaAdLibraryUrl, RUNNING_DAYS } from './data/ads.js';
-import { aiSummary, engineList } from './data/ai.js';
+import { aiSummary, engineList, brandQuestions } from './data/ai.js';
 import { keywordSummary } from './data/keywords.js';
 import { latestSuggestions } from './data/suggestions.js';
 
@@ -68,7 +68,9 @@ export function siteDetail(site) {
     ranks, domains, gap: keywordGap(site), jobs,
     locations: locationRows(site), recentReviews: recentReviews(site), connections: connections(site),
     social: socialSummary(site), comments: socialComments([site], { limit: 40 }), ads: adsSummary(site),
-    ai: { ...aiSummary(site), engines: engineList() } };
+    ai: { ...aiSummary(site), engines: engineList() },
+    // Brand-level keyword research and ideas are for businesses with no clinic towns (Cowsmart, the supply chain units).
+    brandLevel: !site.locations.some((l) => l.town), keywords: keywordSummary(site, null), suggestions: latestSuggestions(site, null) };
 }
 
 export function issueDetail(site, code) {
@@ -140,7 +142,7 @@ export function allAds(sites) {
 
 /** Every brand with AI questions, for the AI page. */
 export function allAi(sites) {
-  const brands = sites.map((s) => { const a = aiSummary(s); return { slug: s.slug, name: s.name, group: s.group, host: s.host, ...a, clinics: a.clinics.length }; })
+  const brands = sites.map((s) => { const a = aiSummary(s); return { slug: s.slug, name: s.name, group: s.group, host: s.host, ...a, clinics: a.clinics.filter((c) => !c.brand).length }; })
     .filter((b) => b.questions);
   return { engines: engineList(), brands };
 }
@@ -195,7 +197,8 @@ export function connections(site) {
     localRanks: st(site.locations.some((l) => l.lat != null), config.dfs.enabled, has('SELECT 1 FROM local_ranks WHERE site=?', site.slug)),
     // Until the Meta token exists the whole feature is "coming soon" rather than "not connected" per brand.
     ads: st(true, config.dfs.enabled, has("SELECT 1 FROM dfs_tasks WHERE kind='ads' AND site=? AND status='done'", site.slug)),
-    ai: st(site.locations.some((l) => l.town) && (site.localKeywords.length > 0 || Boolean(site.aiPrompts)), config.dfs.enabled, aiSummary(site).checked != null),
+    ai: st((site.locations.some((l) => l.town) && (site.localKeywords.length > 0 || Boolean(site.aiPrompts))) || brandQuestions(site).length > 0, config.dfs.enabled, aiSummary(site).checked != null),
+    keywords: config.dfs.enabled ? 'connected' : 'not_connected', claude: config.claude.enabled ? 'connected' : 'not_connected',
     social: !config.meta.enabled ? 'coming_soon' : st(Boolean(site.meta), config.meta.enabled, has('SELECT 1 FROM meta_snapshots WHERE site=?', site.slug)),
     listingsConnected: site.locations.filter(listingSource).length, listingsTotal: site.locations.length,
   };
@@ -328,7 +331,7 @@ export function clinicDetail(site, loc) {
     listingHistory,
     performance: { daily, last28: end ? totals(sumDays(shift(28), end)) : null, prev28: end ? totals(sumDays(shift(56), shift(28))) : null },
     reviews, ratingSpread, rankHistory, rankDate,
-    ai: { ...aiSummary({ ...site, locations: [loc] }), engines: engineList() },
+    ai: { ...aiSummary({ ...site, locations: [loc] }, { brandRow: false }), engines: engineList() },
     ads: (({ running, total, checked }) => ({ running, total, checked }))(adsSummary(site, 0)),
     keywords: keywordSummary(site, loc),
     suggestions: latestSuggestions(site, loc),
