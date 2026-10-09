@@ -611,6 +611,7 @@
     "group": "Comhla",
     "name": "VetSouth",
     "url": "https://vetsouth.co.nz",
+    "gscProperty": "sc-domain:vetsouth.co.nz",
     "keywords": [],
     "localKeywords": [
       "vet {town}"
@@ -741,6 +742,7 @@
     "group": "Comhla",
     "name": "West Coast Vets",
     "url": "https://wcvets.co.nz",
+    "gscProperty": "sc-domain:wcvets.co.nz",
     "keywords": [],
     "localKeywords": [
       "vet {town}"
@@ -842,6 +844,7 @@
     "group": "Comhla",
     "name": "Vet Clinic Morrinsville",
     "url": "https://vetclinicmorrinsville.co.nz",
+    "gscProperty": "sc-domain:vetclinicmorrinsville.co.nz",
     "keywords": [],
     "localKeywords": [
       "vet {town}"
