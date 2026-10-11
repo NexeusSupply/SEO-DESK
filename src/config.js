@@ -35,6 +35,13 @@ export const config = {
     version: process.env.META_GRAPH_VERSION || 'v23.0',
     get enabled() { return Boolean(this.token); },
   },
+  planable: {
+    // A Planable company API token (Company settings → API tokens). Read scope syncs figures; Write also lets the
+    // dashboard create draft posts. Needs Planable's Pro or Enterprise plan.
+    token: process.env.PLANABLE_API_TOKEN || '',
+    apiUrl: (process.env.PLANABLE_API_URL || 'https://api.planable.io/api/v1').replace(/\/$/, ''),
+    get enabled() { return Boolean(this.token); },
+  },
   ai: {
     // What ChatGPT, Gemini and Perplexity say when asked for a vet in each clinic's town (src/data/ai.js).
     // engine:model pairs; model names come from DataForSEO's /ai_optimization/<engine>/llm_responses/models.
@@ -94,6 +101,7 @@ export const config = {
     ads: process.env.CRON_ADS || '30 4 * * 2',
     meta: process.env.CRON_META || '45 6 * * *',
     'meta-comments': process.env.CRON_META_COMMENTS || '*/30 * * * *',
+    planable: process.env.CRON_PLANABLE || '0 7 * * *',
     ai: process.env.CRON_AI || '0 4 2 * *',
   },
 };
@@ -112,6 +120,7 @@ export function loadSites() {
     s.competitors ||= [];
     s.localKeywords ||= [];
     s.meta = s.meta?.pageId || s.meta?.instagramId ? { pageId: s.meta.pageId ? String(s.meta.pageId) : null, instagramId: s.meta.instagramId ? String(s.meta.instagramId) : null } : null;
+    s.planable = s.planable?.workspaceId ? { workspaceId: String(s.planable.workspaceId), pageIds: (s.planable.pageIds || []).map(String) } : null;
     s.locations = (s.locations || []).map((l) => {
       if (!l.slug || !l.name) throw new Error(`Location in ${s.slug} missing slug or name`);
       return { keywords: [], ...l };

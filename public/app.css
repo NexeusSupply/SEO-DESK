@@ -155,11 +155,23 @@ code { font-size: 13px; background: var(--brand-soft); color: var(--brand-deep);
 .foot { margin-top: 32px; color: var(--muted); }
 @media (max-width: 800px) { .primary { display: none; } }
 
-/* Facebook and Instagram */
+/* Social: Facebook, Instagram and Planable channels */
 h3 { font-size: 15px; font-weight: 600; margin: 24px 0 10px; }
 .plat { display: inline-block; padding: 1px 7px; border-radius: 4px; font-size: 12px; font-weight: 600; }
 .plat.facebook { background: #e3ebf7; color: #1f4e79; }
 .plat.instagram { background: #f6e1ea; color: #8a2d55; }
+.plat.linkedin { background: #dfecf6; color: #0a5a8c; }
+.plat.tiktok { background: #e6f4f3; color: #135c58; }
+.plat.youtube { background: #f9e2e0; color: #9a2419; }
+.plat.threads, .plat.x { background: #ececec; color: #222; }
+.plat.google { background: #e5f2e8; color: #1d6b36; }
+.plat.pinterest { background: #f8e0e2; color: #9b1b2a; }
+/* Drafting a post for Planable */
+.post-form { background: var(--sheet); border: 1px solid var(--line); border-radius: 8px; padding: 14px 16px; }
+.post-form .chans { display: flex; flex-wrap: wrap; gap: 6px 16px; margin-bottom: 10px; font-size: 14px; }
+.post-form .chans label { display: inline-flex; align-items: center; gap: 6px; }
+.post-form textarea { width: 100%; box-sizing: border-box; margin-top: 8px; font: inherit; }
+.post-ok { margin: 8px 0 0; font-size: 14px; }
 .cmts { list-style: none; margin: 0; padding: 0; background: var(--sheet); border: 1px solid var(--line); border-radius: 8px; }
 .cmt { padding: 14px 16px; border-bottom: 1px solid var(--line); }
 .cmt:last-child { border-bottom: 0; }

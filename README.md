@@ -142,6 +142,23 @@ One token covers every brand. The steps all need someone who is an admin of the 
 
 Comments are checked every 30 minutes (`CRON_META_COMMENTS`) and insights daily (`CRON_META`). Replies go out publicly straight away, as the Page or Instagram account, and the dashboard records which signed-in person sent them. Meta keeps changing which insight metrics exist; each is requested on its own, so a retired one just disappears from the numbers rather than breaking the sync.
 
+### Planable
+
+[Planable](https://planable.io) is where the group schedules its social posts. Its Public API gives follower and engagement figures for every channel connected there (Facebook, Instagram, LinkedIn, TikTok, YouTube, Threads, X and Google Business Profile), plus recent posts and their metrics, and it lets the dashboard create draft posts. The API needs Planable's **Pro or Enterprise** plan.
+
+1. **Token.** A Planable Owner or Admin creates one under Company settings → API tokens. **Write** scope lets the dashboard create drafts as well as read; **Read** is enough for the figures alone. Give it access to all workspaces and a long expiry (it has to be replaced by hand when it runs out). Paste it into `PLANABLE_API_TOKEN`.
+2. With the server running, open `/api/planable/pages` to list every connected channel with its `workspaceId`, and add each brand's workspace to sites.json. Add `pageIds` only if a workspace holds channels for more than one brand.
+
+```json
+"planable": { "workspaceId": "ws_abc123", "pageIds": ["optional", "list"] }
+```
+
+The sync runs daily (`CRON_PLANABLE`, `npm run planable`). The first run backfills 90 days, then each run re-reads the last week. Figures land in the same Social section as the Meta sync: followers per channel, views, engagements and new followers over 28 days, a by-channel table, and calls, website clicks and directions from the Google Business Profile channels. If a brand also has `meta` set and `META_ACCESS_TOKEN` is on, Facebook and Instagram come from Meta (which has the comments) and Planable fills in the rest.
+
+**Draft a post in Planable** sits under the Social section. Tick the channels, type the post or a topic and press **Write with Claude** (it writes in the brand's voice from its recent posts and leaves [placeholders] for details it doesn't know), then **Send to Planable as a draft**. Several channels make one grouped post. Drafts are never marked approved, so they wait in Planable for the usual review and scheduling. If a workspace auto-publishes on approval, approving the draft in Planable publishes it. Claude's ideas tagged **Social** get a **Draft a post in Planable** button that starts the same thing from the idea.
+
+What Planable's API can't do: there are no comments or messages (replies happen in Planable's Social Inbox add-on, or here through Meta), no webhooks (hence the daily sync), and published posts can't be edited. Planable doesn't document whether each metrics snapshot holds one day's figures or a running total. The sync treats them as daily (the latest snapshot each day wins), so check the first real run's 28-day totals against Planable's own analytics.
+
 ### Ads
 
 Google ads are found by each brand's website domain, so nothing needs adding to sites.json. They come from Google's public Ads Transparency Center through DataForSEO, so they include ads run by anyone pointing at that domain (an agency, for example), shown with the advertiser's name. Searches go out weekly (`CRON_ADS`) through DataForSEO's standard queue and are collected with the other queued tasks, usually within a couple of hours. An ad last shown in the past 7 days counts as running.
@@ -193,6 +210,7 @@ npm run competitors
 npm run digest
 npm run gbp                 # Business Profile sync (API, and/or DataForSEO public listing + reviews)
 npm run meta                # Facebook and Instagram sync
+npm run planable            # Planable channels: followers, figures and recent posts
 npm run ads                 # queue this week's Google ads search per brand (collected by local-collect)
 npm run local               # post this week's map-pack checks + name/address/phone check
 npm run keywords -- vetlife # keyword research for every clinic of a brand not researched this month (no schedule)
@@ -257,7 +275,8 @@ Dockerfile            For Railway / Render / Fly / any VPS
   data/gbp-auth.js    One-time OAuth helper
   data/local.js       Map-pack rank checks and NAP consistency
   data/meta.js        Facebook and Instagram insights, posts, comments and replies
-  data/reply-helper.js  Claude drafts replies to Google reviews and Facebook/Instagram comments
+  data/planable.js    Planable channels' figures and posts, and creating draft posts
+  data/reply-helper.js  Claude drafts replies to Google reviews and Facebook/Instagram comments, and social posts
   data/ads.js         Google ads via the Ads Transparency Center, Meta Ad Library links
   data/keywords.js    Keyword research per clinic or brand and the SEO / Ads advice
   data/suggestions.js Claude's traffic ideas and starter search ad per clinic

@@ -89,3 +89,42 @@ export async function draftReply(kind, site, id, note) {
   if (!reply) throw new Error('Claude returned an empty draft');
   return { reply };
 }
+
+const POST_SYSTEM = `You draft social media posts for New Zealand and Australian brands, mostly veterinary clinics plus a few animal-feed, lab and supply businesses. The draft goes into Planable, where the marketing team edits and approves it before anything is published.
+
+- Write one post that works on every channel it's going to. Keep it short enough for the tightest of them: under 280 characters if X is included, otherwise two to four short paragraphs at most.
+- Sound like the brand's own social team: warm, local and practical. Match the tone of the brand's recent posts when they're given.
+- Lead with what matters to the reader (their animal, their farm, their business), then one clear call to action, like booking, calling or visiting the website.
+- Up to three relevant hashtags at the end for Instagram, LinkedIn or TikTok; none if the post is only for Facebook or Google.
+- Never invent offers, prices, dates, opening hours, staff names or claims about results. If the topic needs a detail you don't have, write [square-bracket placeholder] text for the team to fill in.
+- No medical or efficacy claims, and no advice that should come from a vet seeing the animal.
+- Write only the post text, in New Zealand English (Australian English for an Australian brand).`;
+
+const PLATFORM_NAMES = { facebook: 'Facebook', instagram: 'Instagram', linkedin: 'LinkedIn', tiktok: 'TikTok', youtube: 'YouTube', threads: 'Threads', x: 'X', google: 'Google Business Profile', pinterest: 'Pinterest' };
+
+/** Draft a social post for a brand on the given platforms from a topic or idea. Returns { text }. */
+export async function draftPost(site, topic, platforms) {
+  if (!config.claude.enabled) throw new Error('Claude is not configured (ANTHROPIC_API_KEY)');
+  if (!topic) throw new Error('say what the post is about');
+  const recent = db.prepare("SELECT platform, message FROM meta_posts WHERE site=? AND message != '' ORDER BY created_at DESC LIMIT 6").all(site.slug);
+  const brief = `<brand>
+Brand: ${site.name}${site.description ? ` (${site.description})` : ''}
+Website: ${site.url}
+Market: ${site.market === 'AU' ? 'Australia' : 'New Zealand'}
+</brand>
+<channels>${[...new Set(platforms)].map((p) => PLATFORM_NAMES[p] || p).join(', ') || 'Facebook, Instagram'}</channels>
+${recent.length ? `<recent_posts>\n${recent.map((p) => `- ${PLATFORM_NAMES[p.platform] || p.platform}: ${p.message.slice(0, 400).replace(/\s+/g, ' ')}`).join('\n')}\n</recent_posts>\n` : ''}<topic>${topic}</topic>`;
+  const msg = await anthropic().beta.messages.create({
+    model: config.claude.model,
+    max_tokens: 16000,
+    output_config: { effort: 'medium' },
+    betas: ['server-side-fallback-2026-07-01'],
+    fallbacks: 'default',
+    system: POST_SYSTEM,
+    messages: [{ role: 'user', content: `${brief}\n\nDraft the post.` }],
+  });
+  if (msg.stop_reason === 'refusal') throw new Error('Claude declined to draft this post');
+  const text = msg.content.filter((b) => b.type === 'text').map((b) => b.text).join('').trim();
+  if (!text) throw new Error('Claude returned an empty draft');
+  return { text };
+}
