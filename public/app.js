@@ -103,6 +103,9 @@ const TIPS = {
   checklist: 'The things that most often separate clinics in Google\u2019s top 3 map results from the rest, from Localo\u2019s study of over 130,000 local searches. They go together with rankings rather than guaranteeing them, and distance from the searcher still matters most. Reviews and photos count far more than anything else.',
   ckBasics: 'Localo\u2019s eight-point completeness check. Only 43% of #1 listings tick all eight, against 17% of those below page one, so start here.',
   ckTop3: 'Where the top three pull ahead: more reviews and photos, a strong rating, more categories, citations and social links, and regular Google posts. Each tooltip gives the figure the top listings reach.',
+  artSimilar: 'How much of this version\u2019s text it shares with the closest other brand\u2019s version, measured in runs of five words. Versions that share a lot compete with each other in Google, which shows one and filters the rest. Over 40% is flagged; rewrite more of it, or skip one of the brands.',
+  artSource: 'How much text this version still shares with the article you pasted in. It\u2019s expected to be fairly high, since the facts and advice stay the same; what matters most is how different the brands\u2019 versions are from each other.',
+  artChecks: 'Basic on-page checks we can do without Claude: title and meta description length, whether the focus search is in the title, first paragraph and a heading, length, links to the brand\u2019s own pages, and whether it names the brand\u2019s towns.',
   metaAds: 'Meta only lets apps pull ads that were shown in Europe, so New Zealand and Australian ads can\u2019t be listed here. This opens Meta\u2019s public Ad Library, which shows every ad the brand\u2019s Facebook Page is running right now.',
 };
 // The "i" marker is glued to the last word so it never wraps onto a line by itself.
@@ -894,6 +897,216 @@ async function renderSite(slug) {
   ${d.jobs.length ? `<h2>Recent jobs</h2><p class="jobs">${d.jobs.map((j) => `<span class="${j.ok ? '' : 'fail'}">${esc(j.job)} ${dateShort(j.finished_at)}: ${esc(j.message)}</span>`).join('<br>')}</p>` : ''}`;
 }
 
+// ---- Shared articles: one article in, a localised version per brand, reviewed and approved before it goes out ----
+const VSTATUS = {
+  pending: ['Waiting', 'nc'], writing: ['Writing…', 'nc'], ready: ['To review', 'watch'], approved: ['Approved', 'good'],
+  sent: ['Sent', 'good'], failed: ['Failed', 'problem'], skipped: ['Skipped', 'nc'],
+};
+const FIT = { strong: ['Strong fit', 'good'], ok: ['OK fit', 'watch'], weak: ['Weak fit', 'problem'] };
+const vsig = (v) => {
+  const [label, cls] = VSTATUS[v.status] || [v.status, 'nc'];
+  const sent = v.status === 'sent' ? (v.cms.status === 'by hand' ? 'Posted by hand' : v.cms.status === 'publish' ? 'Published' : v.cms.status === 'future' ? 'Scheduled' : 'Draft in WordPress') : label;
+  return `<span class="sig ${cls}">${sent}</span>`;
+};
+const sharedGuide = (warn) => `<details class="guide"><summary class="run">How shared articles avoid competing with each other</summary>
+  <ul>
+    <li><b>Each brand gets its own version, not a copy.</b> When the same text sits on several of our sites, Google picks one to show and filters the rest, so the copies earn almost nothing. Claude rewrites the opening, structure, examples, local FAQ and call to action around each brand’s towns and services.</li>
+    <li><b>Swapping place names isn’t enough.</b> Google treats near-identical pages with only the town changed as spam (“scaled content”). The <i>Closest version</i> column measures how much text two versions share; over ${warn}% is flagged for more rewriting.</li>
+    <li><b>Each version aims at a different search.</b> Claude picks the focus search from that brand’s own keyword research, Search Console and keyword gap, so the versions target what each site is missing.</li>
+    <li><b>Word-for-word copies</b> (a group announcement, say) are better published once on the main site, with the other sites linking to it or using a canonical tag pointing to it, rather than localised.</li>
+    <li><b>Stagger publishing</b> over a few days to a few weeks rather than putting every version live on the same day.</li>
+  </ul></details>`;
+
+async function renderArticles() {
+  const { articles, brands } = await api('/articles');
+  const groups = [...new Set(brands.map((b) => b.group))];
+  $('#main').innerHTML = `<h1>Articles</h1><p class="sub">Paste in one article and Claude writes a version for each brand you pick, using its towns, region and services, and aimed at searches its website is missing. You review, edit and approve each version before it goes to the website. Nothing is published without someone choosing to.</p>
+  ${sharedGuide(40)}
+  ${claudeOn ? `<h2>New article</h2>
+  <form class="post-form art-form" onsubmit="return newArticle(event)">
+    <label class="fld"><span>Title</span><input name="title" type="text" maxlength="300" required placeholder="e.g. Keeping your dog safe from 1080 and other poisons"></label>
+    <label class="fld"><span>Article</span><textarea name="body" rows="12" maxlength="60000" required placeholder="Paste the full article here. Headings and lists can stay as they are."></textarea></label>
+    <label class="fld"><span>Notes for Claude <small class="muted">(optional)</small></span><input name="notes" type="text" maxlength="2000" placeholder="e.g. keep the vaccination schedule exactly as written; aim at dog owners"></label>
+    <h3>Brands</h3>
+    ${groups.map((g) => `<div class="art-group"><div class="art-group-head"><b>${esc(g)}</b> <a class="muted" href="#" onclick="return tickGroup(this, true)">all</a> · <a class="muted" href="#" onclick="return tickGroup(this, false)">none</a></div>
+      <div class="chans">${brands.filter((b) => b.group === g).map((b) => `<label><input type="checkbox" name="site" value="${esc(b.slug)}"> ${badge(b.slug, b.name, 'xs')} ${esc(b.name)} <small class="muted">${esc(b.route.label)}${b.route.push ? ' · sends from here' : ''}</small></label>`).join('')}</div></div>`).join('')}
+    <div class="actions"><button class="run primary-btn" type="submit">Write the versions</button><small class="muted">Claude writes three at a time, about a minute each.</small></div>
+    <p class="cmt-err notok" hidden></p>
+  </form>` : '<p class="empty">Writing versions with Claude needs an Anthropic API key (<code>ANTHROPIC_API_KEY</code>) set on the server.</p>'}
+  <h2>Articles so far</h2>
+  ${articles.length ? `<div class="wrap"><table class="data"><thead><tr><th>Article</th><th>Started</th><th class="r">Brands</th><th>Progress</th></tr></thead><tbody>
+  ${articles.map((a) => `<tr><td><a href="#/article/${a.id}"><b>${esc(a.title)}</b></a></td><td><small class="muted">${dateShort(a.created_at)}${a.created_by ? ` · ${esc(a.created_by)}` : ''}</small></td><td class="r num">${a.brands}</td>
+    <td>${[['writing', 'writing', 'nc'], ['ready', 'to review', 'watch'], ['approved', 'approved', 'good'], ['sent', 'sent', 'good'], ['failed', 'failed', 'problem']].filter(([k]) => a[k]).map(([k, l, c]) => `<span class="sig ${c}">${a[k]} ${l}</span>`).join(' ') || dash}</td></tr>`).join('')}
+  </tbody></table></div>` : '<p class="empty">No articles yet.</p>'}`;
+}
+function tickGroup(a, on) { a.closest('.art-group').querySelectorAll('input[type=checkbox]').forEach((x) => { x.checked = on; }); return false; }
+async function newArticle(ev) {
+  ev.preventDefault();
+  const f = ev.target, btn = f.querySelector('button[type=submit]'), err = f.querySelector('.cmt-err');
+  const sites = [...f.querySelectorAll('input[name=site]:checked')].map((x) => x.value);
+  err.hidden = true;
+  if (!sites.length) { err.textContent = 'Pick at least one brand.'; err.hidden = false; return false; }
+  btn.disabled = true; btn.textContent = 'Starting…';
+  try { const a = await post('/articles', { title: f.title.value, body: f.body.value, notes: f.notes.value, sites }); location.hash = `#/article/${a.id}`; }
+  catch (e) { err.textContent = e.message; err.hidden = false; btn.disabled = false; btn.textContent = 'Write the versions'; }
+  return false;
+}
+
+const busyStatus = (v) => v.status === 'pending' || v.status === 'writing';
+function articleTable(a) {
+  return `<div class="wrap"><table class="data art-table"><thead><tr><th>Brand</th><th>Fit</th><th>Focus search</th>${th('Closest version', 'artSimilar', 'r')}${th('Checks', 'artChecks', 'r')}<th>Status</th><th>Website</th></tr></thead><tbody>
+  ${a.versions.map((v) => { const c = v.similarity?.closest, ok = v.checks.filter((x) => x.ok).length; return `<tr>
+    <td><a href="#v-${esc(v.site)}" onclick="return openVersion('${esc(v.site)}')"><div class="who">${badge(v.site, v.name, 'sm')}<b>${esc(v.name)}</b></div></a></td>
+    <td>${v.fit ? `<span class="sig ${FIT[v.fit.rating][1]}" tabindex="0" data-tip="${esc(v.fit.note)}">${FIT[v.fit.rating][0]}</span>` : dash}</td>
+    <td>${v.focusKeyword ? esc(v.focusKeyword) : dash}</td>
+    <td class="r num ${c && c.pct > a.similarWarn ? 'notok' : ''}">${c ? `${c.pct}% <small class="muted">${esc(c.name)}</small>` : dash}</td>
+    <td class="r num">${v.checks.length ? `${ok}/${v.checks.length}` : dash}</td>
+    <td>${vsig(v)}</td>
+    <td><small class="muted">${esc(v.route.label)}</small>${v.cms.link ? ` <a href="${esc(v.cms.link)}" target="_blank" rel="noopener">open ↗</a>` : ''}</td></tr>`; }).join('')}
+  </tbody></table></div>`;
+}
+
+function versionCard(a, v) {
+  const head = `<summary><div class="who">${badge(v.site, v.name, 'sm')}<b>${esc(v.name)}</b> <small class="muted">${esc(v.host)}</small></div> ${vsig(v)}${v.fit ? ` <span class="sig ${FIT[v.fit.rating][1]}">${FIT[v.fit.rating][0]}</span>` : ''}</summary>`;
+  const wrap = (body) => `<details class="vcard" id="v-${esc(v.site)}" data-site="${esc(v.site)}" data-status="${esc(v.status)}" data-updated="${esc(v.updated)}">${head}<div class="vbody">${body}</div></details>`;
+  const again = `<form class="kw-form" onsubmit="return rewriteVersion(event)"><input class="draft-note" name="note" type="text" maxlength="500" placeholder="Anything to change? (optional), e.g. more on farm dogs, mention the Gore clinic">
+    <button class="run" type="submit">Write again</button><p class="cmt-err notok" hidden></p></form>`;
+  if (busyStatus(v)) return wrap(`<p class="empty">${v.status === 'writing' ? 'Claude is writing this version…' : 'Waiting its turn…'}</p>`);
+  if (v.status === 'failed') return wrap(`<p class="notok">${esc(v.error || 'Something went wrong.')}</p>${again}`);
+  if (v.status === 'skipped') return wrap(`<p class="empty">Skipped: this brand won’t get the article. <button class="run" type="button" onclick="skipVersion(this,false)">Include it again</button></p><p class="cmt-err notok" hidden></p>`);
+  const sim = v.similarity, c = sim?.closest;
+  const list = (items, fn) => items?.length ? `<ul>${items.map(fn).join('')}</ul>` : '<p class="muted">None.</p>';
+  const PRI = { high: 'problem', medium: 'watch', low: 'nc' };
+  const approved = v.status === 'approved' || v.status === 'sent';
+  return wrap(`
+  ${v.fit && v.fit.rating !== 'strong' ? `<p class="ideas-summary">${esc(v.fit.note)}</p>` : ''}
+  <div class="art-grid">
+    <form class="art-edit" onsubmit="return saveVersion(event)">
+      <label class="fld"><span>Title ${charCount(v.title || '', 60)}</span><input name="title" type="text" maxlength="300" value="${esc(v.title)}" oninput="countChars(this,60)"></label>
+      <div class="fld-row"><label class="fld"><span>Focus search</span><input name="focusKeyword" type="text" maxlength="120" value="${esc(v.focusKeyword)}"></label>
+        <label class="fld"><span>Web address</span><input name="slug" type="text" maxlength="80" value="${esc(v.slug)}"></label></div>
+      <label class="fld"><span>Meta description ${charCount(v.metaDescription || '', 155)}</span><textarea name="metaDescription" rows="2" maxlength="400" oninput="countChars(this,155)">${esc(v.metaDescription)}</textarea></label>
+      <div class="fld"><span>Article <small class="muted">click into the text to edit it</small></span><div class="art-body" contenteditable="true">${v.bodyHtml || ''}</div></div>
+      <div class="actions"><button class="run" type="submit">Save changes</button>
+        ${v.status === 'ready' ? '<button class="run primary-btn" type="button" onclick="approveVersion(this,true)">Approve</button>' : approved && v.status === 'approved' ? '<button class="run" type="button" onclick="approveVersion(this,false)">Take back approval</button>' : ''}
+        ${v.status !== 'sent' ? '<button class="run" type="button" onclick="skipVersion(this,true)">Skip this brand</button>' : ''}
+        <small class="muted">${v.edited ? 'Edited' : 'Written by Claude'} ${dateShort(v.updated)}${v.approvedBy ? ` · approved by ${esc(v.approvedBy)}` : ''}</small></div>
+      <p class="cmt-err notok" hidden></p>
+    </form>
+    <div class="art-side">
+      <h4>${tip('Checks', 'artChecks')}</h4>
+      <ul class="checks">${v.checks.map((x) => `<li>${x.ok ? '<span class="ok">✓</span>' : '<span class="notok">✗</span>'} ${x.tip ? `<span tabindex="0" data-tip="${esc(x.tip)}">${esc(x.label)}</span>` : esc(x.label)}</li>`).join('')}
+        ${c ? `<li>${c.pct > a.similarWarn ? '<span class="notok">✗</span>' : '<span class="ok">✓</span>'} ${tip(`${c.pct}% shared with ${esc(c.name)}`, 'artSimilar')}</li>` : ''}
+        ${sim?.source != null ? `<li><span class="muted">·</span> ${tip(`${sim.source}% shared with the original`, 'artSource')}</li>` : ''}</ul>
+      <h4>SEO holes it helps fill</h4>${list(v.gaps, (g) => `<li><b>${esc(g.topic)}</b>: ${esc(g.how)}<br><small class="muted">${esc(g.evidence)}</small></li>`)}
+      <h4>Changes to make on the website</h4>${list(v.siteChanges, (g) => `<li><span class="sig ${PRI[g.priority]}">${esc(g.priority)}</span> <b>${esc(g.change)}</b><br><small class="muted">${esc(g.why)}</small></li>`)}
+      <h4>What Claude changed for this brand</h4>${list(v.localised, (x) => `<li>${esc(x)}</li>`)}
+    </div>
+  </div>
+  <h3>Put it on the website</h3>${publishBlock(v)}
+  <details class="kw-again"><summary class="run">Write this version again</summary>${again}</details>`);
+}
+
+function publishBlock(v) {
+  const r = v.route, approved = v.status === 'approved' || v.status === 'sent';
+  const sent = v.status === 'sent' ? `<p><span class="ok">✓</span> ${v.cms.status === 'by hand' ? 'Marked as posted by hand' : `Sent to WordPress as ${v.cms.status === 'publish' ? 'a published post' : v.cms.status === 'future' ? 'a scheduled post' : 'a draft'}`} ${dateShort(v.sentAt)}${v.sentBy ? ` by ${esc(v.sentBy)}` : ''}.${v.cms.link ? ` <a href="${esc(v.cms.link)}" target="_blank" rel="noopener">Open it ↗</a>` : ''}</p>` : '';
+  const resent = v.status === 'ready' && v.cms.id ? '<p class="muted">Changed since it was sent. Approve it again to update the post in WordPress.</p>' : '';
+  if (!approved) return `${resent}<p class="empty">Approve this version first.</p>`;
+  const copy = `<div class="actions"><button class="run" type="button" onclick="copyVersion(this,'title')">Copy title</button><button class="run" type="button" onclick="copyVersion(this,'body')">Copy article</button><button class="run" type="button" onclick="copyVersion(this,'meta')">Copy meta description</button></div>`;
+  if (!r.push) return `${sent}<p class="sub">${esc(r.note)}</p>${copy}${v.status !== 'sent' ? '<div class="actions"><button class="run" type="button" onclick="sendVersion(this,\'manual\')">Mark as posted</button></div><p class="cmt-err notok" hidden></p>' : ''}`;
+  return `${sent}<form class="kw-form send-form" onsubmit="return sendVersion(event)">
+    <select name="mode" onchange="this.form.date.hidden = this.value !== 'future'">
+      <option value="draft">As a draft in WordPress (someone publishes it there)</option>
+      <option value="future">Scheduled for a date</option>
+      <option value="publish">Published now</option></select>
+    <input name="date" type="datetime-local" hidden>
+    <button class="run primary-btn" type="submit">${v.cms.id ? 'Update in WordPress' : 'Send to WordPress'}</button><p class="cmt-err notok" hidden></p></form>${copy}`;
+}
+
+let articlePoll = null;
+async function renderArticle(id) {
+  clearTimeout(articlePoll);
+  const a = await api(`/articles/${id}`);
+  $('#main').innerHTML = `<p class="crumb"><a href="#/articles">← Articles</a></p><h1>${esc(a.title)}</h1>
+  <p class="sub">Started ${dateShort(a.created)}${a.by ? ` by ${esc(a.by)}` : ''}. Review each brand’s version, edit it if you like, approve it, then send it to the website.</p>
+  <details class="guide"><summary class="run">The original article</summary><div class="art-source">${esc(a.body).replace(/\n/g, '<br>')}</div>${a.notes ? `<p class="muted">Notes: ${esc(a.notes)}</p>` : ''}</details>
+  ${sharedGuide(a.similarWarn)}
+  <div id="art-table">${articleTable(a)}</div>
+  <div class="vcards" data-article="${a.id}">${a.versions.map((v) => versionCard(a, v)).join('')}</div>`;
+  const first = a.versions.find((v) => v.status === 'ready') || a.versions.find((v) => !busyStatus(v));
+  if (first) document.getElementById(`v-${first.site}`).open = true;
+  pollArticle(a);
+}
+// While versions are being written, check back every few seconds and redraw only the ones that changed, so edits
+// someone is making to a finished version aren't lost.
+function pollArticle(a) {
+  if (!a.versions.some(busyStatus)) return;
+  articlePoll = setTimeout(async () => {
+    if (location.hash !== `#/article/${a.id}`) return;
+    try { const next = await api(`/articles/${a.id}`); refreshArticle(next); pollArticle(next); } catch { pollArticle(a); }
+  }, 5000);
+}
+function refreshArticle(a) {
+  $('#art-table').innerHTML = articleTable(a);
+  for (const v of a.versions) {
+    const card = document.getElementById(`v-${v.site}`);
+    if (!card) { document.querySelector('.vcards').insertAdjacentHTML('beforeend', versionCard(a, v)); continue; }
+    if (card.dataset.status !== v.status || card.dataset.updated !== v.updated) { const open = card.open; card.outerHTML = versionCard(a, v); document.getElementById(`v-${v.site}`).open = open; }
+  }
+}
+const vpath = (el) => `/articles/${el.closest('.vcards').dataset.article}/versions/${el.closest('.vcard').dataset.site}`;
+async function vAction(el, path, body) {
+  const card = el.closest('.vcard'), err = card.querySelector('.cmt-err');
+  if (err) err.hidden = true;
+  el.disabled = true;
+  try { const r = await post(`${vpath(el)}${path}`, body); refreshArticle(r.article); const c = document.getElementById(card.id); c.open = true; pollArticle(r.article); return r; }
+  catch (e) { if (err) { err.textContent = e.message; err.hidden = false; } else alert(e.message); el.disabled = false; return null; }
+}
+const editFields = (f) => ({ title: f.title.value, slug: f.slug.value, focusKeyword: f.focusKeyword.value, metaDescription: f.metaDescription.value, bodyHtml: f.querySelector('.art-body').innerHTML });
+function saveVersion(ev) { ev.preventDefault(); vAction(ev.target.querySelector('button[type=submit]'), '', editFields(ev.target)); return false; }
+async function approveVersion(btn, on) {
+  const f = btn.closest('form');
+  // Save any edits first, so what's approved is what's on screen.
+  if (on) { btn.disabled = true; try { await post(vpath(btn), editFields(f)); } catch (e) { const err = f.querySelector('.cmt-err'); err.textContent = e.message; err.hidden = false; btn.disabled = false; return; } }
+  vAction(btn, '/approve', { approved: on });
+}
+function skipVersion(btn, on) { vAction(btn, '/skip', { skip: on }); }
+function rewriteVersion(ev) {
+  ev.preventDefault();
+  if (ev.target.closest('.vcard').dataset.status !== 'failed' && !confirm('Write this version again? Your edits to it will be replaced.')) return false;
+  vAction(ev.target.querySelector('button'), '/rewrite', { note: ev.target.note.value });
+  return false;
+}
+async function sendVersion(evOrBtn, manual) {
+  if (manual) { vAction(evOrBtn, '/send', { mode: 'manual' }); return false; }
+  evOrBtn.preventDefault();
+  const f = evOrBtn.target, mode = f.mode.value, host = f.closest('.vcard').querySelector('summary small').textContent;
+  let date = null;
+  if (mode === 'future') {
+    if (!f.date.value) { f.date.hidden = false; f.date.focus(); return false; }
+    date = new Date(f.date.value).toISOString();
+    if (!confirm(`Schedule this on ${host} for ${new Date(date).toLocaleString()}? It goes live by itself at that time.`)) return false;
+  }
+  if (mode === 'publish' && !confirm(`Publish this on ${host} now? It goes live straight away.`)) return false;
+  const btn = f.querySelector('button'); btn.textContent = 'Sending…';
+  const r = await vAction(btn, '/send', { mode, date });
+  if (!r) btn.textContent = 'Send to WordPress';
+  return false;
+}
+async function copyVersion(btn, what) {
+  const card = btn.closest('.vcard'), body = card.querySelector('.art-body');
+  try {
+    if (what === 'body') {
+      // Rich copy, so pasting into Rocketspark, Wix or Silverstripe keeps the headings and lists.
+      await navigator.clipboard.write([new ClipboardItem({ 'text/html': new Blob([body.innerHTML], { type: 'text/html' }), 'text/plain': new Blob([body.innerText], { type: 'text/plain' }) })]);
+    } else await navigator.clipboard.writeText(card.querySelector(what === 'title' ? 'input[name=title]' : 'textarea[name=metaDescription]').value);
+  } catch { /* clipboard blocked */ }
+  const was = btn.textContent; btn.textContent = 'Copied'; setTimeout(() => { btn.textContent = was; }, 1500);
+}
+function openVersion(site) { const c = document.getElementById(`v-${site}`); if (c) { c.open = true; c.scrollIntoView({ behavior: 'smooth', block: 'start' }); } return false; }
+function countChars(el, max) { const s = el.closest('label').querySelector('small'); s.textContent = `${el.value.length}/${max}`; s.className = el.value.length > max ? 'notok' : 'muted'; }
+Object.assign(window, { newArticle, tickGroup, saveVersion, approveVersion, skipVersion, rewriteVersion, sendVersion, copyVersion, openVersion, countChars });
+
 // One floating tooltip for every [data-tip] element. It lives on <body> so table overflow can't clip it.
 function initTips() {
   const box = document.createElement('div'); box.className = 'tipbox'; box.setAttribute('role', 'tooltip'); document.body.append(box);
@@ -918,7 +1131,7 @@ function initTips() {
 const JUMP_ICON = [[/how people find/i, '🧭'], [/business profile|listing/i, '📍'], [/local search|map.pack/i, '🗺️'], [/review/i, '⭐'],
   [/site health/i, '🩺'], [/website/i, '🌐'], [/checklist/i, '✅'], [/keyword gap/i, '🕳️'], [/keyword/i, '🔑'], [/idea/i, '💡'], [/ai answer/i, '🤖'],
   [/social/i, '📣'], [/ads/i, '💸'], [/search performance/i, '📈'], [/within reach/i, '🎯'], [/rank/i, '🏆'], [/top quer/i, '🔍'],
-  [/top pages/i, '📄'], [/clinic/i, '🏥'], [/competitor/i, '🥊'], [/job/i, '⚙️'], [/supply/i, '🚚'], [/comhla/i, '🐾']];
+  [/top pages/i, '📄'], [/clinic/i, '🏥'], [/competitor/i, '🥊'], [/job/i, '⚙️'], [/article/i, '📝'], [/supply/i, '🚚'], [/comhla/i, '🐾']];
 const jumpIcon = (label) => JUMP_ICON.find(([re]) => re.test(label))?.[1] || '✨';
 function initJump() {
   const nav = document.createElement('nav'); nav.className = 'jump'; nav.id = 'jump'; nav.setAttribute('aria-label', 'Jump to a section'); nav.hidden = true;
@@ -938,7 +1151,7 @@ function initJump() {
     if (on) nav.scrollTo({ left: on.offsetLeft - nav.clientWidth / 2 + on.offsetWidth / 2, behavior: 'smooth' });
   };
   const build = () => {
-    heads = [...$('#main').querySelectorAll('h2')].filter((h) => h.getClientRects().length && label(h));
+    heads = [...$('#main').querySelectorAll('h2')].filter((h) => h.getClientRects().length && label(h) && !h.closest('.art-body'));
     cur = -1; nav.hidden = heads.length < 2;
     nav.innerHTML = heads.map((h, k) => { const t = label(h); return `<button type="button" class="chip" data-k="${k}" style="--i:${k}"><span class="em" aria-hidden="true">${jumpIcon(t)}</span>${esc(t)}</button>`; }).join('');
     heads.forEach((h) => { h.style.scrollMarginTop = `${offset()}px`; });
@@ -977,10 +1190,11 @@ async function boot() {
       + `<a href="#/clinics" class="${slug === 'clinics' || slug.startsWith('clinic/') ? 'active' : ''} sep">All clinics</a>`
       + `<a href="#/comments" class="${slug.startsWith('comments') ? 'active' : ''}">Comments</a>`
       + `<a href="#/ads" class="${slug === 'ads' ? 'active' : ''}">Ads</a>`
-      + `<a href="#/ai" class="${slug === 'ai' ? 'active' : ''}">AI answers</a>`;
+      + `<a href="#/ai" class="${slug === 'ai' ? 'active' : ''}">AI answers</a>`
+      + `<a href="#/articles" class="${slug === 'articles' || slug.startsWith('article/') ? 'active' : ''}">Articles</a>`;
     $('#brands .tabs a.active')?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
     $('#home').className = slug ? '' : 'active'; $('#portfolio').className = slug === 'portfolio' ? 'active' : '';
-    try { slug.startsWith('comments') ? await renderComments(slug.split('/')[1]) : slug === 'clinics' ? await renderLocations() : slug.startsWith('clinic/') ? await renderClinic(...slug.split('/').slice(1, 3).map(decodeURIComponent)) : slug === 'ads' ? await renderAds() : slug === 'ai' ? await renderAi() : slug === 'portfolio' ? await renderOverview() : slug ? await renderSite(slug) : await renderManagement(); }
+    try { slug.startsWith('comments') ? await renderComments(slug.split('/')[1]) : slug === 'clinics' ? await renderLocations() : slug.startsWith('clinic/') ? await renderClinic(...slug.split('/').slice(1, 3).map(decodeURIComponent)) : slug === 'ads' ? await renderAds() : slug === 'ai' ? await renderAi() : slug === 'articles' ? await renderArticles() : slug.startsWith('article/') ? await renderArticle(Number(slug.split('/')[1])) : slug === 'portfolio' ? await renderOverview() : slug ? await renderSite(slug) : await renderManagement(); }
     catch (e) { $('#main').innerHTML = `<p class="empty">Couldn't load that view: ${esc(e.message)}. <a href="#/">Back to portfolio</a></p>`; }
   };
   homeGroup = sites[0]?.group ?? null;

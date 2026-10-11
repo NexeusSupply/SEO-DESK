@@ -4,6 +4,7 @@
     "group": "Comhla",
     "name": "First Vets Whanganui",
     "url": "https://firstvets.co.nz",
+    "cms": "wordpress",
     "keywords": [],
     "localKeywords": [
       "vet {town}"
@@ -29,6 +30,7 @@
     "group": "Comhla",
     "name": "Levin & Horowhenua Vets",
     "url": "https://levinhorowhenuavets.nz",
+    "cms": "wordpress",
     "keywords": [],
     "localKeywords": [
       "vet {town}"
@@ -54,6 +56,7 @@
     "group": "Comhla",
     "name": "Ōtaki Vets",
     "url": "https://otakivets.nz",
+    "cms": "wordpress",
     "keywords": [],
     "localKeywords": [
       "vet {town}"
@@ -79,6 +82,7 @@
     "group": "Comhla",
     "name": "Tararua Breeding Services",
     "url": "https://tararuabreeding.nz",
+    "cms": "wordpress",
     "keywords": [],
     "localKeywords": [
       "vet {town}"
@@ -104,6 +108,7 @@
     "group": "Comhla",
     "name": "Tararua Vet Services",
     "url": "https://tararuavets.nz",
+    "cms": "wordpress",
     "keywords": [],
     "localKeywords": [
       "vet {town}"
@@ -143,6 +148,7 @@
     "group": "Comhla",
     "name": "Totally Vets",
     "url": "https://totallyvets.co.nz",
+    "cms": "wordpress",
     "keywords": [],
     "localKeywords": [
       "vet {town}"
@@ -195,6 +201,7 @@
     "group": "Comhla",
     "name": "CHB Vets",
     "url": "https://chbvets.nz",
+    "cms": "wix",
     "keywords": [],
     "localKeywords": [
       "vet {town}"
@@ -220,6 +227,7 @@
     "group": "Comhla",
     "name": "Vetlife",
     "url": "https://vetlife.co.nz",
+    "cms": "wordpress",
     "keywords": [],
     "localKeywords": [
       "vet {town}"
@@ -611,6 +619,7 @@
     "group": "Comhla",
     "name": "VetSouth",
     "url": "https://vetsouth.co.nz",
+    "cms": "rocketspark",
     "gscProperty": "sc-domain:vetsouth.co.nz",
     "keywords": [],
     "localKeywords": [
@@ -742,6 +751,7 @@
     "group": "Comhla",
     "name": "West Coast Vets",
     "url": "https://wcvets.co.nz",
+    "cms": "rocketspark",
     "gscProperty": "sc-domain:wcvets.co.nz",
     "keywords": [],
     "localKeywords": [
@@ -781,6 +791,7 @@
     "group": "Comhla",
     "name": "Buller Vets",
     "url": "https://bullervets.co.nz",
+    "cms": "wordpress",
     "keywords": [],
     "localKeywords": [
       "vet {town}"
@@ -819,6 +830,7 @@
     "group": "Comhla",
     "name": "Selwyn Rakaia Vets",
     "url": "https://srvets.co.nz",
+    "cms": "storbie",
     "keywords": [],
     "localKeywords": [
       "vet {town}"
@@ -844,6 +856,7 @@
     "group": "Comhla",
     "name": "Vet Clinic Morrinsville",
     "url": "https://vetclinicmorrinsville.co.nz",
+    "cms": "rocketspark",
     "gscProperty": "sc-domain:vetclinicmorrinsville.co.nz",
     "keywords": [],
     "localKeywords": [
@@ -870,6 +883,7 @@
     "group": "Comhla",
     "name": "VetsOne (Hastings)",
     "url": "https://vetsone.co.nz",
+    "cms": "wordpress",
     "keywords": [],
     "localKeywords": [
       "vet {town}"
@@ -891,6 +905,7 @@
     "group": "Comhla",
     "name": "TasVets",
     "url": "https://tasvets.com.au",
+    "cms": "wordpress",
     "market": "AU",
     "description": "The Vet Group’s Tasmanian vet clinic, in Smithton in north-west Tasmania.",
     "keywords": [],
@@ -912,6 +927,7 @@
     "group": "Comhla",
     "name": "The Vet Group (Australia)",
     "url": "https://thevetgroup.com.au",
+    "cms": "wordpress",
     "market": "AU",
     "description": "Group of six vet clinics across South West Victoria with a head office in Warrnambool.",
     "keywords": [],
@@ -934,6 +950,7 @@
     "group": "Comhla",
     "name": "Cowsmart",
     "url": "https://cowsmart.co.nz",
+    "cms": "rocketspark",
     "description": "Veterinary data consultancy for dairy farmers (herd data, reproduction and mastitis), based at the Centre for Dairy Excellence in Geraldine.",
     "keywords": [],
     "keywordSeeds": [
@@ -963,6 +980,7 @@
     "group": "Nexeus Supply Chain",
     "name": "Heartland Feeds",
     "url": "https://www.heartlandfeeds.co.nz",
+    "cms": "wordpress",
     "description": "Custom feeds, minerals and supplements for livestock (dairy, beef, sheep, deer), based in Christchurch.",
     "keywords": [],
     "keywordSeeds": [
@@ -986,6 +1004,7 @@
     "group": "Nexeus Supply Chain",
     "name": "Agilis",
     "url": "https://agilis.nz",
+    "cms": "silverstripe",
     "description": "Animal health products and technical support for veterinary practices in New Zealand; runs the IBR Hub (infectious bovine rhinotracheitis).",
     "keywords": [],
     "keywordSeeds": [
@@ -1008,6 +1027,7 @@
     "group": "Nexeus Supply Chain",
     "name": "Fortis",
     "url": "https://fortisnz.co.nz",
+    "cms": "custom",
     "description": "Wholesale supplier of veterinary products to vet clinics in New Zealand.",
     "keywords": [],
     "keywordSeeds": [
@@ -1027,6 +1047,7 @@
     "group": "Nexeus Supply Chain",
     "name": "DRL (Disease Research Limited)",
     "url": "https://www.drl.net.nz",
+    "cms": "wordpress",
     "description": "Independent veterinary diagnostic laboratory at Invermay near Mosgiel, best known for Johne’s disease testing for deer, cattle and sheep.",
     "aiNames": [
       "Disease Research Limited",
