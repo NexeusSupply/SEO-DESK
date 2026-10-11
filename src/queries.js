@@ -7,6 +7,7 @@ import { googleTransparencyUrl, metaAdLibraryUrl, RUNNING_DAYS } from './data/ad
 import { aiSummary, engineList, brandQuestions } from './data/ai.js';
 import { keywordSummary } from './data/keywords.js';
 import { latestSuggestions } from './data/suggestions.js';
+import { savedPages } from './data/planable.js';
 
 export function overview(sites) {
   return sites.map((s) => {
@@ -68,6 +69,9 @@ export function siteDetail(site) {
     ranks, domains, gap: keywordGap(site), jobs,
     locations: locationRows(site), recentReviews: recentReviews(site), connections: connections(site),
     social: socialSummary(site), comments: socialComments([site], { limit: 40 }), ads: adsSummary(site),
+    // Which sources feed this brand's Social section, and its Planable channels for drafting posts.
+    socialSources: { meta: config.meta.enabled && Boolean(site.meta), planable: config.planable.enabled && Boolean(site.planable) },
+    planablePages: config.planable.enabled && site.planable ? savedPages(site) : [],
     ai: { ...aiSummary(site), engines: engineList() },
     // Brand-level keyword research and ideas are for businesses with no clinic towns (Cowsmart, the supply chain units).
     brandLevel: !site.locations.some((l) => l.town), keywords: keywordSummary(site, null), suggestions: latestSuggestions(site, null) };
@@ -147,7 +151,7 @@ export function allAi(sites) {
   return { engines: engineList(), brands };
 }
 
-// ---- Facebook and Instagram ----
+// ---- Social: Facebook and Instagram from Meta, and every Planable channel ----
 
 /** Followers, 28-day insight totals against the 28 days before, and recent posts, per platform. */
 export function socialSummary(site) {
@@ -195,11 +199,13 @@ export function connections(site) {
     ranks: st(site.keywords.length > 0, config.dfs.enabled, has('SELECT 1 FROM ranks WHERE site=?', site.slug)),
     listings: st(site.locations.some(listingSource), config.gbp.enabled || config.dfs.enabled, has('SELECT 1 FROM gbp_snapshots WHERE site=?', site.slug)),
     localRanks: st(site.locations.some((l) => l.lat != null), config.dfs.enabled, has('SELECT 1 FROM local_ranks WHERE site=?', site.slug)),
-    // Until the Meta token exists the whole feature is "coming soon" rather than "not connected" per brand.
     ads: st(true, config.dfs.enabled, has("SELECT 1 FROM dfs_tasks WHERE kind='ads' AND site=? AND status='done'", site.slug)),
     ai: st((site.locations.some((l) => l.town) && (site.localKeywords.length > 0 || Boolean(site.aiPrompts))) || brandQuestions(site).length > 0, config.dfs.enabled, aiSummary(site).checked != null),
     keywords: config.dfs.enabled ? 'connected' : 'not_connected', claude: config.claude.enabled ? 'connected' : 'not_connected',
-    social: !config.meta.enabled ? 'coming_soon' : st(Boolean(site.meta), config.meta.enabled, has('SELECT 1 FROM meta_snapshots WHERE site=?', site.slug)),
+    // Social figures come from Meta directly, Planable, or both. Until either is set up the whole feature is
+    // "coming soon" rather than "not connected" per brand.
+    social: !config.meta.enabled && !config.planable.enabled ? 'coming_soon'
+      : st((config.meta.enabled && Boolean(site.meta)) || (config.planable.enabled && Boolean(site.planable)), true, has('SELECT 1 FROM meta_snapshots WHERE site=?', site.slug)),
     listingsConnected: site.locations.filter(listingSource).length, listingsTotal: site.locations.length,
   };
 }

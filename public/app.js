@@ -97,6 +97,9 @@ const TIPS = {
   kwPosition: 'Where the website ranks in Google for this search now. \u201cmap #2\u201d means it isn\u2019t in the normal results but the clinic shows second in the map box.',
   kwAdvice: 'Our suggestion: SEO (target it on the website), Ads (bid on it), or both. The reasons are underneath.',
   adDraft: 'A starting point for a Google responsive search ad: Google mixes the headlines and descriptions. Headlines can be 30 characters, descriptions 90. Check every line before using it.',
+  planableGoogle: 'From the Google Business Profile channels connected in Planable: taps on Call, clicks through to the website and direction requests in the last 28 days, with the change on the 28 days before.',
+  planableInbox: 'Planable\u2019s API doesn\u2019t include comments or messages, so replies are made in Planable\u2019s Social Inbox (a paid add-on) or on the platform itself. Connecting Meta here as well brings Facebook and Instagram comments into this page.',
+  writePost: 'Claude writes a post for the ticked channels from your topic, in the brand\u2019s voice from its recent posts. Edit it before you send it.',
   metaAds: 'Meta only lets apps pull ads that were shown in Europe, so New Zealand and Australian ads can\u2019t be listed here. This opens Meta\u2019s public Ad Library, which shows every ad the brand\u2019s Facebook Page is running right now.',
 };
 // The "i" marker is glued to the last word so it never wraps onto a line by itself.
@@ -174,8 +177,8 @@ async function api(p, opts) {
 }
 const post = (p, body) => api(p, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body || {}) });
 
-// ---- Facebook and Instagram ----
-const PLATFORM = { facebook: 'Facebook', instagram: 'Instagram' };
+// ---- Social: Facebook and Instagram from Meta, every channel from Planable ----
+const PLATFORM = { facebook: 'Facebook', instagram: 'Instagram', linkedin: 'LinkedIn', tiktok: 'TikTok', youtube: 'YouTube', threads: 'Threads', x: 'X', google: 'Google Business', pinterest: 'Pinterest' };
 const platformTag = (p) => `<span class="plat ${p}">${PLATFORM[p] || p}</span>`;
 const clip = (t, len) => `${esc((t || '').slice(0, len))}${(t || '').length > len ? '…' : ''}`;
 const ago = (iso) => { const h = (Date.now() - new Date(iso)) / 36e5; return h < 1 ? 'just now' : h < 24 ? `${Math.floor(h)}h ago` : h < 24 * 14 ? `${Math.floor(h / 24)}d ago` : dateShort(iso); };
@@ -223,27 +226,87 @@ async function commentAction(btn, action) {
 window.replyComment = replyComment; window.commentAction = commentAction;
 
 function socialSection(d, slug) {
-  const s = d.social, c = d.connections.social;
+  const s = d.social, c = d.connections.social, src = d.socialSources || {};
   if (c === 'coming_soon') return socialPlaceholder(slug);
-  if (c === 'not_connected') return `<h2>Facebook and Instagram</h2><p class="empty">Not connected. Add <code>"meta": { "pageId": "…" }</code> to this brand in sites.json and set <code>META_ACCESS_TOKEN</code>.</p>`;
-  if (c === 'no_data') return `<h2>Facebook and Instagram</h2><p class="empty">No data yet. <button class="run" onclick="run('meta','${slug}')">Sync now</button></p>`;
-  const tot = (k, which = 'last28') => s.platforms.reduce((a, p) => a + (p[which][k] || 0), 0);
-  const has = (k) => s.platforms.some((p) => p.last28[k] != null);
-  const fol = (p) => `<div><div class="v">${n(p.followers)}${delta(p.followers, p.prevFollowers)}</div><div class="l">${PLATFORM[p.platform]} followers${p.name ? ` · ${esc(p.name)}` : ''}</div></div>`;
-  return `<h2>Facebook and Instagram</h2>
+  const title = src.planable ? 'Social' : 'Facebook and Instagram';
+  if (c === 'not_connected') return `<h2>${title}</h2><p class="empty">Not connected. Add <code>"planable": { "workspaceId": "…" }</code> or <code>"meta": { "pageId": "…" }</code> to this brand in sites.json.</p>`;
+  const sync = `<div class="actions">${src.planable ? `<button class="run" onclick="run('planable','${slug}')">Sync from Planable</button>` : ''}${src.meta ? `<button class="run" onclick="run('meta','${slug}')">Sync Facebook and Instagram</button>` : ''}</div>`;
+  if (c === 'no_data') return `<h2>${title}</h2><p class="empty">No data yet.</p>${sync}${src.planable ? planableComposer(d, slug) : ''}`;
+  // Google listing views and actions have their own tiles, so the social totals leave them out.
+  const google = s.platforms.find((p) => p.platform === 'google');
+  const pick = (k) => ['calls', 'website_clicks', 'directions'].includes(k) ? [google].filter(Boolean) : s.platforms.filter((p) => p !== google);
+  const tot = (k, which = 'last28') => pick(k).reduce((a, p) => a + (p[which][k] || 0), 0);
+  const has = (k) => pick(k).some((p) => p.last28[k] != null);
+  const tile = (k, label, tipKey) => `<div><div class="v">${has(k) ? `${n(tot(k))}${delta(tot(k), tot(k, 'prev28'))}` : nc('No data yet')}</div><div class="l">${tipKey ? tip(label, tipKey) : label}</div></div>`;
+  const fol = (p) => `<div><div class="v">${n(p.followers)}${delta(p.followers, p.prevFollowers)}</div><div class="l">${PLATFORM[p.platform] || esc(p.platform)} followers${p.name ? ` · ${esc(p.name)}` : ''}</div></div>`;
+  const byChannel = s.platforms.length > 1 ? `<h3>By channel, last 28 days</h3><div class="wrap"><table class="data"><thead><tr><th>Channel</th><th class="r">Followers</th><th class="r">Views</th><th class="r">Engagements</th><th class="r">New followers</th></tr></thead><tbody>
+    ${s.platforms.map((p) => `<tr><td>${platformTag(p.platform)} ${esc(p.name || '')}</td><td class="r num">${n(p.followers)}${delta(p.followers, p.prevFollowers)}</td><td class="r num">${n(p.last28.views)}</td><td class="r num">${n(p.last28.engagements)}</td><td class="r num">${n(p.last28.follows)}</td></tr>`).join('')}</tbody></table></div>` : '';
+  return `<h2>${title}</h2>${src.planable ? `<p class="sub">From Planable${src.meta ? ', with Facebook and Instagram straight from Meta' : ''}. Synced daily.</p>` : ''}
   <div class="strip">
-    ${s.platforms.map(fol).join('')}
-    <div><div class="v">${has('views') ? `${n(tot('views'))}${delta(tot('views'), tot('views', 'prev28'))}` : nc('No data yet')}</div><div class="l">Views, 28 days</div></div>
-    <div><div class="v">${has('engagements') ? `${n(tot('engagements'))}${delta(tot('engagements'), tot('engagements', 'prev28'))}` : nc('No data yet')}</div><div class="l">Engagements, 28 days</div></div>
-    <div><div class="v ${s.unansweredOld ? 'notok' : ''}">${s.unanswered}</div><div class="l">Comments waiting for a reply</div></div>
+    ${s.platforms.filter((p) => p.followers != null).map(fol).join('')}
+    ${tile('views', 'Views, 28 days')}
+    ${tile('engagements', 'Engagements, 28 days')}
+    ${google ? `${tile('calls', 'Calls from Google', 'planableGoogle')}${tile('website_clicks', 'Website clicks from Google', 'planableGoogle')}${tile('directions', 'Directions from Google', 'planableGoogle')}` : ''}
+    ${src.meta ? `<div><div class="v ${s.unansweredOld ? 'notok' : ''}">${s.unanswered}</div><div class="l">Comments waiting for a reply</div></div>` : ''}
   </div>
-  <div class="actions"><button class="run" onclick="run('meta','${slug}')">Sync Facebook and Instagram</button></div>
-  ${d.comments.length ? `<h3>Comments</h3>${commentsList(d.comments, false)}` : '<p class="empty">No comments waiting.</p>'}
+  ${sync}
+  ${byChannel}
+  ${src.meta ? (d.comments.length ? `<h3>Comments</h3>${commentsList(d.comments, false)}` : '<p class="empty">No comments waiting.</p>')
+    : `<p class="muted"><small>${tip('Replying to comments', 'planableInbox')} happens in Planable. <a href="https://app.planable.io" target="_blank" rel="noopener">Open Planable ↗</a></small></p>`}
   ${s.posts.length ? `<h3>Recent posts</h3>${postsTable(s.posts.map((p) => `<tr><td>${platformTag(p.platform)} <small class="muted">${dateShort(p.created_at)}</small><br>${p.permalink ? `<a href="${esc(p.permalink)}" target="_blank" rel="noopener">${clip(p.message, 140) || '(no caption)'}</a>` : clip(p.message, 140)}</td>
-    <td class="r num">${n(p.likes)}</td><td class="r num">${n(p.comments)}</td><td class="r num">${n(p.shares)}</td></tr>`).join(''))}` : ''}`;
+    <td class="r num">${n(p.likes)}</td><td class="r num">${n(p.comments)}</td><td class="r num">${n(p.shares)}</td></tr>`).join(''))}` : ''}
+  ${src.planable ? planableComposer(d, slug) : ''}`;
 }
 
-const COMING_SOON = `<p class="sub">Followers, reach and engagement for each brand's Facebook Page and Instagram account, plus one inbox to read and reply to comments. This switches on once the Meta app and token are set up.</p>`;
+// Write a post (by hand or with Claude) and send it to the brand's Planable workspace as a draft. Nothing is
+// published from here: it waits in Planable for the team's usual review, approval and scheduling.
+function planableComposer(d, slug) {
+  const pages = d.planablePages || [];
+  const head = `<h3 id="draft-post">Draft a post in Planable</h3>`;
+  if (!pages.length) return `${head}<p class="empty">Sync from Planable first to load this brand's channels.</p>`;
+  return `${head}<p class="sub">It goes to Planable as a draft for the team to review, approve and schedule. Nothing is published from here.</p>
+  <form class="post-form" data-site="${esc(slug)}" onsubmit="return sendToPlanable(event)">
+    <div class="chans">${pages.map((p) => `<label><input type="checkbox" name="page" value="${esc(p.id)}" checked> ${platformTag(p.platform)} ${esc(p.name)}</label>`).join('')}</div>
+    ${claudeOn ? `<div class="kw-form"><input class="draft-note" name="topic" type="text" maxlength="1000" placeholder="What's it about? e.g. puppy preschool starts again in March">
+      <button class="run" type="button" onclick="writePost(this)" data-tip="${esc(TIPS.writePost)}">Write with Claude</button></div>` : ''}
+    <textarea name="text" rows="6" maxlength="25000" placeholder="Post text…" required></textarea>
+    <div class="actions"><button class="run primary-btn" type="submit">Send to Planable as a draft</button></div>
+    <p class="cmt-err notok" hidden></p><p class="post-ok" hidden></p>
+  </form>`;
+}
+const checkedPages = (f) => [...f.querySelectorAll('input[name=page]:checked')].map((x) => x.value);
+async function writePost(btn) {
+  const f = btn.closest('form'), err = f.querySelector('.cmt-err'), topic = f.topic.value.trim();
+  if (!topic) { f.topic.focus(); return; }
+  btn.disabled = true; btn.textContent = 'Writing…'; err.hidden = true;
+  try { f.text.value = (await post(`/sites/${f.dataset.site}/planable/draft-text`, { topic, pageIds: checkedPages(f) })).text; btn.textContent = 'Rewrite'; }
+  catch (e) { err.textContent = `Couldn't write a draft: ${e.message}`; err.hidden = false; btn.textContent = 'Write with Claude'; }
+  btn.disabled = false;
+}
+async function sendToPlanable(ev) {
+  ev.preventDefault();
+  const f = ev.target, btn = f.querySelector('button[type=submit]'), err = f.querySelector('.cmt-err'), ok = f.querySelector('.post-ok');
+  const pageIds = checkedPages(f);
+  err.hidden = true; ok.hidden = true;
+  if (!pageIds.length) { err.textContent = 'Pick at least one channel.'; err.hidden = false; return false; }
+  btn.disabled = true; btn.textContent = 'Sending…';
+  try {
+    await post(`/sites/${f.dataset.site}/planable/posts`, { text: f.text.value, pageIds });
+    ok.innerHTML = `<span class="ok">✓</span> Sent to Planable as a draft. <a href="https://app.planable.io" target="_blank" rel="noopener">Open Planable ↗</a> to review and schedule it.`;
+    ok.hidden = false; f.text.value = ''; if (f.topic) f.topic.value = '';
+  } catch (e) { err.textContent = `Couldn't send: ${e.message}`; err.hidden = false; }
+  btn.disabled = false; btn.textContent = 'Send to Planable as a draft';
+  return false;
+}
+// "Draft a post" on one of Claude's social ideas: carry the idea into the Planable form and have Claude write it.
+function ideaToPost(btn) {
+  const f = document.querySelector('.post-form'); if (!f) return;
+  f.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  if (f.topic) { f.topic.value = btn.dataset.topic; writePost(f.querySelector('[onclick^="writePost"]')); } else f.text.focus();
+}
+window.writePost = writePost; window.sendToPlanable = sendToPlanable; window.ideaToPost = ideaToPost;
+
+const COMING_SOON = `<p class="sub">Followers, reach and engagement for each brand's social channels, plus one inbox to read and reply to comments. This switches on once Planable or the Meta app is set up.</p>`;
 const dash = '<span class="dash">—</span>';
 const emptyRow = (cols, text) => `<tr><td colspan="${cols}" class="muted">${text}</td></tr>`;
 const postsTable = (body) => `<div class="wrap"><table class="data"><thead><tr><th>Post</th><th class="r">Likes</th><th class="r">Comments</th><th class="r">Shares</th></tr></thead><tbody>${body}</tbody></table></div>`;
@@ -494,7 +557,8 @@ function ideasSection(d, siteSlug) {
   return `${head}
   <p class="ideas-summary">${esc(s.summary)}</p>
   <ol class="ideas">${s.ideas.map((i) => `<li class="idea"><div class="idea-head"><b>${esc(i.title)}</b><span class="plat ad-text">${esc(CHANNEL[i.channel] || i.channel)}</span>${level(i.impact, 'impact')}${level(i.effort, 'effort', true)}</div>
-    <p class="muted">${esc(i.why)}</p>${i.steps.length ? `<ul>${i.steps.map((x) => `<li>${esc(x)}</li>`).join('')}</ul>` : ''}</li>`).join('')}</ol>
+    <p class="muted">${esc(i.why)}</p>${i.steps.length ? `<ul>${i.steps.map((x) => `<li>${esc(x)}</li>`).join('')}</ul>` : ''}
+    ${i.channel === 'social' && d.planablePages?.length ? `<div class="actions"><button class="run" type="button" onclick="ideaToPost(this)" data-topic="${esc(`${i.title}. ${i.why}`)}">Draft a post in Planable</button></div>` : ''}</li>`).join('')}</ol>
   <h3>${tip('Starter Google search ad', 'adDraft')}</h3>
   <div class="ad-draft">
     <div><h4>Headlines</h4><ul>${s.ad.headlines.map((h) => `<li>${esc(h)} ${charCount(h, 30)}</li>`).join('')}</ul>${copyList(s.ad.headlines, 'headlines')}</div>
@@ -616,7 +680,13 @@ async function renderAds() {
 }
 
 async function renderComments(status) {
-  if (!(await api('/status')).meta) {
+  const st = await api('/status');
+  if (!st.meta && st.planable) {
+    $('#main').innerHTML = `<h1>Comments</h1><p class="sub">Planable\u2019s API doesn\u2019t include comments or messages, so reply to them in Planable\u2019s Social Inbox. <a href="https://app.planable.io" target="_blank" rel="noopener">Open Planable ↗</a></p>
+    <p class="sub">Connecting the Meta app here as well would bring Facebook and Instagram comments into this inbox, with Claude drafting replies.</p>${exampleComments(homeSlug)}`;
+    return;
+  }
+  if (!st.meta) {
     $('#main').innerHTML = `<h1>Comments <span class="sig nc">Coming soon</span></h1>${COMING_SOON}
     ${exampleComments(homeSlug)}
     <h3>Inbox</h3><div class="actions inbox-tabs"><a class="run on">Waiting for a reply</a><a class="run">All recent</a></div>
@@ -814,7 +884,7 @@ function initTips() {
 async function boot() {
   initTips();
   const [status, sites] = await Promise.all([api('/status'), api('/overview')]);
-  $('#status').innerHTML = [['Search Console', status.searchConsole], ['DataForSEO', status.dataforseo], ['Business Profile', status.businessProfile], ['Meta', status.meta || 'soon'], ['Email', status.email]]
+  $('#status').innerHTML = [['Search Console', status.searchConsole], ['DataForSEO', status.dataforseo], ['Business Profile', status.businessProfile], ['Meta', status.meta || 'soon'], ['Planable', status.planable], ['Email', status.email]]
     .map(([k, v]) => v === 'soon' ? `<span class="soon">${k} coming soon</span>` : `<span class="${v ? '' : 'off'}">${k} ${v ? 'on' : 'off'}</span>`).join('')
     + (status.dfsSpendUsd != null ? `<span title="DataForSEO spend this month against the cap">US$${status.dfsSpendUsd} / ${status.dfsCapUsd}</span>` : '')
     + (status.access ? `<span>${esc(status.user)}</span>` : '<span class="off">No login</span>');

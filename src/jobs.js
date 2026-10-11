@@ -6,6 +6,7 @@ import { refreshCompetitors } from './data/competitors.js';
 import { sendDigest } from './digest.js';
 import { syncGbp } from './data/gbp.js';
 import { syncMeta, syncMetaComments } from './data/meta.js';
+import { syncPlanable } from './data/planable.js';
 import { trackLocalRanks, collectLocalRanks, checkNap } from './data/local.js';
 import { syncPublicListings, collectPublicReviews } from './data/listings-public.js';
 import { syncAds, collectAds } from './data/ads.js';
@@ -39,5 +40,7 @@ export const jobs = {
   ai: async (only) => [await checkAi(loadSites(), only)],
   // On demand (no schedule): keyword research for every clinic of a brand not researched in the last month.
   keywords: (only) => config.dfs.enabled ? forEachSite(researchSite, only) : Promise.resolve(['DataForSEO not configured']),
+  // Planable: follower and engagement figures and recent posts for every channel connected there.
+  planable: (only) => config.planable.enabled ? forEachSite((s) => s.planable ? syncPlanable(s) : 'not set up', only) : Promise.resolve(['Planable not configured']),
   'meta-comments': (only) => config.meta.enabled ? forEachSite((s) => s.meta ? syncMetaComments(s) : 'not set up', only) : Promise.resolve(['Meta not configured']),
 };
