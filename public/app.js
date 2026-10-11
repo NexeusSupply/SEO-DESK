@@ -97,6 +97,9 @@ const TIPS = {
   kwPosition: 'Where the website ranks in Google for this search now. \u201cmap #2\u201d means it isn\u2019t in the normal results but the clinic shows second in the map box.',
   kwAdvice: 'Our suggestion: SEO (target it on the website), Ads (bid on it), or both. The reasons are underneath.',
   adDraft: 'A starting point for a Google responsive search ad: Google mixes the headlines and descriptions. Headlines can be 30 characters, descriptions 90. Check every line before using it.',
+  checklist: 'The things that most often separate clinics in Google\u2019s top 3 map results from the rest, from Localo\u2019s study of over 130,000 local searches. They go together with rankings rather than guaranteeing them, and distance from the searcher still matters most. Reviews and photos count far more than anything else.',
+  ckBasics: 'Localo\u2019s eight-point completeness check. Only 43% of #1 listings tick all eight, against 17% of those below page one, so start here.',
+  ckTop3: 'Where the top three pull ahead: more reviews and photos, a strong rating, more categories, citations and social links, and regular Google posts. Each tooltip gives the figure the top listings reach.',
   metaAds: 'Meta only lets apps pull ads that were shown in Europe, so New Zealand and Australian ads can\u2019t be listed here. This opens Meta\u2019s public Ad Library, which shows every ad the brand\u2019s Facebook Page is running right now.',
 };
 // The "i" marker is glued to the last word so it never wraps onto a line by itself.
@@ -388,6 +391,8 @@ async function renderClinic(siteSlug, locSlug) {
     ${s.nap.map((x) => `<tr><td>${esc(NAP_SOURCE[x.source] || x.source)}</td><td>${okmark(x.name_ok)}</td><td>${okmark(x.address_ok)}</td><td>${okmark(x.phone_ok)}</td><td><small class="muted">${esc(x.detail || '')}</small></td></tr>`).join('')}
   </tbody></table></div>` : ''}
 
+  ${checklistSection(d, siteSlug)}
+
   <h2>How people find the listing</h2>
   ${cn.performance === 'not_connected' ? '<p class="empty">Views, calls and direction requests come from the Business Profile API, which isn\u2019t connected for this clinic yet.</p>' : `
   <div class="strip">
@@ -426,6 +431,34 @@ async function renderClinic(siteSlug, locSlug) {
     <div><div class="v">${d.website.clicks != null ? `${n(d.website.clicks)}${delta(d.website.clicks, d.website.prevClicks)}` : nc(d.connections.searchConsole === 'no_data' ? 'No data yet' : undefined)}</div><div class="l">${tip('Clicks from Google, 28 days', 'clicks')}</div></div>
   </div>`;
 }
+
+// ---- Top-3 local SEO checklist (one clinic) ----
+const CK_MARK = { done: '<span class="ok">✓</span>', todo: '<span class="notok">✗</span>', unknown: '<span class="ck-q">?</span>' };
+const ckItem = (i) => `<li class="ck ${i.status}"><span class="ck-mark" aria-label="${i.status === 'done' ? 'Done' : i.status === 'todo' ? 'Not done' : 'Not checked'}">${CK_MARK[i.status]}</span>
+  <div class="ck-body"><span class="tip" tabindex="0" data-tip="${esc(i.tip)}">${esc(i.label).replace(/(\S+)$/, '<span class="nw">$1<i class="ti" aria-hidden="true">i</i></span>')}</span>
+  ${i.value ? `<small class="muted">${esc(i.value)}</small>` : ''}
+  ${i.source === 'manual' ? `<select class="ck-set" aria-label="${esc(i.label)}" data-item="${esc(i.key)}" onchange="tickItem(this)">
+    ${[['', 'Not checked'], ['1', 'Done'], ['0', 'Not done']].map(([v, l]) => `<option value="${v}"${(i.status === 'unknown' ? '' : i.status === 'done' ? '1' : '0') === v ? ' selected' : ''}>${l}</option>`).join('')}</select>
+    ${i.tickedBy || i.tickedAt ? `<small class="muted">${i.tickedBy ? esc(i.tickedBy.split('@')[0]) : 'Ticked'}, ${dateShort(i.tickedAt)}</small>` : ''}` : ''}</div></li>`;
+function checklistSection(d, siteSlug) {
+  const k = d.checklist; if (!k) return '';
+  const list = (grp) => `<ul class="checklist">${k.items.filter((i) => i.group === grp).map(ckItem).join('')}</ul>`;
+  return `<h2>${tip('Top-3 checklist', 'checklist')} <span class="sig ${k.done === k.total ? 'good' : k.basics.done === k.basics.total ? 'watch' : 'nc'}">${k.done} of ${k.total} done</span></h2>
+  <p class="sub">What listings in Google’s top 3 map results have in common, from <a href="https://localo.com/blog/top-local-seo-ranking-factors" target="_blank" rel="noopener">Localo’s study of local rankings</a>. Hover an item for what’s needed. Items we can read from the listing tick themselves; set the rest by hand.</p>
+  <div class="ck-cols" data-site="${esc(siteSlug)}" data-loc="${esc(d.clinic.slug)}">
+    <div><h3>${tip('The basics', 'ckBasics')} <small class="muted">${k.basics.done} of ${k.basics.total}</small></h3>${list('basics')}</div>
+    <div><h3>${tip('To win a top-3 spot', 'ckTop3')} <small class="muted">${k.top3.done} of ${k.top3.total}</small></h3>${list('top3')}</div>
+  </div>`;
+}
+async function tickItem(sel) {
+  const box = sel.closest('.ck-cols'), y = scrollY;
+  sel.disabled = true;
+  try {
+    await post(`/sites/${box.dataset.site}/clinics/${box.dataset.loc}/checklist`, { item: sel.dataset.item, done: sel.value === '' ? null : sel.value === '1' });
+    await renderClinic(box.dataset.site, box.dataset.loc); scrollTo(0, y);
+  } catch (e) { sel.disabled = false; alert(`Couldn’t save: ${e.message}`); }
+}
+window.tickItem = tickItem;
 
 // ---- Keyword research and Claude's traffic ideas (one clinic) ----
 const ADVICE = {

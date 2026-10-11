@@ -160,6 +160,10 @@ Each clinic page, and the page of each brand without clinics, has a **Keyword re
 
 **Ideas to grow traffic** uses the same `ANTHROPIC_API_KEY` as reply drafts. Without it the section says it's not connected.
 
+### Top-3 checklist
+
+Each clinic page has a **Top-3 checklist** built from [Localo's study of local ranking factors](https://localo.com/blog/top-local-seo-ranking-factors): their eight-point "basics" (verified listing, website, description, an extra category, 10+ reviews, 10+ photos, 10+ citations, a social link) and what the top three pull ahead on (about 80+ reviews, 40+ photos, a 4.5+ rating, six extra categories, 21+ citations, 3+ social links, 10+ live Google posts, matching name/address/phone). Hover an item for what's needed to tick it. Items tick themselves from the latest listing sync and details check. Citations and social links can't be read from the listing, and Google posts only come through the Business Profile API, so those start as **Not checked** and someone sets them to Done or Not done (saved with who and when). Any item we have no data for yet, for instance before the first listing sync, can be set by hand the same way; once synced data exists it takes over. Claude's traffic ideas see the checklist too.
+
 ### Google Search Console
 
 1. In Google Cloud Console create a project, enable the **Search Console API**, create a **service account** and download its JSON key to `data/gsc-service-account.json`.
@@ -257,6 +261,7 @@ Dockerfile            For Railway / Render / Fly / any VPS
   data/ads.js         Google ads via the Ads Transparency Center, Meta Ad Library links
   data/keywords.js    Keyword research per clinic or brand and the SEO / Ads advice
   data/suggestions.js Claude's traffic ideas and starter search ad per clinic
+  data/checklist.js   Top-3 local SEO checklist per clinic (auto-detected, or ticked by hand)
 public/               Dashboard (no build step)
 data/                 sites.json, SQLite database, GSC key
 ```

@@ -237,7 +237,8 @@ export async function businessInfo(loc) {
     title: i.title, address: i.address, phone: i.phone, website: i.url, category: i.category, description: i.description,
     rating: i.rating?.value ?? null, reviewCount: i.rating?.votes_count ?? null, photoCount: i.total_photos ?? null,
     hasHours: Boolean(i.work_time?.work_hours?.timetable), status: i.work_time?.work_hours?.current_status || null,
-    placeId: i.place_id, cid: i.cid, claimed: i.is_claimed } : null };
+    placeId: i.place_id, cid: i.cid, claimed: i.is_claimed ?? null,
+    additionalCategories: Array.isArray(i.additional_categories) ? i.additional_categories.length : 0 } : null };
 }
 
 /** Post review fetches to the task queue (reviews have no live endpoint). Each item: { loc, depth, tag }. */
