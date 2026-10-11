@@ -11,6 +11,7 @@ import { draftReply, draftPost, EXAMPLES } from './data/reply-helper.js';
 import { listPages as listPlanablePages, createDraft, savedPages } from './data/planable.js';
 import { researchClinic, keywordSummary } from './data/keywords.js';
 import { suggestForClinic, clinicSnapshot, brandSnapshot } from './data/suggestions.js';
+import { setChecklistItem } from './data/checklist.js';
 import { buildDigest } from './digest.js';
 import { jobs } from './jobs.js';
 import { startScheduler } from './scheduler.js';
@@ -47,6 +48,12 @@ app.post('/api/sites/:slug/clinics/:loc/keywords', clinicAction(async (s, loc, r
 const focus = (req) => String(req.body?.focus || '').slice(0, 500).trim();
 app.post('/api/sites/:slug/clinics/:loc/suggestions', clinicAction((s, loc, req) =>
   suggestForClinic(s, loc, clinicSnapshot(clinicDetail(s, loc), keywordSummary(s, loc)), focus(req), req.user?.email)));
+// Tick a top-3 checklist item by hand: done true / false, or null to go back to "not checked".
+app.post('/api/sites/:slug/clinics/:loc/checklist', clinicAction((s, loc, req) => {
+  const done = req.body?.done == null ? null : Boolean(req.body.done);
+  setChecklistItem(s, loc, String(req.body?.item || ''), done, req.user?.email);
+  return clinicDetail(s, loc).checklist;
+}));
 // The same two for a whole brand: what Cowsmart, the supply chain businesses and brand websites use.
 const brandAction = (fn) => (req, res) => {
   const s = site(req, res); if (!s) return;

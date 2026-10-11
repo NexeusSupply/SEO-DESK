@@ -8,6 +8,7 @@ import { aiSummary, engineList, brandQuestions } from './data/ai.js';
 import { keywordSummary } from './data/keywords.js';
 import { latestSuggestions } from './data/suggestions.js';
 import { savedPages } from './data/planable.js';
+import { clinicChecklist } from './data/checklist.js';
 
 export function overview(sites) {
   return sites.map((s) => {
@@ -335,6 +336,7 @@ export function clinicDetail(site, loc) {
     summary: row,
     listing: snap ? { ...snap, has_hours: Boolean(snap.has_hours), has_description: Boolean(snap.has_description) } : null,
     listingHistory,
+    checklist: clinicChecklist(site, loc, snap, row.nap),
     performance: { daily, last28: end ? totals(sumDays(shift(28), end)) : null, prev28: end ? totals(sumDays(shift(56), shift(28))) : null },
     reviews, ratingSpread, rankHistory, rankDate,
     ai: { ...aiSummary({ ...site, locations: [loc] }, { brandRow: false }), engines: engineList() },

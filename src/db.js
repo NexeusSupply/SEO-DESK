@@ -102,6 +102,13 @@ CREATE TABLE IF NOT EXISTS nap_checks (
 );
 `);
 
+// Added for the top-3 checklist: whether the listing is claimed, how many extra categories it has, and live Google posts.
+// node:sqlite has no ADD COLUMN IF NOT EXISTS, so add whichever are missing.
+{
+  const have = new Set(db.prepare('PRAGMA table_info(gbp_snapshots)').all().map((c) => c.name));
+  for (const col of ['claimed', 'additional_categories', 'posts']) if (!have.has(col)) db.exec(`ALTER TABLE gbp_snapshots ADD COLUMN ${col} INTEGER`);
+}
+
 // ---- Standard-queue tasks and spend tracking ----
 db.exec(`
 CREATE TABLE IF NOT EXISTS dfs_tasks (

@@ -73,6 +73,7 @@ export function clinicSnapshot(d, kw) {
   out += '<google_listing>\n' + (g
     ? `${line('Rating', g.rating != null ? `${g.rating} from ${g.review_count} reviews` : null)}${line('Listing completeness', `${g.completeness}%`)}${line('Primary category', g.primary_category)}${line('Opening hours set', g.has_hours ? 'yes' : 'no')}${line('Description written', g.has_description ? 'yes' : 'no')}${line('Photos', g.photo_count)}${line('Status', g.open_status)}`
     : 'Not connected yet.\n') + '</google_listing>\n\n';
+  if (d.checklist) out += `<top3_checklist note="Localo's study of what map-pack winners have; unknown means nobody has checked yet">\n${d.checklist.items.map((i) => `- ${i.label}: ${i.status === 'done' ? 'done' : i.status === 'todo' ? 'NOT DONE' : 'unknown'}${i.value ? ` (${i.value})` : ''}`).join('\n')}\n</top3_checklist>\n\n`;
   out += `<reviews>\n${line('New in last 30 days', s.reviews?.last30)}${line('Low (1-2 star) in last 90 days', s.reviews?.lowRecent)}${line('Unreplied', s.reviews?.unreplied)}`;
   const recent = d.reviews.slice(0, 8).filter((r) => r.comment).map((r) => `- ${r.rating}★ ${r.replied ? '(replied)' : '(not replied)'}: ${r.comment.slice(0, 200).replace(/\s+/g, ' ')}`);
   out += (recent.length ? `Recent reviews:\n${recent.join('\n')}\n` : '') + '</reviews>\n\n';
