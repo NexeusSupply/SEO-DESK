@@ -281,3 +281,17 @@ table.details td { overflow-wrap: anywhere; }
 .ad-draft h4 { margin: 0 0 6px; font-size: 13px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; }
 .ad-draft ul { margin: 0 0 10px; padding-left: 18px; font-size: 14px; }
 @media (max-width: 640px) { .ideas { grid-template-columns: 1fr; } .kw-tabs small { margin-left: 0; flex-basis: 100%; } }
+/* Top-3 local SEO checklist on the clinic page */
+.ck-cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 12px 24px; }
+.ck-cols h3 { margin: 12px 0 8px; }
+.ck-cols h3 small { font-weight: 400; margin-left: 6px; }
+.checklist { list-style: none; margin: 0; padding: 0; background: var(--sheet); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow); }
+.ck { display: flex; gap: 10px; align-items: flex-start; padding: 9px 14px; border-bottom: 1px solid var(--line); }
+.ck:last-child { border-bottom: 0; }
+.ck-mark { flex: 0 0 18px; text-align: center; }
+.ck-q { display: inline-grid; place-items: center; width: 16px; height: 16px; border-radius: 50%; border: 1px dashed var(--muted); color: var(--muted); font-size: 11px; font-weight: 700; }
+.ck-body { flex: 1; display: flex; flex-wrap: wrap; gap: 4px 10px; align-items: baseline; }
+.ck-body .tip { flex: 1 1 auto; }
+.ck.unknown .ck-body .tip { color: var(--muted); }
+.ck-set { font: inherit; font-size: 12px; padding: 2px 6px; border: 1px solid var(--line); border-radius: 6px; background: var(--sheet); color: var(--ink); }
+@media (max-width: 640px) { .ck-cols { grid-template-columns: 1fr; } }
