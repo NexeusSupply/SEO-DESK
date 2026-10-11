@@ -1126,8 +1126,55 @@ function initTips() {
   window.addEventListener('scroll', hide, true);
 }
 
+// Jump menu: a sticky row of chips under the header, one per section (h2) on the current page,
+// rebuilt whenever #main is re-rendered. Uses buttons, not #anchors, because the hash is the router.
+const JUMP_ICON = [[/how people find/i, '🧭'], [/business profile|listing/i, '📍'], [/local search|map.pack/i, '🗺️'], [/review/i, '⭐'],
+  [/site health/i, '🩺'], [/website/i, '🌐'], [/checklist/i, '✅'], [/keyword gap/i, '🕳️'], [/keyword/i, '🔑'], [/idea/i, '💡'], [/ai answer/i, '🤖'],
+  [/social/i, '📣'], [/ads/i, '💸'], [/search performance/i, '📈'], [/within reach/i, '🎯'], [/rank/i, '🏆'], [/top quer/i, '🔍'],
+  [/top pages/i, '📄'], [/clinic/i, '🏥'], [/competitor/i, '🥊'], [/job/i, '⚙️'], [/article/i, '📝'], [/supply/i, '🚚'], [/comhla/i, '🐾']];
+const jumpIcon = (label) => JUMP_ICON.find(([re]) => re.test(label))?.[1] || '✨';
+function initJump() {
+  const nav = document.createElement('nav'); nav.className = 'jump'; nav.id = 'jump'; nav.setAttribute('aria-label', 'Jump to a section'); nav.hidden = true;
+  $('.top').append(nav);
+  let heads = [], cur = -1;
+  const offset = () => $('.top').offsetHeight + 16;
+  const label = (h) => { const c = h.cloneNode(true); c.querySelectorAll('.sig, .count, .ti').forEach((x) => x.remove()); return c.textContent.replace(/\s+/g, ' ').trim(); };
+  const mark = () => {
+    const y = offset() + 8; let i = -1;
+    heads.forEach((h, k) => { if (h.getBoundingClientRect().top <= y) i = k; });
+    if (innerHeight + scrollY >= document.documentElement.scrollHeight - 4) i = heads.length - 1;
+    const max = document.documentElement.scrollHeight - innerHeight;
+    $('.top').style.setProperty('--progress', max > 0 ? `${Math.min(100, (scrollY / max) * 100)}%` : '0%');
+    if (i === cur) return; cur = i;
+    nav.querySelectorAll('.chip').forEach((b, k) => { b.classList.toggle('on', k === i); b.toggleAttribute('aria-current', k === i); });
+    const on = nav.querySelector('.chip.on');
+    if (on) nav.scrollTo({ left: on.offsetLeft - nav.clientWidth / 2 + on.offsetWidth / 2, behavior: 'smooth' });
+  };
+  const build = () => {
+    heads = [...$('#main').querySelectorAll('h2')].filter((h) => h.getClientRects().length && label(h) && !h.closest('.art-body'));
+    cur = -1; nav.hidden = heads.length < 2;
+    nav.innerHTML = heads.map((h, k) => { const t = label(h); return `<button type="button" class="chip" data-k="${k}" style="--i:${k}"><span class="em" aria-hidden="true">${jumpIcon(t)}</span>${esc(t)}</button>`; }).join('');
+    heads.forEach((h) => { h.style.scrollMarginTop = `${offset()}px`; });
+    mark();
+  };
+  nav.addEventListener('click', (e) => {
+    const b = e.target.closest('.chip'); if (!b) return;
+    const h = heads[b.dataset.k], fold = h.closest('details.fold');
+    if (fold && !fold.open) fold.open = true;
+    h.style.scrollMarginTop = `${offset()}px`;
+    h.scrollIntoView({ behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start' });
+    h.classList.remove('flash'); void h.offsetWidth; h.classList.add('flash');
+  });
+  let tick = false;
+  const onScroll = () => { if (!tick) { tick = true; requestAnimationFrame(() => { tick = false; mark(); }); } };
+  addEventListener('scroll', onScroll, { passive: true }); addEventListener('resize', onScroll);
+  new MutationObserver(build).observe($('#main'), { childList: true });
+  $('#main').addEventListener('toggle', build, true);
+}
+
 async function boot() {
   initTips();
+  initJump();
   const [status, sites] = await Promise.all([api('/status'), api('/overview')]);
   $('#status').innerHTML = [['Search Console', status.searchConsole], ['DataForSEO', status.dataforseo], ['Business Profile', status.businessProfile], ['Meta', status.meta || 'soon'], ['Planable', status.planable || 'soon'], ['Email', status.email]]
     .map(([k, v]) => v === 'soon' ? `<span class="soon">${k} coming soon</span>` : `<span class="${v ? '' : 'off'}">${k} ${v ? 'on' : 'off'}</span>`).join('')
