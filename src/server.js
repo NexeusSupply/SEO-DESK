@@ -12,6 +12,7 @@ import { listPages as listPlanablePages, createDraft, savedPages } from './data/
 import { researchClinic, keywordSummary } from './data/keywords.js';
 import { suggestForClinic, clinicSnapshot, brandSnapshot } from './data/suggestions.js';
 import { setChecklistItem } from './data/checklist.js';
+import { listArticles, articleDetail, createArticle, rewriteVersion, addBrands, saveVersion, approveVersion, skipVersion, sendVersion, publishRoute } from './data/articles.js';
 import { buildDigest } from './digest.js';
 import { jobs } from './jobs.js';
 import { startScheduler } from './scheduler.js';
@@ -93,6 +94,33 @@ app.post('/api/sites/:slug/planable/draft-text', brandAction((s, req) =>
   draftPost(s, String(req.body?.topic || '').slice(0, 2000).trim(), pagePlatforms(s, req.body?.pageIds))));
 app.post('/api/sites/:slug/planable/posts', brandAction((s, req) =>
   createDraft(s, { text: String(req.body?.text || '').slice(0, 25000), pageIds: Array.isArray(req.body?.pageIds) ? req.body.pageIds.map(String) : [], user: req.user?.email })));
+// Shared articles: one article in, a localised version per brand out, each reviewed and approved before it goes to the website.
+app.get('/api/articles', (_, res) => res.json({ articles: listArticles(),
+  brands: loadSites().map((s) => ({ slug: s.slug, name: s.name, group: s.group, host: s.host, route: publishRoute(s) })) }));
+const slugs = (v) => (Array.isArray(v) ? v : []).map(String).slice(0, 50);
+app.post('/api/articles', (req, res) => {
+  try {
+    const id = createArticle({ title: String(req.body?.title || '').slice(0, 300).trim(), body: String(req.body?.body || '').slice(0, 60000).trim(),
+      notes: String(req.body?.notes || '').slice(0, 2000).trim(), sites: slugs(req.body?.sites), user: req.user?.email });
+    res.json(articleDetail(id));
+  } catch (e) { res.status(400).json({ error: e.message }); }
+});
+app.get('/api/articles/:id', (req, res) => { const a = articleDetail(Number(req.params.id)); a ? res.json(a) : res.status(404).json({ error: 'unknown article' }); });
+app.post('/api/articles/:id/brands', (req, res) => {
+  try { addBrands(Number(req.params.id), slugs(req.body?.sites)); res.json(articleDetail(Number(req.params.id))); } catch (e) { res.status(400).json({ error: e.message }); }
+});
+const versionAction = (fn) => (req, res) => {
+  const s = site(req, res); if (!s) return;
+  const id = Number(req.params.id);
+  Promise.resolve().then(() => fn(id, s, req)).then((r) => res.json({ ...(r && typeof r === 'object' ? { result: r } : {}), article: articleDetail(id) }))
+    .catch((e) => { console.warn(`[${req.path}] ${e.message}`); res.status(/^unknown/.test(e.message) ? 404 : /^WordPress/.test(e.message) ? 502 : 400).json({ error: e.message }); });
+};
+app.post('/api/articles/:id/versions/:slug', versionAction((id, s, req) => saveVersion(id, s, req.body || {})));
+app.post('/api/articles/:id/versions/:slug/rewrite', versionAction((id, s, req) => rewriteVersion(id, s, note(req))));
+app.post('/api/articles/:id/versions/:slug/approve', versionAction((id, s, req) => approveVersion(id, s, req.body?.approved !== false, req.user?.email)));
+app.post('/api/articles/:id/versions/:slug/skip', versionAction((id, s, req) => skipVersion(id, s, req.body?.skip !== false)));
+// Goes to the brand's WordPress site: as a draft unless the person picked publish or a scheduled date.
+app.post('/api/articles/:id/versions/:slug/send', versionAction((id, s, req) => sendVersion(id, s, { mode: String(req.body?.mode || 'draft'), date: req.body?.date, user: req.user?.email })));
 app.get('/api/reply-examples', (_, res) => res.json(EXAMPLES));
 app.get('/api/digest', (_, res) => res.send(buildDigest()));
 
