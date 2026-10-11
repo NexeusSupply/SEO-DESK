@@ -203,10 +203,10 @@ export function connections(site) {
     ads: st(true, config.dfs.enabled, has("SELECT 1 FROM dfs_tasks WHERE kind='ads' AND site=? AND status='done'", site.slug)),
     ai: st((site.locations.some((l) => l.town) && (site.localKeywords.length > 0 || Boolean(site.aiPrompts))) || brandQuestions(site).length > 0, config.dfs.enabled, aiSummary(site).checked != null),
     keywords: config.dfs.enabled ? 'connected' : 'not_connected', claude: config.claude.enabled ? 'connected' : 'not_connected',
-    // Social figures come from Meta directly, Planable, or both. Until either is set up the whole feature is
-    // "coming soon" rather than "not connected" per brand.
-    social: !config.meta.enabled && !config.planable.enabled ? 'coming_soon'
-      : st((config.meta.enabled && Boolean(site.meta)) || (config.planable.enabled && Boolean(site.planable)), true, has('SELECT 1 FROM meta_snapshots WHERE site=?', site.slug)),
+    // Social figures come from Planable, Meta directly, or both. A brand shows "coming soon" until one of them is
+    // set up (its token is in) and linked to the brand in sites.json.
+    social: (config.meta.enabled && site.meta) || (config.planable.enabled && site.planable)
+      ? st(true, true, has('SELECT 1 FROM meta_snapshots WHERE site=?', site.slug)) : 'coming_soon',
     listingsConnected: site.locations.filter(listingSource).length, listingsTotal: site.locations.length,
   };
 }

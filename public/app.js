@@ -232,7 +232,6 @@ function socialSection(d, slug) {
   const s = d.social, c = d.connections.social, src = d.socialSources || {};
   if (c === 'coming_soon') return socialPlaceholder(slug);
   const title = src.planable ? 'Social' : 'Facebook and Instagram';
-  if (c === 'not_connected') return `<h2>${title}</h2><p class="empty">Not connected. Add <code>"planable": { "workspaceId": "…" }</code> or <code>"meta": { "pageId": "…" }</code> to this brand in sites.json.</p>`;
   const sync = `<div class="actions">${src.planable ? `<button class="run" onclick="run('planable','${slug}')">Sync from Planable</button>` : ''}${src.meta ? `<button class="run" onclick="run('meta','${slug}')">Sync Facebook and Instagram</button>` : ''}</div>`;
   if (c === 'no_data') return `<h2>${title}</h2><p class="empty">No data yet.</p>${sync}${src.planable ? planableComposer(d, slug) : ''}`;
   // Google listing views and actions have their own tiles, so the social totals leave them out.
@@ -309,7 +308,7 @@ function ideaToPost(btn) {
 }
 window.writePost = writePost; window.sendToPlanable = sendToPlanable; window.ideaToPost = ideaToPost;
 
-const COMING_SOON = `<p class="sub">Followers, reach and engagement for each brand's social channels, plus one inbox to read and reply to comments. This switches on once Planable or the Meta app is set up.</p>`;
+const COMING_SOON = `<p class="sub">Followers, views and engagement for each brand's social channels (Facebook, Instagram, LinkedIn, TikTok, YouTube and Google Business Profile), recent posts, and drafting posts with Claude to send to Planable. This switches on once the Planable API token is added and the brand's Planable workspace is linked.</p>`;
 const dash = '<span class="dash">—</span>';
 const emptyRow = (cols, text) => `<tr><td colspan="${cols}" class="muted">${text}</td></tr>`;
 const postsTable = (body) => `<div class="wrap"><table class="data"><thead><tr><th>Post</th><th class="r">Likes</th><th class="r">Comments</th><th class="r">Shares</th></tr></thead><tbody>${body}</tbody></table></div>`;
@@ -327,7 +326,7 @@ const exampleComments = (site) => examples?.comment?.length && site ? `<h3>Try r
   <ul class="cmts">${examples.comment.map((c) => exampleComment(c, site)).join('')}</ul>` : '';
 
 function socialPlaceholder(slug) {
-  return `<h2>Facebook and Instagram <span class="sig nc">Coming soon</span></h2>${COMING_SOON}
+  return `<h2>Social <span class="sig nc">Coming soon</span></h2>${COMING_SOON}
   <div class="strip placeholder">
     <div><div class="v">${dash}</div><div class="l">Facebook followers</div></div>
     <div><div class="v">${dash}</div><div class="l">Instagram followers</div></div>
@@ -917,7 +916,7 @@ function initTips() {
 async function boot() {
   initTips();
   const [status, sites] = await Promise.all([api('/status'), api('/overview')]);
-  $('#status').innerHTML = [['Search Console', status.searchConsole], ['DataForSEO', status.dataforseo], ['Business Profile', status.businessProfile], ['Meta', status.meta || 'soon'], ['Planable', status.planable], ['Email', status.email]]
+  $('#status').innerHTML = [['Search Console', status.searchConsole], ['DataForSEO', status.dataforseo], ['Business Profile', status.businessProfile], ['Meta', status.meta || 'soon'], ['Planable', status.planable || 'soon'], ['Email', status.email]]
     .map(([k, v]) => v === 'soon' ? `<span class="soon">${k} coming soon</span>` : `<span class="${v ? '' : 'off'}">${k} ${v ? 'on' : 'off'}</span>`).join('')
     + (status.dfsSpendUsd != null ? `<span title="DataForSEO spend this month against the cap">US$${status.dfsSpendUsd} / ${status.dfsCapUsd}</span>` : '')
     + (status.access ? `<span>${esc(status.user)}</span>` : '<span class="off">No login</span>');
