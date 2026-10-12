@@ -48,7 +48,17 @@ const readMask = 'name,title,storefrontAddress,phoneNumbers,websiteUri,categorie
 async function locationDetails(id) {
   const l = await gget(`https://mybusinessbusinessinformation.googleapis.com/v1/${id}`, { readMask });
   let photoCount = null;
-  try { const m = await gget(`https://mybusiness.googleapis.com/v4/${accountPath(id)}/media`, { pageSize: 1 }); photoCount = m.totalMediaItemCount ?? null; } catch {}
+  try { const m = await gget(`https://mybusiness.googleapis.com/v4/${await accountPath(id)}/media`, { pageSize: 1 }); photoCount = m.totalMediaItemCount ?? null; } catch {}
+  // Live Google posts (offers, updates, events), for the top-3 checklist. Expired and rejected posts don't count.
+  let posts = null;
+  try {
+    let n = 0, pageToken;
+    do {
+      const r = await gget(`https://mybusiness.googleapis.com/v4/${await accountPath(id)}/localPosts`, { pageSize: 100, pageToken });
+      n += (r.localPosts || []).filter((p) => p.state === 'LIVE').length; pageToken = r.nextPageToken;
+    } while (pageToken && n < 100);
+    posts = n;
+  } catch {}
   const fields = { title: !!l.title, address: !!l.storefrontAddress, phone: !!l.phoneNumbers?.primaryPhone, website: !!l.websiteUri,
     category: !!l.categories?.primaryCategory, hours: !!l.regularHours?.periods?.length, description: !!l.profile?.description,
     photos: (photoCount ?? 1) > 0 };
@@ -56,7 +66,9 @@ async function locationDetails(id) {
   return { title: l.title, address: [...(l.storefrontAddress?.addressLines || []), l.storefrontAddress?.locality, l.storefrontAddress?.postalCode].filter(Boolean).join(', '),
     phone: l.phoneNumbers?.primaryPhone || null, website: l.websiteUri || null, primaryCategory: l.categories?.primaryCategory?.displayName || null,
     hasHours: fields.hours ? 1 : 0, hasDescription: fields.description ? 1 : 0, photoCount, completeness,
-    openStatus: l.openInfo?.status || null };
+    openStatus: l.openInfo?.status || null,
+    // hasVoiceOfMerchant: verified and in good standing, so the owner's edits show on Google.
+    claimed: l.metadata ? (l.metadata.hasVoiceOfMerchant ? 1 : 0) : null, additionalCategories: l.categories?.additionalCategories?.length ?? 0, posts };
 }
 
 // The v4 reviews endpoint needs the account-scoped path. We resolve it once per run.
@@ -108,8 +120,8 @@ export async function syncGbp(site) {
       let rv = { reviews: [] }; try { rv = await reviews(loc.gbpLocationId); } catch (e) { console.warn(`[gbp:${loc.slug}] reviews: ${e.message}`); }
       const rated = rv.reviews.filter((r) => r.rating);
       const rating = rated.length ? rated.reduce((a, r) => a + r.rating, 0) / rated.length : null;
-      db.prepare(`INSERT OR REPLACE INTO gbp_snapshots (site,location,fetched_on,title,address,phone,website,primary_category,rating,review_count,photo_count,has_hours,has_description,completeness,open_status)
-        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`).run(site.slug, loc.slug, today(), d.title, d.address, d.phone, d.website, d.primaryCategory, rating, rv.reviews.length, d.photoCount, d.hasHours, d.hasDescription, d.completeness, d.openStatus);
+      db.prepare(`INSERT OR REPLACE INTO gbp_snapshots (site,location,fetched_on,title,address,phone,website,primary_category,rating,review_count,photo_count,has_hours,has_description,completeness,open_status,claimed,additional_categories,posts)
+        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`).run(site.slug, loc.slug, today(), d.title, d.address, d.phone, d.website, d.primaryCategory, rating, rv.reviews.length, d.photoCount, d.hasHours, d.hasDescription, d.completeness, d.openStatus, d.claimed, d.additionalCategories, d.posts);
       const up = db.prepare('INSERT OR REPLACE INTO gbp_reviews (site,location,review_id,created_at,rating,reviewer,comment,replied) VALUES (?,?,?,?,?,?,?,?)');
       tx(() => { for (const r of rv.reviews) up.run(site.slug, loc.slug, r.id, r.createdAt, r.rating, r.reviewer, r.comment, r.replied); });
       nRev += rv.reviews.length;

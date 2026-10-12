@@ -4,7 +4,8 @@
     "name": "Heartland Feeds", "url": "https://www.heartlandfeeds.co.nz",
     "gscProperty": "sc-domain:heartlandfeeds.co.nz",
     "keywords": ["mineral supplements for cattle nz", "calf feed nz"],
-    "competitors": ["example-competitor.co.nz"]
+    "competitors": ["example-competitor.co.nz"],
+    "meta": { "pageId": "123456789012345" }
   },
   { "slug": "agilis", "group": "Nexeus Supply Chain", "name": "Agilis Vet", "url": "https://www.agilisvet.co.nz", "keywords": ["ibr vaccine nz"] },
   { "slug": "fortis", "group": "Nexeus Supply Chain", "name": "Fortis", "url": "https://www.fortis.co.nz" },
@@ -15,6 +16,7 @@
     "gscProperty": "sc-domain:totallyvets.co.nz",
     "keywords": ["vet manawatu"],
     "localKeywords": ["vet {town}", "vet clinic {town}"],
+    "meta": { "pageId": "234567890123456", "instagramId": "17841400000000000" },
     "locations": [
       { "slug": "feilding", "name": "Totally Vets Feilding", "town": "Feilding", "address": "123 Example Street, Feilding 4702", "phone": "06 323 0000",
         "lat": -40.2244, "lng": 175.5658, "url": "https://www.totallyvets.co.nz/feilding",

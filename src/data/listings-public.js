@@ -22,8 +22,8 @@ export async function syncPublicListings(site) {
   if (!locs.length) return publicLocations(site).length ? 'listings already refreshed this week' : 'no locations with placeId, cid or lat/lng';
   if (!underCap(locs.length * (INFO_COST_EST + REVIEWS_COST_EST))) return `skipped: monthly DataForSEO cap (US$${config.dfs.monthlyCapUsd}) would be exceeded`;
   return logJob('listings-public', site.slug, async () => {
-    const snap = db.prepare(`INSERT OR REPLACE INTO gbp_snapshots (site,location,fetched_on,title,address,phone,website,primary_category,rating,review_count,photo_count,has_hours,has_description,completeness,open_status)
-      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`);
+    const snap = db.prepare(`INSERT OR REPLACE INTO gbp_snapshots (site,location,fetched_on,title,address,phone,website,primary_category,rating,review_count,photo_count,has_hours,has_description,completeness,open_status,claimed,additional_categories)
+      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`);
     let n = 0, cost = 0; const found = [];
     for (const loc of locs) {
       try {
@@ -32,7 +32,8 @@ export async function syncPublicListings(site) {
         if (!loc.placeId && !loc.cid) found.push(`${loc.slug} → placeId ${i.placeId}`);
         const fields = [i.title, i.address, i.phone, i.website, i.category, i.hasHours, i.description, (i.photoCount ?? 1) > 0];
         snap.run(site.slug, loc.slug, today(), i.title, i.address, i.phone, i.website, i.category, i.rating, i.reviewCount, i.photoCount,
-          i.hasHours ? 1 : 0, i.description ? 1 : 0, Math.round(fields.filter(Boolean).length / fields.length * 100), STATUS[i.status] || 'OPEN');
+          i.hasHours ? 1 : 0, i.description ? 1 : 0, Math.round(fields.filter(Boolean).length / fields.length * 100), STATUS[i.status] || 'OPEN',
+          i.claimed == null ? null : i.claimed ? 1 : 0, i.additionalCategories);
         n++;
       } catch (e) { console.warn(`[listings:${loc.slug}] ${e.message}`); }
     }

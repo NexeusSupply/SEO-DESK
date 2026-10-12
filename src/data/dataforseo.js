@@ -80,6 +80,83 @@ export async function localSerp(keyword, lat, lng, zoom = 14) {
   return { pack, organic };
 }
 
+// ---- Keyword research ----
+
+/**
+ * Google Ads Keyword Planner ideas for up to 20 seed searches, country-wide (NZ unless a location is given). Returns { cost, items } where each item is
+ * { keyword, volume, cpc, competition ('LOW'|'MEDIUM'|'HIGH'|null), competitionIndex, lowBid, highBid, trend } and
+ * trend is the last 12 months of searches, oldest first. Google gives no volume (null) for very rare searches.
+ */
+export async function keywordIdeas(seeds, location = config.dfs.location) {
+  return adsIdeas('/keywords_data/google_ads/keywords_for_keywords/live', { keywords: seeds.slice(0, 20) }, location);
+}
+
+/** Keyword Planner ideas for a website (what Google thinks the site is about), same shape as keywordIdeas. */
+export async function keywordsForSite(domain, location = config.dfs.location) {
+  return adsIdeas('/keywords_data/google_ads/keywords_for_site/live', { target: domain, target_type: 'site' }, location);
+}
+
+async function adsIdeas(path, params, location) {
+  const [t] = await postRaw(path, [{ ...params, sort_by: 'search_volume', location_code: location, language_code: config.dfs.language }]);
+  if (t?.status_code !== 20000) throw new Error(`DataForSEO task ${t?.status_code}: ${t?.status_message}`);
+  // Google Ads endpoints put the keywords straight in result, not in result[0].items.
+  return { cost: t.cost || 0, items: (t.result || []).filter((k) => k?.keyword).map((k) => ({
+    keyword: k.keyword, volume: k.search_volume ?? null, cpc: k.cpc ?? null, competition: k.competition ?? null,
+    competitionIndex: k.competition_index ?? null, lowBid: k.low_top_of_page_bid ?? null, highBid: k.high_top_of_page_bid ?? null,
+    trend: (k.monthly_searches || []).slice(0, 12).reverse().map((m) => m.search_volume ?? null) })) };
+}
+
+/** Keyword difficulty (0-100) with the task's cost: { cost, items: [{ keyword, difficulty }] }. */
+export async function keywordDifficultyRaw(keywords, location = config.dfs.location) {
+  if (!keywords.length) return { cost: 0, items: [] };
+  const [t] = await postRaw('/dataforseo_labs/google/bulk_keyword_difficulty/live', [{ keywords: keywords.slice(0, 1000), location_code: location, language_code: config.dfs.language }]);
+  if (t?.status_code !== 20000) throw new Error(`DataForSEO task ${t?.status_code}: ${t?.status_message}`);
+  return { cost: t.cost || 0, items: (t.result?.[0]?.items || []).map((k) => ({ keyword: k.keyword, difficulty: k.keyword_difficulty ?? null })) };
+}
+
+// ---- AI answers ----
+
+const hostOf = (u) => { try { return new URL(u).host.replace(/^www\./, ''); } catch { return ''; } };
+const uniqueSources = (list) => [...new Map(list.filter((x) => x.url).map((x) => [x.url, { url: x.url, title: x.title || hostOf(x.url), domain: hostOf(x.url) }])).values()];
+
+/**
+ * Ask ChatGPT, Gemini or Perplexity one question with web search on, as someone in `country` (default config.ai.country).
+ * Returns { cost, model, text, sources: [{ url, title, domain }] }.
+ */
+export async function llmAnswer(engine, model, prompt, country = config.ai.country) {
+  const body = { user_prompt: prompt, model_name: model, max_output_tokens: 2048 };
+  // Perplexity's Sonar models always search; the others need asking. Gemini has no search-country option.
+  if (engine !== 'perplexity') body.web_search = true;
+  if (engine !== 'gemini') body.web_search_country_iso_code = country;
+  const [t] = await postRaw(`/ai_optimization/${engine}/llm_responses/live`, [body]);
+  if (t?.status_code !== 20000) throw new Error(`DataForSEO ${engine} ${t?.status_code}: ${t?.status_message}`);
+  const r = t.result?.[0] || {};
+  const sections = (r.items || []).filter((i) => i.type === 'message').flatMap((i) => i.sections || []).filter((x) => x.type === 'text');
+  return { cost: t.cost || 0, model: r.model_name || model, text: sections.map((x) => x.text || '').join('\n').trim(),
+    sources: uniqueSources(sections.flatMap((x) => x.annotations || []).map((a) => ({ url: a.direct_url || a.url, title: a.title }))) };
+}
+
+/** Every reference under an AI Overview, however deeply Google nests them. */
+function overviewRefs(node, out = []) {
+  if (Array.isArray(node)) for (const x of node) overviewRefs(x, out);
+  else if (node && typeof node === 'object') {
+    for (const [k, v] of Object.entries(node)) {
+      if (k === 'references' && Array.isArray(v)) for (const r of v) { if (r?.url) out.push({ url: r.url, title: r.title || r.source }); }
+      else if (v && typeof v === 'object') overviewRefs(v, out);
+    }
+  }
+  return out;
+}
+
+/** Google's AI Overview for one search, if Google shows one. Returns { cost, present, text, sources }. */
+export async function aiOverview(keyword) {
+  const [t] = await postRaw('/serp/google/organic/live/advanced', [{ keyword, depth: 10, device: 'mobile', load_async_ai_overview: true, ...loc() }]);
+  if (t?.status_code !== 20000) throw new Error(`DataForSEO task ${t?.status_code}: ${t?.status_message}`);
+  const item = (t.result?.[0]?.items || []).find((i) => i.type === 'ai_overview');
+  const text = item ? (item.markdown || (item.items || []).map((e) => e.markdown || e.text || e.title || '').join('\n')).trim() : '';
+  return { cost: t.cost || 0, present: Boolean(item), text, sources: item ? uniqueSources(overviewRefs(item)) : [] };
+}
+
 // ---- Spend tracking & standard queue ----
 const month = () => new Date().toISOString().slice(0, 7);
 
@@ -160,7 +237,8 @@ export async function businessInfo(loc) {
     title: i.title, address: i.address, phone: i.phone, website: i.url, category: i.category, description: i.description,
     rating: i.rating?.value ?? null, reviewCount: i.rating?.votes_count ?? null, photoCount: i.total_photos ?? null,
     hasHours: Boolean(i.work_time?.work_hours?.timetable), status: i.work_time?.work_hours?.current_status || null,
-    placeId: i.place_id, cid: i.cid, claimed: i.is_claimed } : null };
+    placeId: i.place_id, cid: i.cid, claimed: i.is_claimed ?? null,
+    additionalCategories: Array.isArray(i.additional_categories) ? i.additional_categories.length : 0 } : null };
 }
 
 /** Post review fetches to the task queue (reviews have no live endpoint). Each item: { loc, depth, tag }. */
@@ -186,4 +264,30 @@ export async function getReviewTask(id) {
   return { cost: t?.cost || 0, status: t?.status_code, items: items.filter((i) => i.review_id).map((i) => ({
     id: i.review_id, createdAt: iso(i.timestamp), rating: i.rating?.value ?? null, reviewer: i.profile_name || '',
     comment: i.review_text || '', replied: i.owner_answer ? 1 : 0 })) };
+}
+
+// ---- Google Ads Transparency Center: ads an advertiser is running (standard queue only, no live endpoint) ----
+
+/** Queue one ads search per brand. Each item: { domain, dateFrom, tag }. Returns [{ task_id, tag, cost, ok, message }]. */
+export async function postAdsTasks(items) {
+  if (!items.length) return [];
+  const tasks = await postRaw('/serp/google/ads_search/task_post', items.map((it) => ({
+    target: it.domain, location_code: config.dfs.location, platform: 'all', format: 'all', date_from: it.dateFrom, depth: 40, priority: 1, tag: it.tag })));
+  return tasks.map((t) => ({ task_id: t.id, tag: t.data?.tag, cost: t.cost || 0, ok: t.status_code === 20100, message: t.status_message }));
+}
+
+export async function adsTasksReady() {
+  const [t] = await getRaw('/serp/google/ads_search/tasks_ready');
+  return (t?.result || []).map((r) => r.id);
+}
+
+/** Fetch one finished ads search: [{ creativeId, advertiserId, advertiser, verified, format, image, previewUrl, url, firstShown, lastShown }]. */
+export async function getAdsTask(id) {
+  const [t] = await getRaw(`/serp/google/ads_search/task_get/advanced/${id}`);
+  const iso = (s) => { const d = new Date(String(s || '').replace(' ', 'T').replace(' ', '')); return isNaN(d) ? null : d.toISOString(); };
+  // 40102 is "No Search Results": the advertiser simply has no ads in the window.
+  if (t?.status_code !== 20000 && t?.status_code !== 40102) throw new Error(`DataForSEO task ${t?.status_code}: ${t?.status_message}`);
+  return { cost: t?.cost || 0, items: (t?.result?.[0]?.items || []).filter((i) => i.creative_id).map((i) => ({
+    creativeId: i.creative_id, advertiserId: i.advertiser_id, advertiser: i.title || '', verified: i.verified ? 1 : 0, format: i.format || '',
+    image: i.preview_image?.url || null, previewUrl: i.preview_url || null, url: i.url || null, firstShown: iso(i.first_shown), lastShown: iso(i.last_shown) })) };
 }

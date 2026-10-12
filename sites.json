@@ -4,6 +4,7 @@
     "group": "Comhla",
     "name": "First Vets Whanganui",
     "url": "https://firstvets.co.nz",
+    "cms": "wordpress",
     "keywords": [],
     "localKeywords": [
       "vet {town}"
@@ -13,6 +14,9 @@
         "slug": "whanganui",
         "name": "First Vets Whanganui",
         "town": "Whanganui",
+        "services": [
+          "companion"
+        ],
         "address": "170 Glasgow Street, Whanganui 4500",
         "lat": -39.92632,
         "lng": 175.0383,
@@ -26,6 +30,7 @@
     "group": "Comhla",
     "name": "Levin & Horowhenua Vets",
     "url": "https://levinhorowhenuavets.nz",
+    "cms": "wordpress",
     "keywords": [],
     "localKeywords": [
       "vet {town}"
@@ -35,6 +40,9 @@
         "slug": "levin",
         "name": "Levin and Horowhenua Vets",
         "town": "Levin",
+        "services": [
+          "mixed"
+        ],
         "address": "518 Queen Street East, Levin, 5510",
         "lat": -40.6228,
         "lng": 175.28829,
@@ -48,6 +56,7 @@
     "group": "Comhla",
     "name": "Ōtaki Vets",
     "url": "https://otakivets.nz",
+    "cms": "wordpress",
     "keywords": [],
     "localKeywords": [
       "vet {town}"
@@ -57,6 +66,9 @@
         "slug": "otaki",
         "name": "Otaki Vets",
         "town": "Otaki",
+        "services": [
+          "companion"
+        ],
         "address": "269 Mill Road, Otaki, 5512",
         "lat": -40.7597,
         "lng": 175.15586,
@@ -70,6 +82,7 @@
     "group": "Comhla",
     "name": "Tararua Breeding Services",
     "url": "https://tararuabreeding.nz",
+    "cms": "wordpress",
     "keywords": [],
     "localKeywords": [
       "vet {town}"
@@ -79,6 +92,9 @@
         "slug": "woodville",
         "name": "Tararua Breeding Services",
         "town": "Woodville",
+        "services": [
+          "farm"
+        ],
         "address": "80541 Masterton Road, RD 3, Woodville, 4999",
         "lat": -40.36197,
         "lng": 175.8718,
@@ -92,6 +108,7 @@
     "group": "Comhla",
     "name": "Tararua Vet Services",
     "url": "https://tararuavets.nz",
+    "cms": "wordpress",
     "keywords": [],
     "localKeywords": [
       "vet {town}"
@@ -101,6 +118,9 @@
         "slug": "dannevirke",
         "name": "Tararua Veterinary Service - Dannevirke",
         "town": "Dannevirke",
+        "services": [
+          "mixed"
+        ],
         "address": "36 Denmark Street, Dannevirke, 4930",
         "lat": -40.21071,
         "lng": 176.09855,
@@ -111,6 +131,10 @@
         "slug": "pahiatua",
         "name": "Tararua Veterinary Service - Pahiatua",
         "town": "Pahiatua",
+        "services": [
+          "mixed",
+          "equine"
+        ],
         "address": "2 George Street, Pahiatua, 4910",
         "lat": -40.45747,
         "lng": 175.83772,
@@ -124,6 +148,7 @@
     "group": "Comhla",
     "name": "Totally Vets",
     "url": "https://totallyvets.co.nz",
+    "cms": "wordpress",
     "keywords": [],
     "localKeywords": [
       "vet {town}"
@@ -133,6 +158,10 @@
         "slug": "palmerston-north",
         "name": "Totally Vets Awapuni",
         "town": "Palmerston North",
+        "services": [
+          "mixed",
+          "equine"
+        ],
         "address": "189 Pioneer Highway, Palmerston North, 4412",
         "lat": -40.37343,
         "lng": 175.57137,
@@ -143,6 +172,9 @@
         "slug": "feilding",
         "name": "Totally Vets Feilding",
         "town": "Feilding",
+        "services": [
+          "mixed"
+        ],
         "address": "25 Manchester Street, Feilding, 4720",
         "lat": -40.22866,
         "lng": 175.56671,
@@ -153,6 +185,9 @@
         "slug": "taumarunui",
         "name": "Totally Vets Taumarunui",
         "town": "Taumarunui",
+        "services": [
+          "mixed"
+        ],
         "address": "168/170 Hakiaha Street, Taumarunui, 3920",
         "lat": -38.88266,
         "lng": 175.27002,
@@ -166,6 +201,7 @@
     "group": "Comhla",
     "name": "CHB Vets",
     "url": "https://chbvets.nz",
+    "cms": "wix",
     "keywords": [],
     "localKeywords": [
       "vet {town}"
@@ -175,6 +211,9 @@
         "slug": "waipukurau",
         "name": "CHB Vets",
         "town": "Waipukurau",
+        "services": [
+          "companion"
+        ],
         "address": "5 Northumberland Street, Waipukurau 4200",
         "lat": -39.99471,
         "lng": 176.55422,
@@ -188,6 +227,7 @@
     "group": "Comhla",
     "name": "Vetlife",
     "url": "https://vetlife.co.nz",
+    "cms": "wordpress",
     "keywords": [],
     "localKeywords": [
       "vet {town}"
@@ -197,6 +237,9 @@
         "slug": "riccarton",
         "name": "Straven Road Vet Centre",
         "town": "Riccarton",
+        "services": [
+          "companion"
+        ],
         "address": "8 Straven Road, Riccarton, Christchurch",
         "lat": -43.52896,
         "lng": 172.60249,
@@ -207,6 +250,9 @@
         "slug": "alexandra",
         "name": "Vetlife Alexandra",
         "town": "Alexandra",
+        "services": [
+          "mixed"
+        ],
         "address": "2 Ngapara Street, Alexandra, 9320",
         "lat": -45.24856,
         "lng": 169.39876,
@@ -217,6 +263,9 @@
         "slug": "ashburton",
         "name": "Vetlife Ashburton",
         "town": "Ashburton",
+        "services": [
+          "mixed"
+        ],
         "address": "4 Seafield Road, Ashburton, 7700",
         "lat": -43.89238,
         "lng": 171.76695,
@@ -227,6 +276,9 @@
         "slug": "little-river",
         "name": "Vetlife Banks Peninsula",
         "town": "Little River",
+        "services": [
+          "mixed"
+        ],
         "address": "4235 Christchurch-Akaroa Road, Little River, 7591",
         "lat": -43.77096,
         "lng": 172.79023,
@@ -237,6 +289,9 @@
         "slug": "cromwell",
         "name": "Vetlife Cromwell",
         "town": "Cromwell",
+        "services": [
+          "mixed"
+        ],
         "address": "9a Elspeth Street, Cromwell, 9310",
         "lat": -45.03644,
         "lng": 169.19294,
@@ -247,6 +302,9 @@
         "slug": "culverden",
         "name": "Vetlife Culverden",
         "town": "Culverden",
+        "services": [
+          "mixed"
+        ],
         "address": "25 Mountainview Road, Culverden, 7392",
         "lat": -42.77473,
         "lng": 172.84736,
@@ -257,6 +315,9 @@
         "slug": "diamond-harbour",
         "name": "Vetlife Diamond Harbour",
         "town": "Diamond Harbour",
+        "services": [
+          "companion"
+        ],
         "address": "9 Stoddart Terrace, Church Bay, Diamond Harbour, 8971",
         "lat": -43.63003,
         "lng": 172.72406,
@@ -267,6 +328,9 @@
         "slug": "dunsandel",
         "name": "Vetlife Dunsandel",
         "town": "Dunsandel",
+        "services": [
+          "mixed"
+        ],
         "address": "6 Horoarata-Dunsandel Road, Dunsandel, 7657",
         "lat": -43.65949,
         "lng": 172.19436,
@@ -277,6 +341,9 @@
         "slug": "fairlie",
         "name": "Vetlife Fairlie",
         "town": "Fairlie",
+        "services": [
+          "mixed"
+        ],
         "address": "31 Main Street, Fairlie, 7925",
         "lat": -44.10193,
         "lng": 170.82913,
@@ -287,6 +354,9 @@
         "slug": "mapua",
         "name": "Vetlife Mapua",
         "town": "Mapua",
+        "services": [
+          "companion"
+        ],
         "address": "69 Aranui Road, Mapua",
         "lat": -41.25245,
         "lng": 173.0945,
@@ -297,6 +367,9 @@
         "slug": "methven",
         "name": "Vetlife Methven",
         "town": "Methven",
+        "services": [
+          "mixed"
+        ],
         "address": "2 Line Road, Methven, 7730",
         "lat": -43.63585,
         "lng": 171.65362,
@@ -307,6 +380,9 @@
         "slug": "mornington",
         "name": "Vetlife Mornington",
         "town": "Mornington",
+        "services": [
+          "companion"
+        ],
         "address": "158 Eglinton Road, Mornington, Dunedin 9011",
         "lat": -45.88239,
         "lng": 170.48377,
@@ -317,6 +393,9 @@
         "slug": "motueka",
         "name": "Vetlife Motueka",
         "town": "Motueka",
+        "services": [
+          "companion"
+        ],
         "address": "400D High Street, Motueka",
         "lat": -41.12369,
         "lng": 173.00962,
@@ -327,6 +406,10 @@
         "slug": "mosgiel",
         "name": "Vetlife Murrays",
         "town": "Mosgiel",
+        "services": [
+          "companion",
+          "equine"
+        ],
         "address": "10 Dukes Road South, RD 2, Mosgiel, 9092",
         "lat": -45.86235,
         "lng": 170.33879,
@@ -337,6 +420,9 @@
         "slug": "new-brighton",
         "name": "Vetlife New Brighton",
         "town": "New Brighton",
+        "services": [
+          "companion"
+        ],
         "address": "20 Beresford Street, New Brighton, Christchurch, 8061",
         "lat": -43.5078,
         "lng": 172.72911,
@@ -347,6 +433,9 @@
         "slug": "oamaru",
         "name": "Vetlife Oamaru",
         "town": "Oamaru",
+        "services": [
+          "mixed"
+        ],
         "address": "281 Thames Street, Oamaru, 9400",
         "lat": -45.09272,
         "lng": 170.97382,
@@ -357,6 +446,10 @@
         "slug": "blenheim",
         "name": "Vetlife on Alabama",
         "town": "Blenheim",
+        "services": [
+          "mixed",
+          "equine"
+        ],
         "address": "165 Alabama Road, Blenheim, 7201",
         "lat": -41.52762,
         "lng": 173.96392,
@@ -367,6 +460,9 @@
         "slug": "oxford",
         "name": "Vetlife Oxford",
         "town": "Oxford",
+        "services": [
+          "mixed"
+        ],
         "address": "3128 Oxford Road, Oxford, 7430",
         "lat": -43.29672,
         "lng": 172.19968,
@@ -377,6 +473,9 @@
         "slug": "pleasant-point",
         "name": "Vetlife Pleasant Point",
         "town": "Pleasant Point",
+        "services": [
+          "mixed"
+        ],
         "address": "83 Main Road, Pleasant Point, 7903",
         "lat": -44.26038,
         "lng": 171.13017,
@@ -387,6 +486,9 @@
         "slug": "rai-valley",
         "name": "Vetlife Rai Valley",
         "town": "Rai Valley",
+        "services": [
+          "mixed"
+        ],
         "address": "6770 State Highway 6, Rai Valley, 7190",
         "lat": -41.22849,
         "lng": 173.58304,
@@ -397,6 +499,9 @@
         "slug": "ranfurly",
         "name": "Vetlife Ranfurly",
         "town": "Ranfurly",
+        "services": [
+          "farm"
+        ],
         "address": "8 Northland Street, Ranfurly, 9322",
         "lat": -45.12893,
         "lng": 170.10093,
@@ -407,6 +512,9 @@
         "slug": "rangiora",
         "name": "Vetlife Rangiora",
         "town": "Rangiora",
+        "services": [
+          "companion"
+        ],
         "address": "33 Blackett Street, Rangiora",
         "lat": -43.30191,
         "lng": 172.59281,
@@ -417,6 +525,9 @@
         "slug": "richmond",
         "name": "Vetlife Richmond",
         "town": "Richmond",
+        "services": [
+          "mixed"
+        ],
         "address": "79 Gladstone Road, Richmond",
         "lat": -41.34223,
         "lng": 173.17326,
@@ -427,6 +538,9 @@
         "slug": "st-kilda",
         "name": "Vetlife St Kilda",
         "town": "St Kilda",
+        "services": [
+          "companion"
+        ],
         "address": "611 Andersons Bay Road, St Kilda, Dunedin, 9012",
         "lat": -45.89819,
         "lng": 170.51054,
@@ -437,6 +551,9 @@
         "slug": "temuka",
         "name": "Vetlife Temuka",
         "town": "Temuka",
+        "services": [
+          "mixed"
+        ],
         "address": "1 Waitohi-Temuka Road, Temuka, 7920",
         "lat": -44.24567,
         "lng": 171.27569,
@@ -447,6 +564,9 @@
         "slug": "timaru",
         "name": "Vetlife Timaru",
         "town": "Timaru",
+        "services": [
+          "companion"
+        ],
         "address": "41 Grasmere Street, Timaru, 7910",
         "lat": -44.386,
         "lng": 171.23365,
@@ -457,6 +577,9 @@
         "slug": "twizel",
         "name": "Vetlife Twizel",
         "town": "Twizel",
+        "services": [
+          "mixed"
+        ],
         "address": "1/3 Benmore Place,Twizel, 7901",
         "lat": -44.26451,
         "lng": 170.10091,
@@ -467,6 +590,9 @@
         "slug": "waikouaiti",
         "name": "Vetlife Waikouaiti",
         "town": "Waikouaiti",
+        "services": [
+          "mixed"
+        ],
         "address": "2 Pratt Street, Waikouaiti",
         "lat": -45.59588,
         "lng": 170.67116,
@@ -477,6 +603,9 @@
         "slug": "wanaka",
         "name": "Vetlife Wanaka",
         "town": "Wanaka",
+        "services": [
+          "mixed"
+        ],
         "address": "2 Balneaves Lane, RD 2, Wanaka, 9382",
         "lat": -44.69597,
         "lng": 169.17263,
@@ -490,6 +619,8 @@
     "group": "Comhla",
     "name": "VetSouth",
     "url": "https://vetsouth.co.nz",
+    "cms": "rocketspark",
+    "gscProperty": "sc-domain:vetsouth.co.nz",
     "keywords": [],
     "localKeywords": [
       "vet {town}"
@@ -499,6 +630,9 @@
         "slug": "balclutha",
         "name": "Vetsouth Balclutha",
         "town": "Balclutha",
+        "services": [
+          "mixed"
+        ],
         "address": "34 Essex Street, Balclutha",
         "lat": -46.23156,
         "lng": 169.75174,
@@ -509,6 +643,9 @@
         "slug": "clydevale",
         "name": "Vetsouth Clydevale",
         "town": "Clydevale",
+        "services": [
+          "mixed"
+        ],
         "address": "2 Manse Street, Clydevale Clutha 9274",
         "lat": -46.10146,
         "lng": 169.5273,
@@ -519,6 +656,9 @@
         "slug": "gore",
         "name": "Vetsouth Gore",
         "town": "Gore",
+        "services": [
+          "mixed"
+        ],
         "address": "8 Richmond Street, Gore",
         "lat": -46.09625,
         "lng": 168.94792,
@@ -529,6 +669,10 @@
         "slug": "invercargill",
         "name": "Vetsouth Invercargill",
         "town": "Invercargill",
+        "services": [
+          "companion",
+          "equine"
+        ],
         "address": "29 Findlay Road, Ascot Invercargill",
         "lat": -46.39604,
         "lng": 168.39069,
@@ -539,6 +683,9 @@
         "slug": "lumsden",
         "name": "Vetsouth Lumsden",
         "town": "Lumsden",
+        "services": [
+          "mixed"
+        ],
         "address": "44 Diana St, Lumsden",
         "lat": -45.7407,
         "lng": 168.44146,
@@ -549,6 +696,9 @@
         "slug": "milton",
         "name": "Vetsouth Milton",
         "town": "Milton",
+        "services": [
+          "mixed"
+        ],
         "address": "113 Union St, Milton",
         "lat": -46.12006,
         "lng": 169.96054,
@@ -559,6 +709,9 @@
         "slug": "otautau",
         "name": "Vetsouth Otautau",
         "town": "Otautau",
+        "services": [
+          "mixed"
+        ],
         "address": "203 Main St, Otautau",
         "lat": -46.14027,
         "lng": 167.99504,
@@ -569,6 +722,9 @@
         "slug": "tapanui",
         "name": "Vetsouth Tapanui",
         "town": "Tapanui",
+        "services": [
+          "mixed"
+        ],
         "address": "87 Tapanui-Waikoikoi Hwy, Tapanui",
         "lat": -45.9476,
         "lng": 169.24144,
@@ -579,6 +735,9 @@
         "slug": "winton",
         "name": "Vetsouth Winton",
         "town": "Winton",
+        "services": [
+          "mixed"
+        ],
         "address": "Cnr Great North & Welsh Roads",
         "lat": -46.13194,
         "lng": 168.32584,
@@ -592,6 +751,8 @@
     "group": "Comhla",
     "name": "West Coast Vets",
     "url": "https://wcvets.co.nz",
+    "cms": "rocketspark",
+    "gscProperty": "sc-domain:wcvets.co.nz",
     "keywords": [],
     "localKeywords": [
       "vet {town}"
@@ -601,6 +762,9 @@
         "slug": "greymouth",
         "name": "West Coast Vets - Greymouth",
         "town": "Greymouth",
+        "services": [
+          "mixed"
+        ],
         "address": "35 Herbert Street, Greymouth 7805",
         "lat": -42.45122,
         "lng": 171.2076,
@@ -611,6 +775,9 @@
         "slug": "hokitika",
         "name": "West Coast Vets - Hokitika",
         "town": "Hokitika",
+        "services": [
+          "mixed"
+        ],
         "address": "40 Brittan Street, Hokitika 7810",
         "lat": -42.72065,
         "lng": 170.96901,
@@ -624,6 +791,7 @@
     "group": "Comhla",
     "name": "Buller Vets",
     "url": "https://bullervets.co.nz",
+    "cms": "wordpress",
     "keywords": [],
     "localKeywords": [
       "vet {town}"
@@ -633,6 +801,9 @@
         "slug": "westport",
         "name": "Buller Vets",
         "town": "Westport",
+        "services": [
+          "mixed"
+        ],
         "address": "71 Palmerston Street, Westport, 7825",
         "lat": -41.75101,
         "lng": 171.59787,
@@ -643,6 +814,9 @@
         "slug": "murchison",
         "name": "Buller Vets Murchison",
         "town": "Murchison",
+        "services": [
+          "mixed"
+        ],
         "address": "850 Waller Street, Murchison, 7007",
         "lat": -41.8003,
         "lng": 172.33011,
@@ -656,6 +830,7 @@
     "group": "Comhla",
     "name": "Selwyn Rakaia Vets",
     "url": "https://srvets.co.nz",
+    "cms": "storbie",
     "keywords": [],
     "localKeywords": [
       "vet {town}"
@@ -665,6 +840,9 @@
         "slug": "dunsandel",
         "name": "Selwyn Rakaia Vets",
         "town": "Dunsandel",
+        "services": [
+          "mixed"
+        ],
         "address": "1 Browns Road, Dunsandel 7682",
         "lat": -43.6605,
         "lng": 172.19205,
@@ -678,6 +856,8 @@
     "group": "Comhla",
     "name": "Vet Clinic Morrinsville",
     "url": "https://vetclinicmorrinsville.co.nz",
+    "cms": "rocketspark",
+    "gscProperty": "sc-domain:vetclinicmorrinsville.co.nz",
     "keywords": [],
     "localKeywords": [
       "vet {town}"
@@ -687,6 +867,9 @@
         "slug": "morrinsville",
         "name": "Veterinary Clinic Morrinsville",
         "town": "Morrinsville",
+        "services": [
+          "mixed"
+        ],
         "address": "62 Moorhouse Street, Morrinsville 3300",
         "lat": -37.65637,
         "lng": 175.52853,
@@ -700,6 +883,7 @@
     "group": "Comhla",
     "name": "VetsOne (Hastings)",
     "url": "https://vetsone.co.nz",
+    "cms": "wordpress",
     "keywords": [],
     "localKeywords": [
       "vet {town}"
@@ -721,21 +905,68 @@
     "group": "Comhla",
     "name": "TasVets",
     "url": "https://tasvets.com.au",
-    "keywords": []
+    "cms": "wordpress",
+    "market": "AU",
+    "description": "The Vet Group’s Tasmanian vet clinic, in Smithton in north-west Tasmania.",
+    "keywords": [],
+    "keywordSeeds": [
+      "vet smithton",
+      "smithton vet",
+      "vet north west tasmania",
+      "dairy vet tasmania",
+      "farm vet tasmania",
+      "vet circular head"
+    ],
+    "aiPrompts": [
+      "What is a good vet clinic in Smithton, Tasmania?",
+      "Which vets look after dairy herds in north-west Tasmania?"
+    ]
   },
   {
     "slug": "thevetgroup",
     "group": "Comhla",
     "name": "The Vet Group (Australia)",
     "url": "https://thevetgroup.com.au",
-    "keywords": []
+    "cms": "wordpress",
+    "market": "AU",
+    "description": "Group of six vet clinics across South West Victoria with a head office in Warrnambool.",
+    "keywords": [],
+    "keywordSeeds": [
+      "vet warrnambool",
+      "warrnambool vet",
+      "dairy vet victoria",
+      "vet south west victoria",
+      "farm vet warrnambool",
+      "large animal vet victoria"
+    ],
+    "aiPrompts": [
+      "What are the best vets in Warrnambool?",
+      "Which vet clinics look after dairy herds in South West Victoria?",
+      "Who is a good farm and large animal vet near Warrnambool?"
+    ]
   },
   {
     "slug": "cowsmart",
     "group": "Comhla",
     "name": "Cowsmart",
     "url": "https://cowsmart.co.nz",
+    "cms": "rocketspark",
+    "description": "Veterinary data consultancy for dairy farmers (herd data, reproduction and mastitis), based at the Centre for Dairy Excellence in Geraldine.",
     "keywords": [],
+    "keywordSeeds": [
+      "dairy herd data analysis",
+      "herd reproduction report",
+      "mastitis data",
+      "dairy consultant",
+      "herd improvement",
+      "dairy farm consultant nz",
+      "in calf rate"
+    ],
+    "aiPrompts": [
+      "Who can analyse my dairy herd data in New Zealand?",
+      "Which consultants help dairy farmers improve herd reproduction and in-calf rates in NZ?",
+      "How do I get help interpreting my herd test and mastitis data?"
+    ],
     "locations": [
       {
         "slug": "cowsmart",
@@ -749,27 +980,91 @@
     "group": "Nexeus Supply Chain",
     "name": "Heartland Feeds",
     "url": "https://www.heartlandfeeds.co.nz",
-    "keywords": []
+    "cms": "wordpress",
+    "description": "Custom feeds, minerals and supplements for livestock (dairy, beef, sheep, deer), based in Christchurch.",
+    "keywords": [],
+    "keywordSeeds": [
+      "dairy cow feed",
+      "calf meal",
+      "livestock minerals",
+      "stock feed nz",
+      "dairy supplements",
+      "calf feed",
+      "mineral supplements for cattle",
+      "pellets for cows"
+    ],
+    "aiPrompts": [
+      "Where can I buy calf meal and dairy feed in Canterbury?",
+      "Who makes custom mineral supplements for dairy cows in New Zealand?",
+      "What are good stock feed suppliers for South Island farmers?"
+    ]
   },
   {
     "slug": "agilis",
     "group": "Nexeus Supply Chain",
     "name": "Agilis",
     "url": "https://agilis.nz",
-    "keywords": []
+    "cms": "silverstripe",
+    "description": "Animal health products and technical support for veterinary practices in New Zealand; runs the IBR Hub (infectious bovine rhinotracheitis).",
+    "keywords": [],
+    "keywordSeeds": [
+      "ibr vaccine",
+      "ibr in cattle",
+      "animal health products nz",
+      "veterinary products",
+      "bvd vaccine",
+      "cattle vaccine nz",
+      "calf scours"
+    ],
+    "aiPrompts": [
+      "Who supplies animal health products to vet clinics in New Zealand?",
+      "Where can I find information about IBR in New Zealand cattle?",
+      "Which companies provide technical support for cattle vaccines to NZ vets?"
+    ]
   },
   {
     "slug": "fortis",
     "group": "Nexeus Supply Chain",
     "name": "Fortis",
     "url": "https://fortisnz.co.nz",
-    "keywords": []
+    "cms": "custom",
+    "description": "Wholesale supplier of veterinary products to vet clinics in New Zealand.",
+    "keywords": [],
+    "keywordSeeds": [
+      "veterinary wholesaler",
+      "veterinary supplies nz",
+      "vet clinic supplies",
+      "veterinary wholesale nz",
+      "animal health wholesale"
+    ],
+    "aiPrompts": [
+      "Who are the veterinary wholesalers in New Zealand?",
+      "Where do New Zealand vet clinics buy their veterinary supplies?"
+    ]
   },
   {
     "slug": "drl",
     "group": "Nexeus Supply Chain",
     "name": "DRL (Disease Research Limited)",
     "url": "https://www.drl.net.nz",
-    "keywords": []
+    "cms": "wordpress",
+    "description": "Independent veterinary diagnostic laboratory at Invermay near Mosgiel, best known for Johne’s disease testing for deer, cattle and sheep.",
+    "aiNames": [
+      "Disease Research Limited",
+      "Disease Research Ltd"
+    ],
+    "keywords": [],
+    "keywordSeeds": [
+      "johne's disease test",
+      "johnes disease deer",
+      "johnes testing cattle",
+      "veterinary diagnostic laboratory",
+      "animal disease testing nz",
+      "paratuberculosis test"
+    ],
+    "aiPrompts": [
+      "Where can I get Johne's disease testing for deer or cattle in New Zealand?",
+      "Which veterinary diagnostic labs in New Zealand test for animal diseases?"
+    ]
   }
 ]

@@ -27,6 +27,38 @@ export const config = {
     refreshToken: process.env.GBP_REFRESH_TOKEN || '',
     get enabled() { return Boolean(this.clientId && this.clientSecret && this.refreshToken); },
   },
+  meta: {
+    // A System User token from Meta Business Settings (never expires); page tokens are derived from it.
+    token: process.env.META_ACCESS_TOKEN || '',
+    appSecret: process.env.META_APP_SECRET || '',
+    graphUrl: (process.env.META_GRAPH_URL || 'https://graph.facebook.com').replace(/\/$/, ''),
+    version: process.env.META_GRAPH_VERSION || 'v23.0',
+    get enabled() { return Boolean(this.token); },
+  },
+  planable: {
+    // A Planable company API token (Company settings → API tokens). Read scope syncs figures; Write also lets the
+    // dashboard create draft posts. Needs Planable's Pro or Enterprise plan.
+    token: process.env.PLANABLE_API_TOKEN || '',
+    apiUrl: (process.env.PLANABLE_API_URL || 'https://api.planable.io/api/v1').replace(/\/$/, ''),
+    get enabled() { return Boolean(this.token); },
+  },
+  ai: {
+    // What ChatGPT, Gemini and Perplexity say when asked for a vet in each clinic's town (src/data/ai.js).
+    // engine:model pairs; model names come from DataForSEO's /ai_optimization/<engine>/llm_responses/models.
+    engines: (process.env.AI_ENGINES || 'chat_gpt:gpt-5-mini,gemini:gemini-2.5-flash,perplexity:sonar')
+      .split(',').map((x) => x.trim().split(':')).filter(([e, m]) => e && m).map(([engine, model]) => ({ engine, model })),
+    // Also look for Google's AI Overview on each town's local search ("vet {town}").
+    overviews: process.env.AI_OVERVIEWS !== 'off',
+    country: process.env.AI_COUNTRY || 'NZ',
+    // The question asked for every clinic of a brand with localKeywords, unless sites.json sets aiPrompts.
+    prompts: (process.env.AI_PROMPTS || 'Which vet clinic would you recommend in {town}, New Zealand?').split('|').map((x) => x.trim()).filter(Boolean),
+  },
+  claude: {
+    // Drafts replies to Google reviews (src/data/reply-helper.js).
+    apiKey: process.env.ANTHROPIC_API_KEY || '',
+    model: process.env.ANTHROPIC_MODEL || 'claude-opus-5-5',
+    get enabled() { return Boolean(this.apiKey); },
+  },
   gsc: {
     keyPath: process.env.GSC_SERVICE_ACCOUNT_JSON ? path.resolve(root, process.env.GSC_SERVICE_ACCOUNT_JSON) : '',
     keyContent: process.env.GSC_SERVICE_ACCOUNT_JSON_CONTENT || '',
@@ -66,6 +98,11 @@ export const config = {
     gbp: process.env.CRON_GBP || '15 7 * * *',
     local: process.env.CRON_LOCAL || '0 5 * * 1',
     'local-collect': process.env.CRON_LOCAL_COLLECT || '0 */2 * * *',
+    ads: process.env.CRON_ADS || '30 4 * * 2',
+    meta: process.env.CRON_META || '45 6 * * *',
+    'meta-comments': process.env.CRON_META_COMMENTS || '*/30 * * * *',
+    planable: process.env.CRON_PLANABLE || '0 7 * * *',
+    ai: process.env.CRON_AI || '0 4 2 * *',
   },
 };
 
@@ -77,9 +114,13 @@ export function loadSites() {
     s.group ||= 'Ungrouped';
     if (!s.slug || !s.url) throw new Error(`Site entry missing slug or url: ${JSON.stringify(s)}`);
     s.host = new URL(s.url).host.replace(/^www\./, '');
+    // A brand logo is public/logos/<slug>.png unless sites.json names one
+    s.logo ||= fs.existsSync(path.join(root, 'public', 'logos', `${s.slug}.png`)) ? `/logos/${s.slug}.png` : null;
     s.keywords ||= [];
     s.competitors ||= [];
     s.localKeywords ||= [];
+    s.meta = s.meta?.pageId || s.meta?.instagramId ? { pageId: s.meta.pageId ? String(s.meta.pageId) : null, instagramId: s.meta.instagramId ? String(s.meta.instagramId) : null } : null;
+    s.planable = s.planable?.workspaceId ? { workspaceId: String(s.planable.workspaceId), pageIds: (s.planable.pageIds || []).map(String) } : null;
     s.locations = (s.locations || []).map((l) => {
       if (!l.slug || !l.name) throw new Error(`Location in ${s.slug} missing slug or name`);
       return { keywords: [], ...l };

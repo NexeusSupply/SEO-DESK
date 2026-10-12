@@ -8,7 +8,13 @@ A self-hosted SEO dashboard for a portfolio of brand websites. It covers the par
 | Search performance | Clicks, impressions, position over 90 days; top queries and pages; "within reach" queries ranking 8–20 that are cheap wins. | Google Search Console API | Free |
 | Rank tracking | Daily NZ Google positions for your keyword list, with 30-day sparklines and which competitors appear in the same results. | DataForSEO SERP API | ~US$0.002 per keyword check |
 | Competitors | Organic keyword count, estimated traffic, backlinks and referring domains for you and each competitor; keyword gap (what they rank for that you don't); volume and difficulty for your tracked keywords. | DataForSEO Labs + Backlinks | A few cents per domain refresh |
-| Local SEO | Per-clinic Business Profile listing (rating, review count, completeness, open status), reviews with unreplied and low-rating flags, listing performance (search/maps views, calls, direction requests), map-pack rankings checked from each town, and name/address/phone consistency between config, website and listing. A group-wide "All clinics" view sorts by who needs attention. | Google Business Profile APIs + DataForSEO | Free + ~US$0.003 per local check |
+| Local SEO | Per-clinic Business Profile listing (rating, review count, completeness, open status), reviews with unreplied and low-rating flags, listing performance (search/maps views, calls, direction requests), map-pack rankings checked from each town, and name/address/phone consistency between config, website and listing. A group-wide "All clinics" view sorts by who needs attention, and each clinic has its own page (pick one from the clinic menu or click its name) with its listing details, reviews, listing performance, map-pack trend and website figures. | Google Business Profile APIs + DataForSEO | Free + ~US$0.003 per local check |
+| Facebook and Instagram | Followers, views and engagements over 28 days against the 28 before, recent posts with likes, comments and shares, and a comments inbox: read every comment across brands, reply publicly as the brand, hide spam, or mark it as needing no reply. Unanswered comments over a day old count towards a brand's Watch signal. | Meta Graph API | Free |
+| Ads | Google ads each brand's website is running (image, text and video, with first and last shown dates) from Google's public Ads Transparency Center, checked weekly, plus a link to each brand's Facebook and Instagram ads in Meta's public Ad Library. An "Ads" page lists every brand. | DataForSEO (Google Ads Transparency) | A fraction of a cent per brand per week |
+| AI answers | Once a month, asks ChatGPT, Gemini and Perplexity (with web search, as someone in New Zealand) which vet they'd recommend in each clinic's town, and checks Google's AI Overview on the town's local search. Shows whether each clinic was named and in what position, whether its website was cited, who was named instead, and the sources the AI read. Brands without clinics (Cowsmart, the supply chain businesses, the Australian brands) get brand-level questions instead, such as "Who supplies animal health products to vet clinics in New Zealand?", asked as someone in the brand's country. There's an "AI answers" page for every brand, plus a section on each brand and clinic page. | DataForSEO AI Optimization (LLM Responses) + SERP API | About US$0.02–0.04 per question per AI, plus US$0.004 per AI Overview check. Roughly US$5–7 a month for 54 towns |
+| Keyword research | Per clinic, and per brand for businesses without clinics: searches to target on the website (SEO) and to bid on in Google Ads. Starts from the clinic's town and services (`vet feilding`, `farm vet feilding`, `emergency vet feilding`…) plus any words you add, pulls Google's related suggestions with monthly searches, a 12-month trend, ad competition and top-of-page bids, adds SEO difficulty, and marks each one SEO, Ads, both or low priority, with where the site already ranks. Download as CSV for Google Ads. Brands start from their `keywordSeeds` (or, with none, from what Google thinks the website is about), with Australian volumes for Australian brands. Runs when someone presses the button and is kept for a month; clinics in the same town share results. | DataForSEO (Google Ads Keyword Planner + Labs difficulty) | About US$0.09 per clinic, about US$5 for all 54 |
+| Ideas to grow traffic | Per clinic, and per brand for businesses without clinics (reading the website audit, Search Console, rankings and competitors instead of the listing): Claude reads everything the dashboard knows about the clinic (listing, reviews, map pack, AI answers, ads, keyword research, website health) and suggests five to eight prioritised SEO, Google Ads, listing and review ideas, each tied to a figure, plus a starter Google search ad (headlines, descriptions, keywords to bid on). Add an optional focus such as "more puppy bookings". The latest ideas are saved on the page. | Claude (Anthropic API) | A few US cents per run |
+| Shared articles | Paste in one article and Claude writes a version for each brand you pick: rewritten around its towns, region and services, aimed at a search its website is missing, with internal links to its own pages. Each version shows the SEO holes it fills, the changes to make elsewhere on the site, on-page checks, and how much text it shares with the other brands' versions. Someone edits and approves each one; WordPress sites then get it as a draft (or published or scheduled, if chosen), and the rest get copy-ready text. | Claude (Anthropic API) + WordPress REST API | Roughly US$0.10–0.30 per brand (an estimate; longer articles cost more) |
 | Digest | Weekly email summarising score changes, errors, rank movers and within-reach queries across all brands. | SMTP | Free |
 
 Everything is optional. Brands without a `locations` list simply don't show the clinic sections. A brand whose Search Console property or Google listing the account can't reach shows as **Not connected** everywhere — never as zero.
@@ -68,8 +74,28 @@ Add a `locations` list to any brand. Each location needs `slug` and `name`; the 
 | `placeId` or `cid` | Exact matching of the clinic in results (otherwise matched by phone, then name). Get the place ID from the listing's Maps URL or `GET /api/gbp/listings` |
 | `address`, `phone`, `url` | Name/address/phone consistency check against the clinic's web page |
 | `gbpLocationId` | Business Profile sync (listing, reviews, performance) |
+| `services` | Which keyword-research seeds the clinic gets: any of `companion`, `mixed`, `farm`, `equine` (from the clinic list's CA/Mixed/PA/Equine columns). Defaults to companion |
+| `keywordSeeds` | Extra keyword-research seeds, as templates like `"puppy school {town}"`. Can also go on the brand |
 
 `localKeywords` on the brand are templates: `"vet {town}"` becomes `vet feilding`, `vet otaki`, and so on. A location can add its own `keywords` too.
+
+### Brands without clinics
+
+Businesses with no clinic towns (Cowsmart, Heartland Feeds, Agilis, Fortis, DRL, TasVets, The Vet Group) get keyword research, ideas and AI answers for the brand as a whole. These brand fields drive them:
+
+| Field | Used for |
+|---|---|
+| `description` | One line on what the business does, given to Claude so its ideas fit |
+| `market` | `"AU"` for Australian brands: keyword volumes, bids and AI questions use Australia. Defaults to New Zealand |
+| `keywordSeeds` | Searches keyword research starts from, without `{town}`, e.g. `"calf meal"`. With none, it starts from the website itself |
+| `aiPrompts` | Questions to ask the AIs each month. Ones without `{town}` are asked once for the brand; `{brand}` is filled in with its name |
+| `aiNames` | Other names the business goes by, so answers that use them still count (DRL is too short to match on its own, so it lists "Disease Research Limited") |
+
+### AI answers
+
+Brands with `localKeywords` get one question per clinic town each month: `Which vet clinic would you recommend in {town}, New Zealand?` (change it for everyone with `AI_PROMPTS`, separating several with `|`). A brand or a single location can set its own list with `"aiPrompts": ["…{town}…"]`, and `"aiNames": ["…"]` adds other names the clinic goes by, so answers that use them still count. Clinics in the same town share one answer. Google's AI Overview is checked on the same local searches as the map pack (`vet {town}`); Google often shows the map instead of an overview for these, which the dashboard reports as "none shown".
+
+`AI_ENGINES` picks the AIs and models as `engine:model` pairs (default `chat_gpt:gpt-5-mini,gemini:gemini-2.5-flash,perplexity:sonar`). Model names come from DataForSEO's `/v3/ai_optimization/<engine>/llm_responses/models`. `AI_OVERVIEWS=off` skips the Google check. Answers are stored as given, and whether a clinic was named is worked out when the page loads. A question answered in the last 25 days isn't asked again, so pressing "Ask the AIs again" doesn't spend twice. The job stops asking once the monthly spend cap is reached; raise `DFS_MONTHLY_CAP_USD` to about 20 to leave room for everything else.
 
 ### Google Business Profile
 
@@ -86,6 +112,91 @@ The API is the one that needs a formal request, because Google gates Business Pr
 4. `GET /api/gbp/listings` (or open it in a browser once the server is running) lists every listing that account manages with its ID — paste those into `gbpLocationId`.
 
 This ties directly into the access-transfer work: a clinic whose listing isn't managed by the central account won't appear until it is.
+
+### Facebook and Instagram (Meta)
+
+Add a `meta` block to each brand that has a Facebook Page. The linked Instagram professional account is found automatically; set `instagramId` only to override it.
+
+```json
+"meta": { "pageId": "123456789012345" }
+```
+
+One token covers every brand. The steps all need someone who is an admin of the Meta Business portfolio that owns the Pages:
+
+1. **Business portfolio.** Make sure every brand's Facebook Page (and its Instagram account) sits in the same Meta Business portfolio, or is shared into it as a partner asset.
+2. **App.** At developers.facebook.com create an app of type **Business**, owned by that portfolio. Add the **Facebook Login for Business** and **Instagram** (Instagram API with Facebook Login) products.
+3. **System user.** Business Settings → Users → System users → add one (Admin role). Assign it the Pages and Instagram accounts with full control, and add the app under Apps.
+4. **Token.** Generate a token for that system user, choosing the app and these permissions, then paste it into `META_ACCESS_TOKEN`. System user tokens don't expire.
+
+   | Permission | Used for |
+   |---|---|
+   | `pages_show_list`, `business_management` | Finding the Pages (`/api/meta/pages`) |
+   | `pages_read_engagement`, `read_insights` | Page followers, posts and insights |
+   | `pages_read_user_content` | Reading comments and who wrote them |
+   | `pages_manage_engagement` | Replying to and hiding Facebook comments |
+   | `instagram_basic`, `instagram_manage_insights` | Instagram followers, posts and insights |
+   | `instagram_manage_comments` | Reading, replying to and hiding Instagram comments |
+
+5. **App review.** Because the app only touches Pages owned by the business that owns the app, Standard Access is enough and no App Review is needed. If Meta asks for one anyway (for example if a Page is owned by a different business), the same permissions above go through App Review with Business Verification.
+6. If the app's settings require **appsecret_proof** (Settings → Advanced), also set `META_APP_SECRET`.
+7. With the server running, open `/api/meta/pages` to list every Page the token can see with its Instagram ID, and copy the IDs into sites.json.
+
+Comments are checked every 30 minutes (`CRON_META_COMMENTS`) and insights daily (`CRON_META`). Replies go out publicly straight away, as the Page or Instagram account, and the dashboard records which signed-in person sent them. Meta keeps changing which insight metrics exist; each is requested on its own, so a retired one just disappears from the numbers rather than breaking the sync.
+
+### Planable
+
+[Planable](https://planable.io) is where the group schedules its social posts. Its Public API gives follower and engagement figures for every channel connected there (Facebook, Instagram, LinkedIn, TikTok, YouTube, Threads, X and Google Business Profile), plus recent posts and their metrics, and it lets the dashboard create draft posts. The API needs Planable's **Pro or Enterprise** plan.
+
+1. **Token.** A Planable Owner or Admin creates one under Company settings → API tokens. **Write** scope lets the dashboard create drafts as well as read; **Read** is enough for the figures alone. Give it access to all workspaces and a long expiry (it has to be replaced by hand when it runs out). Paste it into `PLANABLE_API_TOKEN`.
+2. With the server running, open `/api/planable/pages` to list every connected channel with its `workspaceId`, and add each brand's workspace to sites.json. Add `pageIds` only if a workspace holds channels for more than one brand.
+
+```json
+"planable": { "workspaceId": "ws_abc123", "pageIds": ["optional", "list"] }
+```
+
+The sync runs daily (`CRON_PLANABLE`, `npm run planable`). The first run backfills 90 days, then each run re-reads the last week. Figures land in the same Social section as the Meta sync: followers per channel, views, engagements and new followers over 28 days, a by-channel table, and calls, website clicks and directions from the Google Business Profile channels. If a brand also has `meta` set and `META_ACCESS_TOKEN` is on, Facebook and Instagram come from Meta (which has the comments) and Planable fills in the rest.
+
+**Draft a post in Planable** sits under the Social section. Tick the channels, type the post or a topic and press **Write with Claude** (it writes in the brand's voice from its recent posts and leaves [placeholders] for details it doesn't know), then **Send to Planable as a draft**. Several channels make one grouped post. Drafts are never marked approved, so they wait in Planable for the usual review and scheduling. If a workspace auto-publishes on approval, approving the draft in Planable publishes it. Claude's ideas tagged **Social** get a **Draft a post in Planable** button that starts the same thing from the idea.
+
+What Planable's API can't do: there are no comments or messages (replies happen in Planable's Social Inbox add-on, or here through Meta), no webhooks (hence the daily sync), and published posts can't be edited. Planable doesn't document whether each metrics snapshot holds one day's figures or a running total. The sync treats them as daily (the latest snapshot each day wins), so check the first real run's 28-day totals against Planable's own analytics.
+
+### Shared articles
+
+The **Articles** page turns one article into a version for each brand. Claude reads what the dashboard knows about each brand (its clinics and towns, keyword research, Search Console queries ranking 8–20, keyword gap, AI answers, and the pages found by the latest audit) and rewrites the article for it: a new opening and close, local context and FAQ, a call to action naming its clinics, a focus search the site is missing, and links to two to four of its existing pages. It also lists the SEO holes the post fills and the changes to make elsewhere on the site (pages to link from, pages it could compete with). Versions are written three at a time in the background.
+
+Why not post the same article everywhere: Google shows one copy of duplicated text and filters the rest, and the same page with only the town swapped counts as spam. Each version's **Closest version** figure is the share of five-word runs it has in common with the most similar other brand's version; over 40% is flagged. For something that really has to be word-for-word (a group announcement), publish it once on the main site and link to it from the others instead.
+
+Nothing goes out without a person: each version is edited and **approved** first, and any later edit takes the approval away. Then:
+
+- **WordPress** sites get it through the REST API: as a draft by default, or published now or scheduled for a date if that's chosen. The meta description goes into the post excerpt; paste it into Yoast or Rank Math too if the site uses one. Sending again updates the same post.
+  1. In WordPress, go to Users → Profile → **Application Passwords**, name it "SEO Desk" and copy the password. Use an account that can publish posts (Editor or Administrator).
+  2. Set `WP_<SLUG>` on the server to `username:application password`, for example `WP_FIRSTVETS=mike:abcd efgh ijkl mnop qrst uvwx`. The slug is the brand's `slug` in sites.json, upper-cased, with anything that isn't a letter or digit as `_`.
+  3. If a security plugin or the host blocks `/wp-json/`, allow it for that account. If the site has no `/wp-json/` at all, set `"wpApi": "https://example.co.nz/index.php?rest_route="` on the brand in sites.json.
+- **Rocketspark, Wix, Storbie, Silverstripe and custom sites** have no API we can post through, so the page gives **Copy title / article / meta description** buttons (the article copies with its headings and lists) and a **Mark as posted** button.
+
+Each brand's `"cms"` in sites.json says which applies: `wordpress`, `rocketspark`, `wix`, `storbie`, `silverstripe` or `custom` (taken from the Digital Asset Tracker).
+
+### Ads
+
+Google ads are found by each brand's website domain, so nothing needs adding to sites.json. They come from Google's public Ads Transparency Center through DataForSEO, so they include ads run by anyone pointing at that domain (an agency, for example), shown with the advertiser's name. Searches go out weekly (`CRON_ADS`) through DataForSEO's standard queue and are collected with the other queued tasks, usually within a couple of hours. An ad last shown in the past 7 days counts as running.
+
+Meta's Ad Library API only returns non-political ads that were shown in the EU or UK, so NZ and Australian ads can't be pulled into the dashboard. Instead each brand links to Meta's public Ad Library: straight to the brand's Page when `meta.pageId` is set in sites.json, otherwise a search by brand name.
+
+Posting replies to Google reviews from the dashboard is shown as a mock-up marked "coming soon". It needs the Business Profile API (see above), because DataForSEO can only read reviews.
+
+### Reply drafts (Claude)
+
+Set `ANTHROPIC_API_KEY` (from console.anthropic.com → API keys) and each unreplied review gets a **Draft with Claude** button. Claude writes a short reply in the clinic's voice from the review, the star rating and an optional note you type ("mention our new puppy classes"). Edit it, click Copy, and paste it into the reply box on the clinic's Google listing. The prompt keeps replies short, uses NZ spelling, never reveals anything about an animal or client that the review doesn't already say, and steers negative reviews towards contacting the clinic, without promises. The same button sits on every Facebook and Instagram comment in the comments inbox, where the draft fills the reply box and you send it from there (written as the brand's account, one or two sentences, with no made-up hours or prices). Until real reviews or comments arrive, or while Meta is still "coming soon", a couple of clearly labelled made-up examples are shown so drafting can be demonstrated. `ANTHROPIC_MODEL` overrides the model (default `claude-opus-5-5`). Each draft costs roughly one or two US cents.
+
+### Keyword research and ideas
+
+Each clinic page, and the page of each brand without clinics, has a **Keyword research** section. Press **Research keywords** and it asks Google Ads' Keyword Planner (through DataForSEO, so no Google Ads account is needed) for searches related to the clinic's seeds, keeps the vet-related ones (for brands, everything except job and course searches), and checks SEO difficulty. Volumes and bids are New Zealand-wide (Australia-wide for `"market": "AU"` brands) (Google doesn't break them down by town), and bids are in US dollars as DataForSEO reports them. The advice is deliberately simple: **SEO** when people search it (10+ a month), difficulty is under 50 and we aren't already top 3; **Ads** for urgent or "near me" searches, searches advertisers compete for, and worthwhile searches too hard to win organically. Research counts towards `DFS_MONTHLY_CAP_USD` and is refused past it.
+
+**Ideas to grow traffic** uses the same `ANTHROPIC_API_KEY` as reply drafts. Without it the section says it's not connected.
+
+### Top-3 checklist
+
+Each clinic page has a **Top-3 checklist** built from [Localo's study of local ranking factors](https://localo.com/blog/top-local-seo-ranking-factors): their eight-point "basics" (verified listing, website, description, an extra category, 10+ reviews, 10+ photos, 10+ citations, a social link) and what the top three pull ahead on (about 80+ reviews, 40+ photos, a 4.5+ rating, six extra categories, 21+ citations, 3+ social links, 10+ live Google posts, matching name/address/phone). Hover an item for what's needed to tick it. Items tick themselves from the latest listing sync and details check. Citations and social links can't be read from the listing, and Google posts only come through the Business Profile API, so those start as **Not checked** and someone sets them to Done or Not done (saved with who and when). Any item we have no data for yet, for instance before the first listing sync, can be set by hand the same way; once synced data exists it takes over. Claude's traffic ideas see the checklist too.
 
 ### Google Search Console
 
@@ -115,7 +226,11 @@ npm run gsc
 npm run competitors
 npm run digest
 npm run gbp                 # Business Profile sync (API, and/or DataForSEO public listing + reviews)
+npm run meta                # Facebook and Instagram sync
+npm run planable            # Planable channels: followers, figures and recent posts
+npm run ads                 # queue this week's Google ads search per brand (collected by local-collect)
 npm run local               # post this week's map-pack checks + name/address/phone check
+npm run keywords -- vetlife # keyword research for every clinic of a brand not researched this month (no schedule)
 node src/cli.js local-collect   # collect finished map-pack and review results (cron runs this every 2h)
 ```
 
@@ -176,6 +291,13 @@ Dockerfile            For Railway / Render / Fly / any VPS
   data/listings-public.js  Public listing + reviews via DataForSEO when the API isn't available
   data/gbp-auth.js    One-time OAuth helper
   data/local.js       Map-pack rank checks and NAP consistency
+  data/meta.js        Facebook and Instagram insights, posts, comments and replies
+  data/planable.js    Planable channels' figures and posts, and creating draft posts
+  data/reply-helper.js  Claude drafts replies to Google reviews and Facebook/Instagram comments, and social posts
+  data/ads.js         Google ads via the Ads Transparency Center, Meta Ad Library links
+  data/keywords.js    Keyword research per clinic or brand and the SEO / Ads advice
+  data/suggestions.js Claude's traffic ideas and starter search ad per clinic
+  data/checklist.js   Top-3 local SEO checklist per clinic (auto-detected, or ticked by hand)
 public/               Dashboard (no build step)
 data/                 sites.json, SQLite database, GSC key
 ```

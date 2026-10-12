@@ -13,10 +13,18 @@
     "digest": "node src/cli.js digest",
     "gbp": "node src/cli.js gbp",
     "local": "node src/cli.js local",
+    "meta": "node src/cli.js meta",
+    "ads": "node src/cli.js ads",
+    "planable": "node src/cli.js planable",
+    "ai": "node src/cli.js ai",
+    "keywords": "node src/cli.js keywords",
     "gbp:auth": "node src/data/gbp-auth.js"
   },
-  "engines": { "node": ">=22.13" },
+  "engines": {
+    "node": ">=22.13"
+  },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.132.0",
     "cheerio": "^1.0.0",
     "dotenv": "^16.4.5",
     "express": "^4.21.0",

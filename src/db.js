@@ -102,6 +102,13 @@ CREATE TABLE IF NOT EXISTS nap_checks (
 );
 `);
 
+// Added for the top-3 checklist: whether the listing is claimed, how many extra categories it has, and live Google posts.
+// node:sqlite has no ADD COLUMN IF NOT EXISTS, so add whichever are missing.
+{
+  const have = new Set(db.prepare('PRAGMA table_info(gbp_snapshots)').all().map((c) => c.name));
+  for (const col of ['claimed', 'additional_categories', 'posts']) if (!have.has(col)) db.exec(`ALTER TABLE gbp_snapshots ADD COLUMN ${col} INTEGER`);
+}
+
 // ---- Standard-queue tasks and spend tracking ----
 db.exec(`
 CREATE TABLE IF NOT EXISTS dfs_tasks (
@@ -109,5 +116,43 @@ CREATE TABLE IF NOT EXISTS dfs_tasks (
 );
 CREATE TABLE IF NOT EXISTS dfs_spend (
   month TEXT, kind TEXT, calls INTEGER, cost REAL, PRIMARY KEY (month, kind)
+);
+`);
+
+// ---- Facebook and Instagram (Meta Graph API) ----
+db.exec(`
+CREATE TABLE IF NOT EXISTS meta_snapshots (
+  site TEXT, platform TEXT, fetched_on TEXT, account_id TEXT, name TEXT, followers INTEGER, posts INTEGER,
+  PRIMARY KEY (site, platform, fetched_on)
+);
+CREATE TABLE IF NOT EXISTS meta_daily (
+  site TEXT, platform TEXT, date TEXT, metric TEXT, value INTEGER,
+  PRIMARY KEY (site, platform, date, metric)
+);
+CREATE TABLE IF NOT EXISTS meta_posts (
+  post_id TEXT PRIMARY KEY, site TEXT, platform TEXT, created_at TEXT, message TEXT, permalink TEXT, media_type TEXT,
+  likes INTEGER, comments INTEGER, shares INTEGER, fetched_on TEXT
+);
+CREATE TABLE IF NOT EXISTS meta_comments (
+  comment_id TEXT PRIMARY KEY, site TEXT, platform TEXT, post_id TEXT, created_at TEXT, author TEXT, message TEXT,
+  permalink TEXT, hidden INTEGER DEFAULT 0, replied INTEGER DEFAULT 0, reply_text TEXT, replied_at TEXT, replied_by TEXT
+);
+CREATE INDEX IF NOT EXISTS meta_comments_idx ON meta_comments (site, replied, created_at);
+`);
+
+// ---- Ads seen in Google's Ads Transparency Center (via DataForSEO) ----
+db.exec(`
+CREATE TABLE IF NOT EXISTS google_ads (
+  site TEXT, creative_id TEXT, advertiser_id TEXT, advertiser TEXT, verified INTEGER, format TEXT, image TEXT, preview_url TEXT,
+  url TEXT, first_shown TEXT, last_shown TEXT, fetched_on TEXT,
+  PRIMARY KEY (site, creative_id)
+);
+`);
+
+// ---- AI answers: what ChatGPT, Gemini and Perplexity say, and Google's AI Overview (engine 'google_aio') ----
+db.exec(`
+CREATE TABLE IF NOT EXISTS ai_answers (
+  engine TEXT, prompt TEXT, checked_on TEXT, model TEXT, present INTEGER, answer TEXT, sources TEXT, cost REAL,
+  PRIMARY KEY (engine, prompt, checked_on)
 );
 `);

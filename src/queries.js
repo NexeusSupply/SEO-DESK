@@ -3,6 +3,12 @@ import { db } from './db.js';
 import { config } from './config.js';
 import { ISSUE_LABELS } from './audit/rules.js';
 import { keywordGap } from './data/competitors.js';
+import { googleTransparencyUrl, metaAdLibraryUrl, RUNNING_DAYS } from './data/ads.js';
+import { aiSummary, engineList, brandQuestions } from './data/ai.js';
+import { keywordSummary } from './data/keywords.js';
+import { latestSuggestions } from './data/suggestions.js';
+import { savedPages } from './data/planable.js';
+import { clinicChecklist } from './data/checklist.js';
 import { gscPropertyFor } from './data/gsc.js';
 
 export function overview(sites) {
@@ -18,7 +24,7 @@ export function overview(sites) {
     const ranks = rankDate ? db.prepare('SELECT position FROM ranks WHERE site=? AND checked_on=?').all(s.slug, rankDate) : [];
     const snap = db.prepare('SELECT * FROM domain_snapshots WHERE domain=? ORDER BY fetched_on DESC LIMIT 1').get(s.host);
     return {
-      slug: s.slug, name: s.name, url: s.url, host: s.host, group: s.group,
+      slug: s.slug, name: s.name, url: s.url, host: s.host, group: s.group, logo: s.logo,
       audit: audit ? { ...audit, issue_counts: JSON.parse(audit.issue_counts || '{}'), prevScore: prevAudit?.score ?? null } : null,
       gsc: gsc28?.clicks != null ? { ...gsc28, prevClicks: gscPrev?.clicks ?? null, prevImpressions: gscPrev?.impressions ?? null } : null,
       ranks: ranks.length ? {
@@ -63,7 +69,14 @@ export function siteDetail(site) {
     audit: audit ? { ...audit, issue_counts: JSON.parse(audit.issue_counts || '{}') } : null, issues, scoreHistory,
     gsc: { daily: gscDaily, topQueries, topPages, strikingDistance, periodEnd: qEnd },
     ranks, domains, gap: keywordGap(site), jobs,
-    locations: locationRows(site), recentReviews: recentReviews(site), connections: connections(site) };
+    locations: locationRows(site), recentReviews: recentReviews(site), connections: connections(site),
+    social: socialSummary(site), comments: socialComments([site], { limit: 40 }), ads: adsSummary(site),
+    // Which sources feed this brand's Social section, and its Planable channels for drafting posts.
+    socialSources: { meta: config.meta.enabled && Boolean(site.meta), planable: config.planable.enabled && Boolean(site.planable) },
+    planablePages: config.planable.enabled && site.planable ? savedPages(site) : [],
+    ai: { ...aiSummary(site), engines: engineList() },
+    // Brand-level keyword research and ideas are for businesses with no clinic towns (Cowsmart, the supply chain units).
+    brandLevel: !site.locations.some((l) => l.town), keywords: keywordSummary(site, null), suggestions: latestSuggestions(site, null) };
 }
 
 export function issueDetail(site, code) {
@@ -110,7 +123,65 @@ export function allLocations(sites) {
 }
 
 export function recentReviews(site, limit = 30) {
-  return db.prepare('SELECT location, created_at, rating, reviewer, comment, replied FROM gbp_reviews WHERE site=? ORDER BY created_at DESC LIMIT ?').all(site.slug, limit);
+  return db.prepare('SELECT review_id, location, created_at, rating, reviewer, comment, replied FROM gbp_reviews WHERE site=? ORDER BY created_at DESC LIMIT ?').all(site.slug, limit);
+}
+
+// ---- Ads ----
+
+/** Google ads seen for the brand's domain in the last search, running ones first, plus links to both public ad libraries. */
+export function adsSummary(site, limit = 24) {
+  const checked = db.prepare("SELECT MAX(posted_on) d FROM dfs_tasks WHERE kind='ads' AND site=? AND status='done'").get(site.slug)?.d ?? null;
+  const pending = Boolean(db.prepare("SELECT 1 FROM dfs_tasks WHERE kind='ads' AND site=? AND status='posted'").get(site.slug));
+  const rows = checked ? db.prepare(`SELECT creative_id, advertiser, advertiser_id, verified, format, image, preview_url, url, first_shown, last_shown,
+    last_shown >= strftime('%Y-%m-%dT%H:%M:%S', fetched_on, '-${RUNNING_DAYS} days') running
+    FROM google_ads WHERE site=? ORDER BY running DESC, last_shown DESC`).all(site.slug) : [];
+  return { checked, pending, running: rows.filter((r) => r.running).length, total: rows.length, ads: rows.slice(0, limit),
+    googleUrl: googleTransparencyUrl(site), metaUrl: metaAdLibraryUrl(site), metaByPage: Boolean(site.meta?.pageId) };
+}
+
+/** Every brand's ads at a glance, for the Ads page. */
+export function allAds(sites) {
+  return sites.map((s) => { const a = adsSummary(s, 6); return { slug: s.slug, name: s.name, group: s.group, host: s.host, ...a }; });
+}
+
+// ---- AI answers ----
+
+/** Every brand with AI questions, for the AI page. */
+export function allAi(sites) {
+  const brands = sites.map((s) => { const a = aiSummary(s); return { slug: s.slug, name: s.name, group: s.group, host: s.host, ...a, clinics: a.clinics.filter((c) => !c.brand).length }; })
+    .filter((b) => b.questions);
+  return { engines: engineList(), brands };
+}
+
+// ---- Social: Facebook and Instagram from Meta, and every Planable channel ----
+
+/** Followers, 28-day insight totals against the 28 days before, and recent posts, per platform. */
+export function socialSummary(site) {
+  const platforms = db.prepare('SELECT DISTINCT platform FROM meta_snapshots WHERE site=? ORDER BY platform').all(site.slug).map((r) => r.platform);
+  const out = platforms.map((platform) => {
+    const snap = db.prepare('SELECT * FROM meta_snapshots WHERE site=? AND platform=? ORDER BY fetched_on DESC LIMIT 1').get(site.slug, platform);
+    const prev = db.prepare(`SELECT followers FROM meta_snapshots WHERE site=? AND platform=? AND fetched_on <= date(?, '-28 days') ORDER BY fetched_on DESC LIMIT 1`).get(site.slug, platform, snap.fetched_on);
+    const end = db.prepare('SELECT MAX(date) d FROM meta_daily WHERE site=? AND platform=?').get(site.slug, platform)?.d;
+    const totals = (from, to) => Object.fromEntries(db.prepare(`SELECT metric, SUM(value) v FROM meta_daily WHERE site=? AND platform=? AND date > date(?, ?) AND date <= date(?, ?) GROUP BY metric`)
+      .all(site.slug, platform, end, `-${from} days`, end, `-${to} days`).map((r) => [r.metric, r.v]));
+    const daily = end ? db.prepare(`SELECT date, SUM(CASE WHEN metric='views' THEN value END) views, SUM(CASE WHEN metric='engagements' THEN value END) engagements
+      FROM meta_daily WHERE site=? AND platform=? AND date > date(?, '-90 days') GROUP BY date ORDER BY date`).all(site.slug, platform, end) : [];
+    return { platform, name: snap.name, followers: snap.followers, prevFollowers: prev?.followers ?? null, fetched: snap.fetched_on,
+      last28: end ? totals(28, 0) : {}, prev28: end ? totals(56, 28) : {}, daily };
+  });
+  const posts = db.prepare('SELECT post_id, platform, created_at, message, permalink, media_type, likes, comments, shares FROM meta_posts WHERE site=? ORDER BY created_at DESC LIMIT 20').all(site.slug);
+  const unanswered = db.prepare(`SELECT COUNT(*) n, SUM(CASE WHEN created_at < strftime('%Y-%m-%dT%H:%M:%S','now','-1 day') THEN 1 ELSE 0 END) old FROM meta_comments WHERE site=? AND replied=0 AND hidden=0`).get(site.slug);
+  return { platforms: out, posts, unanswered: unanswered?.n ?? 0, unansweredOld: unanswered?.old ?? 0 };
+}
+
+/** The comments inbox: unanswered first, newest first within that. */
+export function socialComments(sites, { status = 'open', limit = 100 } = {}) {
+  if (!sites.length) return [];
+  const names = Object.fromEntries(sites.map((s) => [s.slug, s.name]));
+  const where = status === 'open' ? 'AND c.replied=0 AND c.hidden=0' : '';
+  return db.prepare(`SELECT c.*, p.message post_message, p.permalink post_permalink FROM meta_comments c LEFT JOIN meta_posts p ON p.post_id=c.post_id
+    WHERE c.site IN (${sites.map(() => '?').join(',')}) ${where} ORDER BY c.replied, c.created_at DESC LIMIT ?`).all(...sites.map((s) => s.slug), limit)
+    .map((c) => ({ ...c, brand: names[c.site] }));
 }
 
 // ---- Connection status, groups and the management view ----
@@ -130,6 +201,13 @@ export function connections(site) {
     ranks: st(site.keywords.length > 0, config.dfs.enabled, has('SELECT 1 FROM ranks WHERE site=?', site.slug)),
     listings: st(site.locations.some(listingSource), config.gbp.enabled || config.dfs.enabled, has('SELECT 1 FROM gbp_snapshots WHERE site=?', site.slug)),
     localRanks: st(site.locations.some((l) => l.lat != null), config.dfs.enabled, has('SELECT 1 FROM local_ranks WHERE site=?', site.slug)),
+    ads: st(true, config.dfs.enabled, has("SELECT 1 FROM dfs_tasks WHERE kind='ads' AND site=? AND status='done'", site.slug)),
+    ai: st((site.locations.some((l) => l.town) && (site.localKeywords.length > 0 || Boolean(site.aiPrompts))) || brandQuestions(site).length > 0, config.dfs.enabled, aiSummary(site).checked != null),
+    keywords: config.dfs.enabled ? 'connected' : 'not_connected', claude: config.claude.enabled ? 'connected' : 'not_connected',
+    // Social figures come from Planable, Meta directly, or both. A brand shows "coming soon" until one of them is
+    // set up (its token is in) and linked to the brand in sites.json.
+    social: (config.meta.enabled && site.meta) || (config.planable.enabled && site.planable)
+      ? st(true, true, has('SELECT 1 FROM meta_snapshots WHERE site=?', site.slug)) : 'coming_soon',
     listingsConnected: site.locations.filter(listingSource).length, listingsTotal: site.locations.length,
   };
 }
@@ -177,7 +255,15 @@ export function brandSignal(site) {
     const nap = locs.filter((l) => l.napIssues.length).length;
     if (nap) { level = Math.max(level, 1); reasons.push(`${nap} clinic${nap > 1 ? 's' : ''} with mismatched contact details`); }
   }
-  const anyConnected = ['searchConsole', 'ranks', 'listings', 'localRanks'].some((k) => conn[k] === 'connected') || conn.audit === 'connected';
+  if (conn.social === 'connected') {
+    const social = socialSummary(site);
+    const gained = social.platforms.reduce((a, p) => a + (p.followers != null && p.prevFollowers != null ? p.followers - p.prevFollowers : 0), 0);
+    if (social.platforms.some((p) => p.prevFollowers != null) && gained) changes.push(`${gained > 0 ? '+' : ''}${gained} social followers`);
+    if (social.unansweredOld >= 5) { level = Math.max(level, 1); reasons.push(`${social.unansweredOld} Facebook/Instagram comments unanswered`); }
+  }
+  const ai = aiSummary(site);
+  if (ai.total) changes.push(`named in ${ai.mentioned} of ${ai.total} AI answers`);
+  const anyConnected = ['searchConsole', 'ranks', 'listings', 'localRanks', 'social'].some((k) => conn[k] === 'connected') || conn.audit === 'connected';
   return {
     slug: site.slug, name: site.name, group: site.group, host: site.host,
     signal: !anyConnected ? 'not_connected' : ['good', 'watch', 'problem'][level],
@@ -214,4 +300,56 @@ export function management(sites) {
       brands: brands.sort((a, b) => ({ problem: 0, watch: 1, good: 2, not_connected: 3 }[a.signal] - { problem: 0, watch: 1, good: 2, not_connected: 3 }[b.signal]) || a.name.localeCompare(b.name)),
     };
   });
+}
+
+// ---- One clinic ----
+
+/** Links that open the clinic's Google listing: by CID when we have it, otherwise by place ID or coordinates. */
+const mapsUrl = (l) => l.cid ? `https://maps.google.com/?cid=${l.cid}`
+  : l.placeId ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(l.name)}&query_place_id=${l.placeId}`
+  : l.lat != null ? `https://www.google.com/maps/search/?api=1&query=${l.lat},${l.lng}` : null;
+
+/** Everything we hold on one clinic: its Google listing, reviews, listing performance, map-pack rankings and contact-detail checks. */
+export function clinicDetail(site, loc) {
+  const row = locationRows({ ...site, locations: [loc] })[0];
+  const q = (sql, ...a) => db.prepare(sql).all(site.slug, loc.slug, ...a);
+  const snap = db.prepare('SELECT * FROM gbp_snapshots WHERE site=? AND location=? ORDER BY fetched_on DESC LIMIT 1').get(site.slug, loc.slug);
+  const listingHistory = q('SELECT fetched_on, rating, review_count, completeness FROM gbp_snapshots WHERE site=? AND location=? ORDER BY fetched_on DESC LIMIT 26').reverse();
+  const daily = q(`SELECT date, impressions_search+impressions_maps views, impressions_search search, impressions_maps maps, calls, directions, website_clicks website
+    FROM gbp_daily WHERE site=? AND location=? AND date > date((SELECT MAX(date) FROM gbp_daily WHERE site=? AND location=?), '-90 days') ORDER BY date`, site.slug, loc.slug);
+  const sumDays = (from, to) => daily.filter((d) => d.date > from && d.date <= to);
+  const end = daily.at(-1)?.date;
+  const shift = (days) => end ? new Date(Date.parse(end) - days * 864e5).toISOString().slice(0, 10) : null;
+  const totals = (rows) => rows.length ? ['views', 'search', 'maps', 'calls', 'directions', 'website'].reduce((o, k) => ({ ...o, [k]: rows.reduce((a, r) => a + (r[k] || 0), 0) }), {}) : null;
+  const reviews = q('SELECT review_id, location, created_at, rating, reviewer, comment, replied FROM gbp_reviews WHERE site=? AND location=? ORDER BY created_at DESC LIMIT 50');
+  const ratingSpread = Object.fromEntries([5, 4, 3, 2, 1].map((s) => [s, 0]));
+  for (const r of q('SELECT rating, COUNT(*) n FROM gbp_reviews WHERE site=? AND location=? GROUP BY rating')) if (r.rating in ratingSpread) ratingSpread[r.rating] = r.n;
+  // Last 12 checks per search, so the page can show whether the clinic is climbing or slipping in the map pack.
+  const rankHistory = Object.fromEntries(row.ranks.map((r) => [r.keyword,
+    q('SELECT map_pack FROM local_ranks WHERE site=? AND location=? AND keyword=? ORDER BY checked_on DESC LIMIT 12', r.keyword).map((h) => h.map_pack).reverse()]));
+  const rankDate = db.prepare('SELECT MAX(checked_on) d FROM local_ranks WHERE site=? AND location=?').get(site.slug, loc.slug)?.d ?? null;
+  const conn = connections(site);
+  const brand = overview([site])[0];
+  return {
+    site: { slug: site.slug, name: site.name, url: site.url, host: site.host, group: site.group },
+    clinic: { slug: loc.slug, name: loc.name, town: loc.town ?? null, address: loc.address ?? null, phone: loc.phone ?? null, url: loc.url ?? null,
+      services: loc.services ?? [], placeId: loc.placeId ?? null, cid: loc.cid ?? null, lat: loc.lat ?? null, lng: loc.lng ?? null, gbpLinked: Boolean(loc.gbpLocationId), mapsUrl: mapsUrl(loc) },
+    summary: row,
+    listing: snap ? { ...snap, has_hours: Boolean(snap.has_hours), has_description: Boolean(snap.has_description) } : null,
+    listingHistory,
+    checklist: clinicChecklist(site, loc, snap, row.nap),
+    performance: { daily, last28: end ? totals(sumDays(shift(28), end)) : null, prev28: end ? totals(sumDays(shift(56), shift(28))) : null },
+    reviews, ratingSpread, rankHistory, rankDate,
+    ai: { ...aiSummary({ ...site, locations: [loc] }, { brandRow: false }), engines: engineList() },
+    ads: (({ running, total, checked }) => ({ running, total, checked }))(adsSummary(site, 0)),
+    keywords: keywordSummary(site, loc),
+    suggestions: latestSuggestions(site, loc),
+    // Data already synced counts as connected even if the source has since been switched off.
+    connections: { listings: snap ? 'connected' : row.hasGbp ? 'no_data' : 'not_connected',
+      localRanks: row.ranks.length ? 'connected' : loc.lat != null && config.dfs.enabled ? 'no_data' : 'not_connected',
+      performance: daily.length ? 'connected' : loc.gbpLocationId && config.gbp.enabled ? 'no_data' : 'not_connected', searchConsole: conn.searchConsole,
+      ai: config.dfs.enabled ? 'connected' : 'not_connected', keywords: config.dfs.enabled ? 'connected' : 'not_connected', claude: config.claude.enabled ? 'connected' : 'not_connected' },
+    website: { score: brand.audit?.score ?? null, prevScore: brand.audit?.prevScore ?? null, errors: brand.audit?.issue_counts?.error ?? null, clicks: brand.gsc?.clicks ?? null, prevClicks: brand.gsc?.prevClicks ?? null,
+      sharedWith: site.locations.length },
+  };
 }
