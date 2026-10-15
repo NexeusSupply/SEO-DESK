@@ -837,7 +837,7 @@ async function renderSite(slug) {
   </div>
 
   <h2>Search performance</h2>
-  ${d.connections.searchConsole === 'not_connected' ? '<p class="empty">Search Console is not connected for this brand. Add the service account to its property and set <code>gscProperty</code> in sites.json.</p>' : lineChart(g.daily)}
+  ${d.connections.searchConsole === 'not_connected' ? '<p class="empty">Search Console is not connected for this brand. Add the service account as a user on this brand\u2019s Search Console property; it is picked up on the next sync.</p>' : lineChart(g.daily)}
 
   ${g.strikingDistance.length ? `<h2>Within reach</h2><p class="sub">Queries ranking 8–20 with real impressions. Improving these pages is usually the cheapest traffic available.</p>
   <div class="wrap"><table class="data"><thead><tr>${th('Query', 'query')}${th('Page', 'rankingPage')}${th('Position', 'position', 'r')}${th('Impressions', 'queryImpressions', 'r')}${th('Clicks', 'queryClicks', 'r')}</tr></thead><tbody>
@@ -1179,7 +1179,7 @@ async function boot() {
   $('#status').innerHTML = [['Search Console', status.searchConsole], ['DataForSEO', status.dataforseo], ['Business Profile', status.businessProfile], ['Meta', status.meta || 'soon'], ['Planable', status.planable || 'soon'], ['Email', status.email]]
     .map(([k, v]) => v === 'soon' ? `<span class="soon">${k} coming soon</span>` : `<span class="${v ? '' : 'off'}">${k} ${v ? 'on' : 'off'}</span>`).join('')
     + (status.dfsSpendUsd != null ? `<span title="DataForSEO spend this month against the cap">US$${status.dfsSpendUsd} / ${status.dfsCapUsd}</span>` : '')
-    + (status.access ? `<span>${esc(status.user)}</span>` : '<span class="off">No login</span>');
+    + (status.access ? `<span>${esc(status.user)}</span>` : status.preview ? '<span>Preview password</span>' : '<span class="off">No login</span>');
   const route = async () => {
     const slug = location.hash.replace(/^#\/?/, '');
     const tab = (s) => `<a href="#/${s.slug}" class="${s.slug === slug ? 'active' : ''}">${badge(s.slug, s.name, 'xs')}${esc(s.name)}</a>`;

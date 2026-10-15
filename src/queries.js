@@ -9,6 +9,7 @@ import { keywordSummary } from './data/keywords.js';
 import { latestSuggestions } from './data/suggestions.js';
 import { savedPages } from './data/planable.js';
 import { clinicChecklist } from './data/checklist.js';
+import { gscPropertyFor } from './data/gsc.js';
 
 export function overview(sites) {
   return sites.map((s) => {
@@ -196,7 +197,7 @@ export function connections(site) {
   const st = (configured, enabled, hasData) => hasData ? 'connected' : configured && enabled ? 'no_data' : 'not_connected';
   return {
     audit: has('SELECT 1 FROM audits WHERE site=?', site.slug) ? 'connected' : 'no_data',
-    searchConsole: st(Boolean(site.gscProperty), config.gsc.enabled, has('SELECT 1 FROM gsc_daily WHERE site=?', site.slug)),
+    searchConsole: st(Boolean(gscPropertyFor(site)), config.gsc.enabled, has('SELECT 1 FROM gsc_daily WHERE site=?', site.slug)),
     ranks: st(site.keywords.length > 0, config.dfs.enabled, has('SELECT 1 FROM ranks WHERE site=?', site.slug)),
     listings: st(site.locations.some(listingSource), config.gbp.enabled || config.dfs.enabled, has('SELECT 1 FROM gbp_snapshots WHERE site=?', site.slug)),
     localRanks: st(site.locations.some((l) => l.lat != null), config.dfs.enabled, has('SELECT 1 FROM local_ranks WHERE site=?', site.slug)),
