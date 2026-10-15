@@ -42,6 +42,13 @@ export const config = {
     apiUrl: (process.env.PLANABLE_API_URL || 'https://api.planable.io/api/v1').replace(/\/$/, ''),
     get enabled() { return Boolean(this.token); },
   },
+  wpUmbrella: {
+    // A WP Umbrella Public API token (app.wp-umbrella.com → Profile → Public API, for developers). Not the connection
+    // key the WordPress plugin uses. One token covers every site in the account.
+    token: process.env.WP_UMBRELLA_API_KEY || '',
+    apiUrl: (process.env.WP_UMBRELLA_API_URL || 'https://public-api.wp-umbrella.com').replace(/\/$/, ''),
+    get enabled() { return Boolean(this.token); },
+  },
   ai: {
     // What ChatGPT, Gemini and Perplexity say when asked for a vet in each clinic's town (src/data/ai.js).
     // engine:model pairs; model names come from DataForSEO's /ai_optimization/<engine>/llm_responses/models.
@@ -103,6 +110,7 @@ export const config = {
     meta: process.env.CRON_META || '45 6 * * *',
     'meta-comments': process.env.CRON_META_COMMENTS || '*/30 * * * *',
     planable: process.env.CRON_PLANABLE || '0 7 * * *',
+    wpumbrella: process.env.CRON_WPUMBRELLA || '20 */3 * * *',
     ai: process.env.CRON_AI || '0 4 2 * *',
   },
   // Scheduled reports set up on the Settings page are checked against this, a few minutes past every hour.
