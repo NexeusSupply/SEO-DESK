@@ -2,6 +2,7 @@
   {
     "slug": "firstvets",
     "group": "Comhla",
+    "menu": "Independent clinics",
     "name": "First Vets Whanganui",
     "url": "https://firstvets.co.nz",
     "cms": "wordpress",
@@ -28,6 +29,7 @@
   {
     "slug": "levinhorowhenua",
     "group": "Comhla",
+    "menu": "Independent clinics",
     "name": "Levin & Horowhenua Vets",
     "url": "https://levinhorowhenuavets.nz",
     "cms": "wordpress",
@@ -54,6 +56,7 @@
   {
     "slug": "otakivets",
     "group": "Comhla",
+    "menu": "Independent clinics",
     "name": "Ōtaki Vets",
     "url": "https://otakivets.nz",
     "cms": "wordpress",
@@ -80,6 +83,7 @@
   {
     "slug": "tararuabreeding",
     "group": "Comhla",
+    "menu": "Independent clinics",
     "name": "Tararua Breeding Services",
     "url": "https://tararuabreeding.nz",
     "cms": "wordpress",
@@ -106,6 +110,7 @@
   {
     "slug": "tararuavets",
     "group": "Comhla",
+    "menu": "Independent clinics",
     "name": "Tararua Vet Services",
     "url": "https://tararuavets.nz",
     "cms": "wordpress",
@@ -199,6 +204,7 @@
   {
     "slug": "chbvets",
     "group": "Comhla",
+    "menu": "Independent clinics",
     "name": "CHB Vets",
     "url": "https://chbvets.nz",
     "cms": "wix",
@@ -749,6 +755,7 @@
   {
     "slug": "wcvets",
     "group": "Comhla",
+    "menu": "Independent clinics",
     "name": "West Coast Vets",
     "url": "https://wcvets.co.nz",
     "cms": "rocketspark",
@@ -789,6 +796,7 @@
   {
     "slug": "bullervets",
     "group": "Comhla",
+    "menu": "Independent clinics",
     "name": "Buller Vets",
     "url": "https://bullervets.co.nz",
     "cms": "wordpress",
@@ -828,6 +836,7 @@
   {
     "slug": "srvets",
     "group": "Comhla",
+    "menu": "Independent clinics",
     "name": "Selwyn Rakaia Vets",
     "url": "https://srvets.co.nz",
     "cms": "storbie",
@@ -854,6 +863,7 @@
   {
     "slug": "vcmorrinsville",
     "group": "Comhla",
+    "menu": "Independent clinics",
     "name": "Vet Clinic Morrinsville",
     "url": "https://vetclinicmorrinsville.co.nz",
     "cms": "rocketspark",
@@ -881,6 +891,7 @@
   {
     "slug": "vetsone",
     "group": "Comhla",
+    "menu": "Independent clinics",
     "name": "VetsOne (Hastings)",
     "url": "https://vetsone.co.nz",
     "cms": "wordpress",
@@ -903,6 +914,7 @@
   {
     "slug": "tasvets",
     "group": "Comhla",
+    "menu": "Independent clinics",
     "name": "TasVets",
     "url": "https://tasvets.com.au",
     "cms": "wordpress",
@@ -925,6 +937,7 @@
   {
     "slug": "thevetgroup",
     "group": "Comhla",
+    "menu": "Independent clinics",
     "name": "The Vet Group (Australia)",
     "url": "https://thevetgroup.com.au",
     "cms": "wordpress",
