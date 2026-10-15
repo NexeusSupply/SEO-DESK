@@ -4,6 +4,7 @@ import { db, now } from './db.js';
 import { config, loadSites } from './config.js';
 import { spendThisMonth } from './data/dataforseo.js';
 import { envKey, wpCreds } from './data/articles.js';
+import './data/wpumbrella.js'; // creates wpu_sites, which the WP Umbrella coverage line reads
 
 db.exec(`
 CREATE TABLE IF NOT EXISTS settings (
@@ -125,6 +126,17 @@ export function connectionList() {
   }
   {
     const wp = sites.filter((s) => s.cms === 'wordpress');
+    const linked = wp.filter((s) => db.prepare('SELECT 1 FROM wpu_sites WHERE site=?').get(s.slug));
+    add({ key: 'wpumbrella', name: 'WP Umbrella', ready: config.wpUmbrella.enabled, jobs: ['wpumbrella'],
+      what: 'Uptime, speed, plugin and WordPress updates, security alerts, PHP errors, broken links and backups for the WordPress sites.',
+      vars: ['WP_UMBRELLA_API_KEY'],
+      detail: config.wpUmbrella.enabled ? 'Token set. Sites are matched to WP Umbrella by domain; a site that doesn\u2019t match needs "wpUmbrella": { "projectId": … } in sites.json.'
+        : 'Needs the Public API token from WP Umbrella (Profile \u2192 Public API, for developers), not a site connection key. Sending articles still uses each site\u2019s WordPress application password.',
+      coverage: config.wpUmbrella.enabled ? `${linked.length} of ${wp.length} WordPress sites` : null,
+      missing: config.wpUmbrella.enabled ? names(wp.filter((s) => !linked.includes(s))) : [] });
+  }
+  {
+    const wp = sites.filter((s) => s.cms === 'wordpress');
     const set = wp.filter((s) => wpCreds(s));
     add({ key: 'wordpress', name: 'WordPress websites', ready: set.length > 0, missingVars: true,
       what: 'Sending approved articles straight to a brand’s website as a draft, post or scheduled post.',
@@ -159,5 +171,5 @@ export function connectionList() {
 export const JOB_LABELS = {
   audit: 'Website health audit', ranks: 'Keyword rankings', gsc: 'Search Console sync', competitors: 'Competitor figures',
   digest: 'Weekly digest email', gbp: 'Google listings and reviews', local: 'Map-pack checks and contact details', 'local-collect': 'Collect map-pack results',
-  ads: 'Google ads', meta: 'Facebook and Instagram figures', 'meta-comments': 'New Facebook and Instagram comments', planable: 'Planable figures', ai: 'AI answers',
+  ads: 'Google ads', meta: 'Facebook and Instagram figures', 'meta-comments': 'New Facebook and Instagram comments', planable: 'Planable figures', wpumbrella: 'WP Umbrella uptime and upkeep', ai: 'AI answers',
 };

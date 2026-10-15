@@ -106,6 +106,12 @@ const TIPS = {
   artSimilar: 'How much of this version\u2019s text it shares with the closest other brand\u2019s version, measured in runs of five words. Versions that share a lot compete with each other in Google, which shows one and filters the rest. Over 40% is flagged; rewrite more of it, or skip one of the brands.',
   artSource: 'How much text this version still shares with the article you pasted in. It\u2019s expected to be fairly high, since the facts and advice stay the same; what matters most is how different the brands\u2019 versions are from each other.',
   artChecks: 'Basic on-page checks we can do without Claude: title and meta description length, whether the focus search is in the title, first paragraph and a heading, length, links to the brand\u2019s own pages, and whether it names the brand\u2019s towns.',
+  wpUptime: 'Share of WP Umbrella\u2019s checks over the last 30 days that found the website up, and how many outages it saw. Repeated downtime costs visitors and, if it lasts, Google rankings.',
+  wpSpeed: 'WP Umbrella\u2019s latest Google Lighthouse performance score, 0 to 100, for desktop and mobile. 90+ is fast, 50\u201389 needs work, under 50 is slow. Google uses page speed as a ranking signal, especially on mobile.',
+  wpUpdates: 'Plugins and themes with a newer version available. Out-of-date plugins are the most common way WordPress sites get hacked. Updates are done in WP Umbrella or WordPress.',
+  wpVulns: 'Known security holes in the installed WordPress version, plugins or themes, from WP Umbrella\u2019s Patchstack scan. Updating to the \u201cfixed in\u201d version closes them.',
+  wpBroken: 'Links on the website that lead to an error page, from WP Umbrella\u2019s link checker. Broken internal links waste Google\u2019s crawl and send visitors to dead ends; fix or remove them.',
+  wpIndexable: 'Whether WordPress lets search engines index the site (Settings \u2192 Reading). If it says No, Google is being asked to keep the whole site out of its results.',
   metaAds: 'Meta only lets apps pull ads that were shown in Europe, so New Zealand and Australian ads can\u2019t be listed here. This opens Meta\u2019s public Ad Library, which shows every ad the brand\u2019s Facebook Page is running right now.',
 };
 // The "i" marker is glued to the last word so it never wraps onto a line by itself.
@@ -914,6 +920,9 @@ async function renderManagement() {
   initClinicMap();
 }
 
+// WP Umbrella's red flags next to a brand on the Portfolio page.
+const webFlags = (w) => !w ? '' : [w.down && '<span class="sig problem">Down</span>', w.hidden && '<span class="sig problem">Hidden from Google</span>',
+  w.vulnerabilities && `<span class="sig problem">${w.vulnerabilities} security alert${w.vulnerabilities === 1 ? '' : 's'}</span>`].filter(Boolean).map((x) => ` ${x}`).join('');
 async function renderOverview() {
   const sites = await api('/overview');
   const groups = [...new Set(sites.map((s) => s.group))];
@@ -923,7 +932,7 @@ async function renderOverview() {
   <div class="wrap"><table class="ledger"><thead><tr>
     <th>Brand</th>${th('Audit score', 'auditScore')}${th('Errors', 'errors', 'num')}${th('Clicks', 'clicks', 'num')}${th('Impressions', 'impressions', 'num')}${th('Keywords in top 10', 'top10')}${th('Referring domains', 'referringDomains', 'num')}
   </tr></thead><tbody>${sites.filter((s) => s.group === g).map((s) => `<tr>
-    <td class="brand"><div class="who">${badge(s.slug, s.name)}<div><a href="#/${s.slug}">${esc(s.name)}</a><small>${esc(s.host)}</small></div></div></td>
+    <td class="brand"><div class="who">${badge(s.slug, s.name)}<div><a href="#/${s.slug}">${esc(s.name)}</a><small>${esc(s.host)}</small>${webFlags(s.web)}</div></div></td>
     <td>${scoreBar(s.audit?.score)}${delta(s.audit?.score, s.audit?.prevScore)}</td>
     <td class="num">${s.audit ? (s.audit.issue_counts.error || 0) : n(null)}</td>
     <td class="num">${s.gsc ? `${n(s.gsc.clicks)}${delta(s.gsc.clicks, s.gsc.prevClicks)}` : nc()}</td>
@@ -938,6 +947,63 @@ async function renderOverview() {
     <button class="run" onclick="run('competitors')">Refresh competitor data</button>
     <a class="run" href="/api/digest" target="_blank" style="display:inline-block">Preview digest</a>
   </div>`;
+}
+
+// ---- Website uptime and upkeep, from WP Umbrella (WordPress brands only) ----
+const yesNo = (v, good = true) => v == null ? dash : v === good ? '<span class="ok">✓</span>' : '<span class="notok">✗</span>';
+const speedCls = (v) => v == null ? '' : v >= 90 ? 'good' : v >= 50 ? 'watch' : 'problem';
+const WPU_DOWN = { http_status_error: 'error page', dns_resolution_failed: 'domain didn’t resolve', timeout: 'timed out' };
+function websiteSection(d, slug) {
+  const w = d.website;
+  if (!w) return '';
+  const h = `<h2>Website uptime and upkeep${w.state === 'coming_soon' ? ' <span class="sig nc">Coming soon</span>' : ''}</h2>`;
+  const what = 'Uptime, speed, plugin and WordPress updates, security alerts, PHP errors, broken links and backups for this WordPress site, from WP Umbrella.';
+  if (w.state === 'coming_soon') return `${h}<p class="sub">${what} This switches on once the WP Umbrella API token is added on the server (WP_UMBRELLA_API_KEY) and the site is in the WP Umbrella account.</p>
+  <div class="strip placeholder">${['Up, last 30 days', 'Speed (mobile)', 'Updates waiting', 'Security alerts', 'Broken links'].map((l) => `<div><div class="v">${dash}</div><div class="l">${l}</div></div>`).join('')}</div>`;
+  const sync = `<div class="actions"><button class="run" onclick="run('wpumbrella','${slug}')">Sync from WP Umbrella</button><a class="run" href="https://app.wp-umbrella.com" target="_blank" rel="noopener" style="display:inline-block">Open WP Umbrella ↗</a></div>`;
+  if (w.state === 'no_data') return `${h}<p class="empty">No data yet. It syncs every few hours, or sync it now.</p>${sync}`;
+  if (w.state === 'not_linked') return `${h}<p class="empty">${esc(d.site.host)} isn’t in WP Umbrella yet. Add the site there (install the WP Umbrella plugin and paste the connection key), or, if it’s listed under another address, set <code>"wpUmbrella": { "projectId": … }</code> for this brand in sites.json.${w.message ? ` <small class="muted">Last check: ${esc(w.message)}</small>` : ''}</p>${sync}`;
+  const updates = w.plugins.outdated.length + w.themes.outdated.length + (w.wordpress.upToDate === false ? 1 : 0);
+  const alerts = [
+    w.down && '<span class="sig problem">Down right now</span>',
+    w.disconnected && '<span class="sig watch">WP Umbrella has lost its connection to this site</span>',
+    w.indexable === false && `<span class="sig problem" tabindex="0" data-tip="${esc(TIPS.wpIndexable)}">Hidden from Google: search engines are blocked in WordPress</span>`,
+    w.ssl === false && '<span class="sig problem">No HTTPS</span>',
+    w.debug && '<span class="sig watch">Debug mode is on</span>',
+    w.php.supported === false && `<span class="sig watch">PHP ${esc(w.php.version)} is no longer supported</span>`,
+  ].filter(Boolean);
+  const uptime = w.uptime?.pct != null ? `${Number(w.uptime.pct).toFixed(2)}<small>%</small>` : nc(w.uptime?.monitoring === false ? 'Not monitored' : 'No data yet');
+  const speed = (v) => v == null ? dash : `<span class="sig ${speedCls(v)}">${v}</span>`;
+  return `${h}<p class="sub">From WP Umbrella, synced ${dateShort(w.fetchedAt)}${w.lastSync ? `; it last read the site ${dateShort(w.lastSync)}` : ''}.</p>
+  ${alerts.length ? `<p>${alerts.join(' ')}</p>` : ''}
+  <div class="strip">
+    <div><div class="v">${uptime}</div><div class="l">${tip(`Up, last 30 days${w.uptime ? ` · ${w.uptime.incidents} outage${w.uptime.incidents === 1 ? '' : 's'}` : ''}`, 'wpUptime')}</div></div>
+    <div><div class="v">${speed(w.performance.mobile)} ${speed(w.performance.desktop)}</div><div class="l">${tip('Speed, mobile and desktop', 'wpSpeed')}</div></div>
+    <div><div class="v">${updates}</div><div class="l">${tip('Updates waiting', 'wpUpdates')}</div></div>
+    <div><div class="v">${w.vulnerabilities.length ? `<span class="notok">${w.vulnerabilities.length}</span>` : 0}</div><div class="l">${tip('Security alerts', 'wpVulns')}</div></div>
+    <div><div class="v">${w.brokenLinks.count}${w.brokenLinks.more ? '+' : ''}</div><div class="l">${tip('Broken links', 'wpBroken')}</div></div>
+  </div>
+  <div class="two">
+    <div><h3>Setup</h3><div class="wrap"><table class="data"><tbody>
+      <tr><td>WordPress</td><td>${esc(w.wordpress.version || '—')} ${w.wordpress.upToDate === false ? '<span class="sig watch">Update available</span>' : w.wordpress.upToDate ? '<span class="ok">✓</span>' : ''}</td></tr>
+      <tr><td>PHP</td><td>${esc(w.php.version || '—')}${w.php.recommended && w.php.recommended !== w.php.version ? ` <small class="muted">(${esc(w.php.recommended)} recommended)</small>` : ''}</td></tr>
+      <tr><td>${tip('Search engines allowed', 'wpIndexable')}</td><td>${yesNo(w.indexable)}</td></tr>
+      <tr><td>HTTPS</td><td>${yesNo(w.ssl)}</td></tr>
+      <tr><td>Response time</td><td>${w.responseMs != null ? `${n(w.responseMs)} ms` : dash}</td></tr>
+      <tr><td>PHP errors logged</td><td>${n(w.phpIssues)}</td></tr>
+      <tr><td>Last backup</td><td>${w.backup ? `${dateShort(w.backup.at)} <small class="muted">${esc(String(w.backup.status || '').toLowerCase())}</small>` : dash}</td></tr>
+      <tr><td>Last outage</td><td>${w.lastDowntime ? dateShort(w.lastDowntime) : dash}</td></tr>
+    </tbody></table></div></div>
+    <div><h3>Updates waiting</h3>${updates ? `<ul class="examples">${w.wordpress.upToDate === false ? '<li>WordPress itself</li>' : ''}${w.plugins.outdated.map((x) => `<li>Plugin: ${esc(x)}</li>`).join('')}${w.themes.outdated.map((x) => `<li>Theme: ${esc(x)}</li>`).join('')}</ul>` : `<p class="empty">Everything is up to date${w.plugins.total ? ` (${w.plugins.total} plugins)` : ''}.</p>`}
+    ${w.uptime?.recent?.length ? `<h3>Recent outages</h3><ul class="examples">${w.uptime.recent.map((i) => `<li>${dateShort(i.at)}${i.mins != null ? `, ${i.mins} min` : ''}${i.why ? ` <small class="muted">${esc(WPU_DOWN[i.why] || i.why.replace(/_/g, ' '))}${i.status ? ` (${i.status})` : ''}</small>` : ''}</li>`).join('')}</ul>` : ''}</div>
+  </div>
+  ${w.vulnerabilities.length ? `<h3>Security alerts</h3><div class="wrap"><table class="data"><thead><tr><th>Issue</th><th>In</th><th class="r">Severity</th><th>Fixed in</th></tr></thead><tbody>
+    ${w.vulnerabilities.map((v) => `<tr><td>${v.url ? `<a href="${esc(v.url)}" target="_blank" rel="noopener">${esc(v.title)}</a>` : esc(v.title)}</td><td>${esc(v.what)}</td><td class="r num">${v.cvss ?? dash}</td><td>${esc(v.fixedIn || '—')}</td></tr>`).join('')}</tbody></table></div>` : ''}
+  ${w.brokenLinks.count ? `<h3>Broken links</h3><div class="wrap"><table class="data"><thead><tr><th>Link</th><th>On page</th><th class="r">Status</th></tr></thead><tbody>
+    ${w.brokenLinks.list.map((b) => `<tr><td><a href="${esc(b.href)}" target="_blank" rel="noopener">${clip(b.href, 70)}</a>${b.anchor ? `<br><small class="muted">“${clip(b.anchor, 60)}”</small>` : ''}${b.internal ? '' : ' <small class="muted">external</small>'}</td><td>${b.page ? `<a href="${esc(b.page)}" target="_blank" rel="noopener">${esc(host(b.page))}</a>` : ''}</td><td class="r num">${b.status ?? esc(b.error || '—')}</td></tr>`).join('')}</tbody></table></div>
+    ${w.brokenLinks.count > w.brokenLinks.list.length || w.brokenLinks.more ? '<p class="muted"><small>The full list is in WP Umbrella.</small></p>' : ''}` : ''}
+  ${w.errors ? `<p class="muted"><small>Some of it couldn’t be read: ${esc(w.errors)}</small></p>` : ''}
+  ${sync}`;
 }
 
 async function renderSite(slug) {
@@ -1003,6 +1069,8 @@ async function renderSite(slug) {
     <td><small class="muted">${r.top_pack.map((p) => `#${p.p} ${esc(p.t)}${p.r ? ` (${p.r})` : ''}`).join(' · ')}</small></td></tr>`)).join('')}</tbody></table></div>` : ''}
   ${reviews.length ? `<h2>Recent reviews <span class="sig nc" tabindex="0" data-tip="${esc(TIPS.replySoon)}">Posting replies coming soon</span></h2>${d.recentReviews.length ? '' : '<p class="sub">No reviews synced for this brand yet, so here are two made-up ones to try drafting a reply.</p>'}<div class="wrap"><table class="data"><thead><tr><th>Clinic</th>${th('Rating', 'rating')}<th>Review</th>${th('Replied', 'replied')}</tr></thead><tbody>
   ${reviews.slice(0, 15).map((r) => { const loc = d.locations.find((l) => l.slug === r.location); return `<tr><td>${esc(loc?.name || r.location)}<br>${r.example ? `<span class="sig nc" tabindex="0" data-tip="${esc(TIPS.example)}">Example</span>` : `<small class="muted">${dateShort(r.created_at)}</small>`}</td><td>${stars(r.rating)}</td><td>${esc((r.comment || '').slice(0, 220))}${(r.comment || '').length > 220 ? '…' : ''}${r.reviewer ? `<br><small class="muted">${esc(r.reviewer)}</small>` : ''}${r.replied ? '' : mockReply(r, slug, loc?.name)}</td><td>${okmark(r.replied)}</td></tr>`; }).join('')}</tbody></table></div>` : ''}` : ''}
+
+  ${websiteSection(d, slug)}
 
   ${aiSection(d, slug)}
 
@@ -1466,7 +1534,7 @@ function initTips() {
 // rebuilt whenever #main is re-rendered. Uses buttons, not #anchors, because the hash is the router.
 const JUMP_ICON = [[/connections/i, '🔌'], [/appearance/i, '🌓'], [/email address/i, '📬'], [/scheduled report/i, '🗓️'], [/automatic/i, '⏱️'],
   [/how people find/i, '🧭'], [/business profile|listing/i, '📍'], [/local search|map.pack/i, '🗺️'], [/review/i, '⭐'], [/sentiment/i, '🇳🇿'],
-  [/site health/i, '🩺'], [/website/i, '🌐'], [/checklist/i, '✅'], [/keyword gap/i, '🕳️'], [/keyword/i, '🔑'], [/idea/i, '💡'], [/ai answer/i, '🤖'],
+  [/site health/i, '🩺'], [/uptime/i, '🛟'], [/website/i, '🌐'], [/checklist/i, '✅'], [/keyword gap/i, '🕳️'], [/keyword/i, '🔑'], [/idea/i, '💡'], [/ai answer/i, '🤖'],
   [/social/i, '📣'], [/ads/i, '💸'], [/search performance/i, '📈'], [/within reach/i, '🎯'], [/rank/i, '🏆'], [/top quer/i, '🔍'],
   [/top pages/i, '📄'], [/clinic/i, '🏥'], [/competitor/i, '🥊'], [/job/i, '⚙️'], [/article/i, '📝'], [/supply/i, '🚚'], [/comhla/i, '🐾']];
 const jumpIcon = (label) => JUMP_ICON.find(([re]) => re.test(label))?.[1] || '✨';
@@ -1513,7 +1581,7 @@ async function boot() {
   initTips();
   initJump();
   const [status, sites] = await Promise.all([api('/status'), api('/overview')]);
-  $('#status').innerHTML = [['Search Console', status.searchConsole], ['DataForSEO', status.dataforseo], ['Business Profile', status.businessProfile], ['Meta', status.meta || 'soon'], ['Planable', status.planable || 'soon'], ['Email', status.email]]
+  $('#status').innerHTML = [['Search Console', status.searchConsole], ['DataForSEO', status.dataforseo], ['Business Profile', status.businessProfile], ['Meta', status.meta || 'soon'], ['Planable', status.planable || 'soon'], ['WP Umbrella', status.wpUmbrella || 'soon'], ['Email', status.email]]
     .map(([k, v]) => v === 'soon' ? `<span class="soon">${k} coming soon</span>` : `<span class="${v ? '' : 'off'}">${k} ${v ? 'on' : 'off'}</span>`).join('')
     + (status.dfsSpendUsd != null ? `<span title="DataForSEO spend this month against the cap">US$${status.dfsSpendUsd} / ${status.dfsCapUsd}</span>` : '')
     + (status.access ? `<span>${esc(status.user)}</span>` : status.preview ? '<span>Preview password</span>' : '<span class="off">No login</span>');

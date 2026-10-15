@@ -9,6 +9,7 @@ import { listAllLocations } from './data/gbp.js';
 import { listPages, replyToComment, hideComment, markHandled } from './data/meta.js';
 import { draftReply, draftPost, EXAMPLES } from './data/reply-helper.js';
 import { listPages as listPlanablePages, createDraft, savedPages } from './data/planable.js';
+import { listProjects as listWpuProjects, matchProjects } from './data/wpumbrella.js';
 import { researchClinic, keywordSummary } from './data/keywords.js';
 import { suggestForClinic, clinicSnapshot, brandSnapshot } from './data/suggestions.js';
 import { setChecklistItem } from './data/checklist.js';
@@ -27,7 +28,7 @@ app.use(express.static(path.join(config.root, 'public')));
 
 const site = (req, res) => { const s = loadSites().find((x) => x.slug === req.params.slug); if (!s) res.status(404).json({ error: 'unknown site' }); return s; };
 
-app.get('/api/status', (req, res) => res.json({ dataforseo: config.dfs.enabled, searchConsole: config.gsc.enabled, businessProfile: config.gbp.enabled, meta: config.meta.enabled, planable: config.planable.enabled, claude: config.claude.enabled, email: config.smtp.ready,
+app.get('/api/status', (req, res) => res.json({ dataforseo: config.dfs.enabled, searchConsole: config.gsc.enabled, businessProfile: config.gbp.enabled, meta: config.meta.enabled, planable: config.planable.enabled, wpUmbrella: config.wpUmbrella.enabled, claude: config.claude.enabled, email: config.smtp.ready,
   access: config.access.enabled, preview: !config.access.enabled && Boolean(config.access.previewPassword), user: req.user?.email, cron: config.cron, dfsSpendUsd: config.dfs.enabled ? +spendThisMonth().toFixed(2) : null, dfsCapUsd: config.dfs.monthlyCapUsd }));
 app.get('/api/management', (_, res) => res.json(management(loadSites())));
 app.get('/api/overview', (_, res) => res.json(overview(loadSites())));
@@ -91,6 +92,8 @@ app.post('/api/sites/:slug/reviews/:id/draft-reply', commentAction((s, req) => d
 app.post('/api/sites/:slug/comments/:id/draft-reply', commentAction((s, req) => draftReply('comment', s, req.params.id, note(req))));
 // Planable. /api/planable/pages finds the workspaceId and pageIds values for sites.json.
 app.get('/api/planable/pages', (_, res) => listPlanablePages().then((r) => res.json(r)).catch((e) => res.status(500).json({ error: e.message })));
+// WP Umbrella. /api/wpumbrella/projects shows each site in the account and the brand it matched (or a projectId for sites.json).
+app.get('/api/wpumbrella/projects', (_, res) => listWpuProjects().then((p) => res.json(matchProjects(loadSites(), p))).catch((e) => res.status(500).json({ error: e.message })));
 // Claude writes a social post from a topic; a person edits it, then it goes to Planable as a draft for approval.
 const pagePlatforms = (s, ids) => savedPages(s).filter((p) => (ids || []).includes(p.id)).map((p) => p.platform);
 app.post('/api/sites/:slug/planable/draft-text', brandAction((s, req) =>
@@ -158,7 +161,7 @@ app.post('/api/run/:job', (req, res) => {
 
 app.listen(config.port, () => {
   console.log(`SEO Desk on http://localhost:${config.port}`);
-  console.log(`DataForSEO: ${config.dfs.enabled ? 'on' : 'off'} · Search Console: ${config.gsc.enabled ? 'on' : 'off'} · Business Profile: ${config.gbp.enabled ? 'on' : 'off'} · Meta: ${config.meta.enabled ? 'on' : 'off'} · Planable: ${config.planable.enabled ? 'on' : 'off'} · Access: ${config.access.enabled ? 'enforced' : config.access.previewPassword ? 'preview password' : 'OFF (open to anyone who can reach this port)'}`);
+  console.log(`DataForSEO: ${config.dfs.enabled ? 'on' : 'off'} · Search Console: ${config.gsc.enabled ? 'on' : 'off'} · Business Profile: ${config.gbp.enabled ? 'on' : 'off'} · Meta: ${config.meta.enabled ? 'on' : 'off'} · Planable: ${config.planable.enabled ? 'on' : 'off'} · WP Umbrella: ${config.wpUmbrella.enabled ? 'on' : 'off'} · Access: ${config.access.enabled ? 'enforced' : config.access.previewPassword ? 'preview password' : 'OFF (open to anyone who can reach this port)'}`);
   const sitesFile = config.sitesPaths.find((f) => fs.existsSync(f));
   console.log(sitesFile ? `Sites: ${path.relative(config.root, sitesFile)} (${loadSites().length} brands)` : 'Sites: none found — add data/sites.json or commit sites.json at the repo root');
   startScheduler();
