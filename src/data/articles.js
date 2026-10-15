@@ -32,9 +32,9 @@ db.prepare("UPDATE article_versions SET status='failed', error='Interrupted by a
 export const CMS = {
   wordpress: 'WordPress', rocketspark: 'Rocketspark', wix: 'Wix', storbie: 'Storbie', silverstripe: 'Silverstripe', custom: 'Custom-built',
 };
-const envKey = (site) => `WP_${site.slug.toUpperCase().replace(/[^A-Z0-9]/g, '_')}`;
+export const envKey = (site) => `WP_${site.slug.toUpperCase().replace(/[^A-Z0-9]/g, '_')}`;
 /** "username:application password" from WP_<SLUG>, or null. */
-function wpCreds(site) {
+export function wpCreds(site) {
   const v = process.env[envKey(site)] || '';
   const i = v.indexOf(':');
   return i > 0 ? { user: v.slice(0, i), pass: v.slice(i + 1).trim() } : null;

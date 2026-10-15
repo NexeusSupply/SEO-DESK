@@ -4,6 +4,7 @@ import { trackRanks } from './data/ranks.js';
 import { syncGsc } from './data/gsc.js';
 import { refreshCompetitors } from './data/competitors.js';
 import { sendDigest } from './digest.js';
+import { runDueReports } from './reports.js';
 import { syncGbp } from './data/gbp.js';
 import { syncMeta, syncMetaComments } from './data/meta.js';
 import { syncPlanable } from './data/planable.js';
@@ -28,6 +29,8 @@ export const jobs = {
   gsc: (only) => config.gsc.enabled ? forEachSite(syncGsc, only) : Promise.resolve(['Search Console not configured']),
   competitors: (only) => config.dfs.enabled ? forEachSite(refreshCompetitors, only) : Promise.resolve(['DataForSEO not configured']),
   digest: () => sendDigest(),
+  // Scheduled reports from the Settings page whose day and hour it is.
+  reports: () => runDueReports(),
   // Business Profile API for linked clinics; DataForSEO's public listing data for the rest (see listings-public.js).
   gbp: (only) => config.gbp.enabled || config.dfs.enabled
     ? forEachSite(async (s) => [config.gbp.enabled && await syncGbp(s), config.dfs.enabled && await syncPublicListings(s)].filter(Boolean).join('; '), only)

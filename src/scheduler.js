@@ -11,5 +11,6 @@ export function startScheduler() {
     try { console.log(`[cron] ${name}:`, (await jobs[name]()).join(' | ')); } finally { running.delete(name); }
   };
   for (const name of Object.keys(config.cron)) cron.schedule(config.cron[name], wrap(name));
+  cron.schedule(config.reportsCron, wrap('reports'));
   console.log('[cron] schedules:', config.cron);
 }

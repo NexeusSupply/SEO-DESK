@@ -16,6 +16,7 @@ A self-hosted SEO dashboard for a portfolio of brand websites. It covers the par
 | Ideas to grow traffic | Per clinic, and per brand for businesses without clinics (reading the website audit, Search Console, rankings and competitors instead of the listing): Claude reads everything the dashboard knows about the clinic (listing, reviews, map pack, AI answers, ads, keyword research, website health) and suggests five to eight prioritised SEO, Google Ads, listing and review ideas, each tied to a figure, plus a starter Google search ad (headlines, descriptions, keywords to bid on). Add an optional focus such as "more puppy bookings". The latest ideas are saved on the page. | Claude (Anthropic API) | A few US cents per run |
 | Shared articles | Paste in one article and Claude writes a version for each brand you pick: rewritten around its towns, region and services, aimed at a search its website is missing, with internal links to its own pages. Each version shows the SEO holes it fills, the changes to make elsewhere on the site, on-page checks, and how much text it shares with the other brands' versions. Someone edits and approves each one; WordPress sites then get it as a draft (or published or scheduled, if chosen), and the rest get copy-ready text. | Claude (Anthropic API) + WordPress REST API | Roughly US$0.10–0.30 per brand (an estimate; longer articles cost more) |
 | Digest | Weekly email summarising score changes, errors, rank movers and within-reach queries across all brands. | SMTP | Free |
+| Settings | Every connection and whether it's working, partly linked or missing (with the server variable to set), a light/dark/match-device switch, the report address book, and scheduled email reports: chosen brands and clinics, chosen sections, daily, weekly or monthly. | SMTP for sending | Free |
 
 Everything is optional. Brands without a `locations` list simply don't show the clinic sections. A brand whose Search Console property or Google listing the account can't reach shows as **Not connected** everywhere — never as zero.
 
@@ -212,7 +213,11 @@ Rough monthly cost at 5 brands × 20 keywords checked daily plus a monthly compe
 
 ### Email digest
 
-Any SMTP account works (Google Workspace, Microsoft 365, Postmark, etc.). Leave `SMTP_HOST` blank to skip sending; `/api/digest` still shows a preview.
+Any SMTP account works (Google Workspace, Microsoft 365, Postmark, etc.). Leave `SMTP_HOST` blank to skip sending; `/api/digest` still shows a preview. The digest goes to `DIGEST_TO` plus every address ticked for it on the Settings page.
+
+### Scheduled reports
+
+On the **Settings** page, add the addresses reports go to, then **New report**: pick brands (or all brands, including ones added later) and single clinics, the sections to include (headline figures, website problems, Search Console, keyword rankings, social, AI answers, clinic listings, new reviews) and when it goes (daily, a weekday, or a day of the month, at an hour). **Preview** shows the email; **Send now** sends it straight away. Reports are checked a few minutes past every hour (`CRON_REPORTS`, default `3 * * * *`) in the server's time zone. Until `SMTP_HOST` is set they can be set up and previewed, and the page says sending is coming soon.
 
 ## Running jobs
 
@@ -225,6 +230,7 @@ npm run ranks
 npm run gsc
 npm run competitors
 npm run digest
+npm run reports             # send any scheduled report due this hour
 npm run gbp                 # Business Profile sync (API, and/or DataForSEO public listing + reviews)
 npm run meta                # Facebook and Instagram sync
 npm run planable            # Planable channels: followers, figures and recent posts
@@ -277,6 +283,9 @@ src/
   jobs.js             One entry point per job
   scheduler.js        node-cron wiring
   digest.js           Weekly email
+  settings.js         Settings page: connection status, saved settings, report address book
+  reports.js          Scheduled email reports
+  mail.js             SMTP sending
   cli.js              Run jobs from the shell
 run.cmd               Portable Windows launcher
 Dockerfile            For Railway / Render / Fly / any VPS

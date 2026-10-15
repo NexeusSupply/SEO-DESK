@@ -14,6 +14,8 @@ import { suggestForClinic, clinicSnapshot, brandSnapshot } from './data/suggesti
 import { setChecklistItem } from './data/checklist.js';
 import { listArticles, articleDetail, createArticle, rewriteVersion, addBrands, saveVersion, approveVersion, skipVersion, sendVersion, publishRoute } from './data/articles.js';
 import { buildDigest } from './digest.js';
+import { connectionList, recipients, saveRecipients, digestRecipients, JOB_LABELS } from './settings.js';
+import { SECTIONS, listReports, saveReport, deleteReport, setEnabled, sendReport, buildReport } from './reports.js';
 import { jobs } from './jobs.js';
 import { startScheduler } from './scheduler.js';
 
@@ -25,7 +27,7 @@ app.use(express.static(path.join(config.root, 'public')));
 
 const site = (req, res) => { const s = loadSites().find((x) => x.slug === req.params.slug); if (!s) res.status(404).json({ error: 'unknown site' }); return s; };
 
-app.get('/api/status', (req, res) => res.json({ dataforseo: config.dfs.enabled, searchConsole: config.gsc.enabled, businessProfile: config.gbp.enabled, meta: config.meta.enabled, planable: config.planable.enabled, claude: config.claude.enabled, email: config.smtp.enabled,
+app.get('/api/status', (req, res) => res.json({ dataforseo: config.dfs.enabled, searchConsole: config.gsc.enabled, businessProfile: config.gbp.enabled, meta: config.meta.enabled, planable: config.planable.enabled, claude: config.claude.enabled, email: config.smtp.ready,
   access: config.access.enabled, preview: !config.access.enabled && Boolean(config.access.previewPassword), user: req.user?.email, cron: config.cron, dfsSpendUsd: config.dfs.enabled ? +spendThisMonth().toFixed(2) : null, dfsCapUsd: config.dfs.monthlyCapUsd }));
 app.get('/api/management', (_, res) => res.json(management(loadSites())));
 app.get('/api/overview', (_, res) => res.json(overview(loadSites())));
@@ -123,6 +125,27 @@ app.post('/api/articles/:id/versions/:slug/skip', versionAction((id, s, req) => 
 app.post('/api/articles/:id/versions/:slug/send', versionAction((id, s, req) => sendVersion(id, s, { mode: String(req.body?.mode || 'draft'), date: req.body?.date, user: req.user?.email })));
 app.get('/api/reply-examples', (_, res) => res.json(EXAMPLES));
 app.get('/api/digest', (_, res) => res.send(buildDigest()));
+
+// Settings: what's connected, who gets emails, and scheduled reports.
+app.get('/api/settings', (_, res) => {
+  const sites = loadSites();
+  res.json({ connections: connectionList(), email: { ready: config.smtp.ready, from: config.smtp.from || config.smtp.user || null },
+    recipients: recipients(), envRecipients: String(config.smtp.to || '').split(/[,;\s]+/).filter(Boolean), digestTo: digestRecipients(),
+    reports: listReports(), sections: SECTIONS,
+    brands: sites.map((s) => ({ slug: s.slug, name: s.name, group: s.group, clinics: s.locations.map((l) => ({ slug: l.slug, name: l.name, town: l.town ?? null })) })),
+    schedules: Object.entries({ ...config.cron, reports: config.reportsCron }).map(([job, cron]) => ({ job, cron, label: job === 'reports' ? 'Check for scheduled reports due' : JOB_LABELS[job] || job })) });
+});
+const settingsAction = (fn) => (req, res) => {
+  Promise.resolve().then(() => fn(req)).then((r) => res.json(r ?? { ok: true }))
+    .catch((e) => res.status(/^unknown/.test(e.message) ? 404 : 400).json({ error: e.message }));
+};
+app.post('/api/settings/recipients', settingsAction((req) => saveRecipients(req.body?.recipients, req.user?.email)));
+app.post('/api/reports', settingsAction((req) => saveReport(null, req.body, req.user?.email)));
+app.post('/api/reports/preview', settingsAction((req) => buildReport(req.body || {})));
+app.post('/api/reports/:id', settingsAction((req) => saveReport(Number(req.params.id), req.body, req.user?.email)));
+app.post('/api/reports/:id/enabled', settingsAction((req) => setEnabled(Number(req.params.id), req.body?.enabled !== false)));
+app.post('/api/reports/:id/send', settingsAction((req) => sendReport(Number(req.params.id))));
+app.delete('/api/reports/:id', settingsAction((req) => { deleteReport(Number(req.params.id)); }));
 
 // Run a job now: POST /api/run/audit?site=heartland  (fires in background)
 app.post('/api/run/:job', (req, res) => {

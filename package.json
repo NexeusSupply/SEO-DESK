@@ -11,6 +11,7 @@
     "gsc": "node src/cli.js gsc",
     "competitors": "node src/cli.js competitors",
     "digest": "node src/cli.js digest",
+    "reports": "node src/cli.js reports",
     "gbp": "node src/cli.js gbp",
     "local": "node src/cli.js local",
     "meta": "node src/cli.js meta",
