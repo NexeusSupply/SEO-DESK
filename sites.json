@@ -2,7 +2,7 @@
   {
     "slug": "firstvets",
     "group": "Comhla",
-    "menu": "Totally Vets group",
+    "menu": "Independent clinics",
     "name": "First Vets Whanganui",
     "url": "https://firstvets.co.nz",
     "cms": "wordpress",
@@ -29,7 +29,7 @@
   {
     "slug": "levinhorowhenua",
     "group": "Comhla",
-    "menu": "Totally Vets group",
+    "menu": "Independent clinics",
     "name": "Levin & Horowhenua Vets",
     "url": "https://levinhorowhenuavets.nz",
     "cms": "wordpress",
@@ -56,7 +56,7 @@
   {
     "slug": "otakivets",
     "group": "Comhla",
-    "menu": "Totally Vets group",
+    "menu": "Independent clinics",
     "name": "Ōtaki Vets",
     "url": "https://otakivets.nz",
     "cms": "wordpress",
@@ -83,7 +83,7 @@
   {
     "slug": "tararuabreeding",
     "group": "Comhla",
-    "menu": "Totally Vets group",
+    "menu": "Independent clinics",
     "name": "Tararua Breeding Services",
     "url": "https://tararuabreeding.nz",
     "cms": "wordpress",
@@ -110,7 +110,7 @@
   {
     "slug": "tararuavets",
     "group": "Comhla",
-    "menu": "Totally Vets group",
+    "menu": "Independent clinics",
     "name": "Tararua Vet Services",
     "url": "https://tararuavets.nz",
     "cms": "wordpress",
@@ -151,7 +151,6 @@
   {
     "slug": "totallyvets",
     "group": "Comhla",
-    "menu": "Totally Vets group",
     "name": "Totally Vets",
     "url": "https://totallyvets.co.nz",
     "cms": "wordpress",
