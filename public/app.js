@@ -1183,10 +1183,15 @@ async function boot() {
   const route = async () => {
     const slug = location.hash.replace(/^#\/?/, '');
     const tab = (s) => `<a href="#/${s.slug}" class="${s.slug === slug ? 'active' : ''}">${badge(s.slug, s.name, 'xs')}${esc(s.name)}</a>`;
+    const dd = (title, list, cls = '') => { const cur = list.find((s) => s.slug === slug);
+      return `<details class="dd${cls}${cur ? ' active' : ''}"><summary>${esc(cur ? cur.name : title)}</summary><div class="menu"><div class="menu-title">${esc(title)}</div>${list.map(tab).join('')}</div></details>`; };
+    // Home brands with a "menu" in sites.json (Totally Vets group, Independent clinics) fold into a dropdown; the rest stay as tabs.
+    const home = sites.filter((s) => s.group === homeGroup), menus = [...new Set(home.map((s) => s.menu).filter(Boolean))];
     const others = [...new Set(sites.map((s) => s.group))].filter((g) => g !== homeGroup);
-    $('#brands').innerHTML = `<div class="tabs">${sites.filter((s) => s.group === homeGroup).map(tab).join('')}</div>`
-      + others.map((g) => { const list = sites.filter((s) => s.group === g), cur = list.find((s) => s.slug === slug);
-        return `<details class="dd${cur ? ' active' : ''}"><summary>${esc(cur ? cur.name : g)}</summary><div class="menu"><div class="menu-title">${esc(g)}</div>${list.map(tab).join('')}</div></details>`; }).join('')
+    $('#brands').innerHTML = `<div class="tabs">${home.filter((s) => !s.menu).map(tab).join('')}</div>`
+      + menus.map((m) => dd(m, home.filter((s) => s.menu === m), ' home')).join('')
+      + '<span class="gap"></span>'
+      + others.map((g) => dd(g, sites.filter((s) => s.group === g))).join('')
       + `<a href="#/clinics" class="${slug === 'clinics' || slug.startsWith('clinic/') ? 'active' : ''} sep">All clinics</a>`
       + `<a href="#/comments" class="${slug.startsWith('comments') ? 'active' : ''}">Comments</a>`
       + `<a href="#/ads" class="${slug === 'ads' ? 'active' : ''}">Ads</a>`
