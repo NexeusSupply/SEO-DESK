@@ -1390,10 +1390,26 @@ async function boot() {
   const route = async () => {
     const slug = location.hash.replace(/^#\/?/, '');
     const tab = (s) => `<a href="#/${s.slug}" class="${s.slug === slug ? 'active' : ''}">${badge(s.slug, s.name, 'xs')}${esc(s.name)}</a>`;
+    const dd = (title, list, cls = '') => { const cur = list.find((s) => s.slug === slug);
+      return `<details class="dd${cls}${cur ? ' active' : ''}"><summary>${esc(cur ? cur.name : title)}</summary><div class="menu"><div class="menu-title">${esc(title)}</div>${list.map(tab).join('')}</div></details>`; };
+    // Clinics sit under their brand in the menus; the brand's own page is the first link.
+    const inBrand = (s) => slug === s.slug || slug.startsWith(`clinic/${s.slug}/`);
+    const clinicLinks = (s) => s.clinics.map((c) => { const h = clinicHref(s.slug, c.slug);
+      return `<a href="${h}" class="clinic${h === `#/${slug}` ? ' active' : ''}">${s.clinics.length === 1 ? 'Clinic page' : esc(c.name)}</a>`; }).join('');
+    const brandDd = (s) => `<details class="dd home${inBrand(s) ? ' active' : ''}"><summary>${badge(s.slug, s.name, 'xs')}${esc(s.name)}</summary><div class="menu">
+      <a href="#/${s.slug}" class="${slug === s.slug ? 'active' : ''}">${esc(s.name)} overview</a><div class="menu-title">Clinics</div>${clinicLinks(s)}</div></details>`;
+    const groupDd = (title, list) => { const cur = list.find(inBrand);
+      return `<details class="dd home${cur ? ' active' : ''}"><summary>${esc(cur ? cur.name : title)}</summary><div class="menu"><div class="menu-title">${esc(title)}</div>
+      ${list.map((s) => tab(s) + clinicLinks(s)).join('')}</div></details>`; };
+    // Home brands with several clinics get their own dropdown; brands with a "menu" in sites.json share one (Independent clinics); the rest are tabs.
+    const home = sites.filter((s) => s.group === homeGroup), menus = [...new Set(home.map((s) => s.menu).filter(Boolean))];
     const others = [...new Set(sites.map((s) => s.group))].filter((g) => g !== homeGroup);
-    $('#brands').innerHTML = `<div class="tabs">${sites.filter((s) => s.group === homeGroup).map(tab).join('')}</div>`
-      + others.map((g) => { const list = sites.filter((s) => s.group === g), cur = list.find((s) => s.slug === slug);
-        return `<details class="dd${cur ? ' active' : ''}"><summary>${esc(cur ? cur.name : g)}</summary><div class="menu"><div class="menu-title">${esc(g)}</div>${list.map(tab).join('')}</div></details>`; }).join('')
+    const solo = home.filter((s) => !s.menu);
+    $('#brands').innerHTML = solo.filter((s) => s.clinics.length > 1).sort((a, b) => b.clinics.length - a.clinics.length).map(brandDd).join('')
+      + menus.map((m) => groupDd(m, home.filter((s) => s.menu === m))).join('')
+      + `<div class="tabs">${solo.filter((s) => s.clinics.length <= 1).map(tab).join('')}</div>`
+      + '<span class="gap"></span>'
+      + others.map((g) => dd(g, sites.filter((s) => s.group === g))).join('')
       + `<a href="#/clinics" class="${slug === 'clinics' || slug.startsWith('clinic/') ? 'active' : ''} sep">All clinics</a>`
       + `<a href="#/comments" class="${slug.startsWith('comments') ? 'active' : ''}">Comments</a>`
       + `<a href="#/ads" class="${slug === 'ads' ? 'active' : ''}">Ads</a>`
