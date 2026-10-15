@@ -784,26 +784,106 @@ function spreadPins(spots) {
   }
   return spots;
 }
+// Groups of clinics close enough to crowd each other; hovering one zooms the map in on it.
+function pinClusters(spots, link = 13) {
+  const parent = spots.map((_, i) => i), find = (i) => parent[i] === i ? i : (parent[i] = find(parent[i]));
+  for (let i = 0; i < spots.length; i++) for (let j = i + 1; j < spots.length; j++)
+    if (Math.hypot(spots[i].x0 - spots[j].x0, spots[i].y0 - spots[j].y0) < link) parent[find(i)] = find(j);
+  const groups = Object.values(spots.reduce((m, p, i) => ((m[find(i)] ||= []).push(p), m), {})).filter((g) => g.length > 1);
+  return groups.map((members) => {
+    const x = members.reduce((a, p) => a + p.x0, 0) / members.length, y = members.reduce((a, p) => a + p.y0, 0) / members.length;
+    let gap = Infinity; for (const a of members) for (const b of members) if (a !== b) gap = Math.min(gap, Math.hypot(a.x0 - b.x0, a.y0 - b.y0));
+    return { members, x, y, gap, R: Math.max(14, ...members.map((p) => Math.hypot(p.x0 - x, p.y0 - y) + p.r + 5)) };
+  });
+}
+let mapSpots = [];
+// Hover zoom: the map glides in on a crowded spot, puts each clinic back at its real position and labels it with its
+// town; moving away (or off the map) glides back out. On touch, the first tap on a crowded spot zooms instead of opening.
+function initClinicMap() {
+  const svg = $('.nzmap > svg'); if (!svg) return;
+  const vb = svg.viewBox.baseVal, full = [vb.x, vb.y, vb.width, vb.height];
+  const clusters = pinClusters(mapSpots), byK = new Map(mapSpots.map((p) => [p.k, p]));
+  const circles = [...svg.querySelectorAll('.pin')].map((a) => ({ el: a.firstElementChild, p: byK.get(+a.dataset.k) }));
+  const still = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  let zoomed = null, busy = false, cur = { view: full, pins: circles.map(({ p }) => [p.x, p.y, p.r]) };
+  const point = (e) => new DOMPoint(e.clientX, e.clientY).matrixTransform(svg.getScreenCTM().inverse());
+  const layout = (g) => {
+    if (!g) return { view: full, pins: circles.map(({ p }) => [p.x, p.y, p.r]) };
+    // Zoom far enough that the closest two clinics sit well apart with room for their names (3x to 12x).
+    const w = Math.max(full[2] / Math.min(12, Math.max(3, 34 / g.gap)), g.R * 2.4), h = w * full[3] / full[2], k = full[2] / w;
+    // Spread again at the zoomed scale so clinics at the same address still both show.
+    const near = spreadPins(g.members.map((p) => ({ p, x: p.x0 * k, y: p.y0 * k, r: p.r * 1.15 })));
+    const at = new Map(near.map((n) => [n.p, [n.x / k, n.y / k, n.r / k]]));
+    return { view: [g.x - w / 2, g.y - h / 2, w, h], k, pins: circles.map(({ p }) => at.get(p) || [p.x, p.y, p.r / k]) };
+  };
+  const paint = (s) => {
+    svg.setAttribute('viewBox', s.view.map((v) => v.toFixed(2)).join(' '));
+    circles.forEach(({ el }, i) => { const [x, y, r] = s.pins[i]; el.setAttribute('cx', x.toFixed(2)); el.setAttribute('cy', y.toFixed(2)); el.setAttribute('r', r.toFixed(2)); });
+  };
+  // Town names go right of each circle, else left, above or below, wherever they don't hit another name or circle.
+  const labels = (g, s) => {
+    const box = svg.querySelector('.zlabels'); box.innerHTML = '';
+    if (!g) return;
+    const k = s.k, dots = g.members.map((p) => s.pins[circles.findIndex((c) => c.p === p)].map((v) => v * k)), placed = [];
+    const clash = (b) => placed.some((q) => b[0] < q[2] && b[2] > q[0] && b[1] < q[3] && b[3] > q[1])
+      || dots.some(([x, y, r]) => b[0] < x + r && b[2] > x - r && b[1] < y + r && b[3] > y - r);
+    box.innerHTML = g.members.map((p, i) => [p, dots[i]]).sort((a, b) => a[1][1] - b[1][1]).map(([p, [x, y, r]]) => {
+      const name = p.c.town || p.c.name, w = name.length * 6.6 + 2, h = 13;
+      const spots = [[x + r + 3, y - h / 2], [x - r - 3 - w, y - h / 2], [x - w / 2, y - r - 2 - h], [x - w / 2, y + r + 2]];
+      const [lx, ly] = spots.find(([a, b]) => !clash([a, b, a + w, b + h])) || spots[0];
+      placed.push([lx, ly, lx + w, ly + h]);
+      return `<text x="${(lx / k).toFixed(2)}" y="${((ly + h - 3) / k).toFixed(2)}" font-size="${(12 / k).toFixed(2)}" stroke-width="${(3 / k).toFixed(2)}">${esc(name)}</text>`;
+    }).join('');
+  };
+  const go = (g) => {
+    if (g === zoomed) return;
+    zoomed = g; busy = true; labels(null); svg.classList.toggle('zoomed', Boolean(g));
+    const from = cur, to = layout(g), t0 = performance.now(), ms = still ? 0 : 420;
+    const step = (now) => {
+      const t = ms ? Math.min(1, (now - t0) / ms) : 1, e = t < 0.5 ? 4 * t * t * t : 1 - (-2 * t + 2) ** 3 / 2;
+      const mix = (a, b) => a + (b - a) * e;
+      paint({ view: from.view.map((v, i) => mix(v, to.view[i])), pins: from.pins.map((q, i) => q.map((v, j) => mix(v, to.pins[i][j]))) });
+      if (t < 1) return requestAnimationFrame(step);
+      cur = to; busy = false; labels(g, to);
+    };
+    requestAnimationFrame(step);
+  };
+  const hit = (pt) => clusters.filter((g) => Math.hypot(pt.x - g.x, pt.y - g.y) < g.R).sort((a, b) => Math.hypot(pt.x - a.x, pt.y - a.y) - Math.hypot(pt.x - b.x, pt.y - b.y))[0];
+  // Hover only for a real mouse; a tap goes through the click handler (touch also fires a stray mouseleave).
+  svg.addEventListener('pointermove', (e) => {
+    if (busy || e.pointerType !== 'mouse') return;
+    const pt = point(e);
+    if (!zoomed) { const g = hit(pt); if (g) go(g); } else if (Math.hypot(pt.x - zoomed.x, pt.y - zoomed.y) > zoomed.R * 1.25) go(hit(pt) || null);
+  });
+  svg.addEventListener('pointerleave', (e) => { if (e.pointerType === 'mouse') go(null); });
+  svg.addEventListener('click', (e) => {
+    if (busy) { e.preventDefault(); return; } // a tap that just started a zoom shouldn't also open a clinic
+    if (zoomed) { if (!e.target.closest('.pin')) go(null); return; }
+    const g = hit(point(e)); if (g) { e.preventDefault(); go(g); }
+  }, true);
+}
 function clinicMapSection(pins) {
   if (!pins.length) return '';
   // Australian clinics (west of 160°E) go on a south-east Australia inset in the empty top-left corner of the NZ map.
   const P = NZ_OUTLINE, A = AU_INSET, AX = 0, AY = 20, inAu = (c) => c.lng < 160;
   const at = (c) => inAu(c) ? [AX + (c.lng - A.W0) * A.K * A.SC, AY + (A.N0 - c.lat) * A.SC] : [(c.lng - P.W0) * P.K * P.SC, (P.N0 - c.lat) * P.SC];
-  const spots = spreadPins(pins.map((c) => { const [x0, y0] = at(c), r = inAu(c) ? 5.5 : 7; return { c, x0, y0, x: x0, y: y0, r }; }));
+  const spots = spreadPins(pins.map((c, k) => { const [x0, y0] = at(c), r = inAu(c) ? 5.5 : 7; return { k, c, x0, y0, x: x0, y: y0, r }; }));
+  mapSpots = spots;
+  const hot = pinClusters(spots).map((g) => `<circle class="hot" cx="${g.x.toFixed(1)}" cy="${g.y.toFixed(1)}" r="${g.R.toFixed(1)}"/>`).join('');
   const order = ['unknown', 'positive', 'mixed', 'negative'];
   const count = Object.fromEntries(order.map((k) => [k, pins.filter((c) => c.sentiment === k).length]));
   const watch = pins.filter((c) => c.sentiment === 'negative' || c.sentiment === 'mixed')
     .sort((a, b) => order.indexOf(b.sentiment) - order.indexOf(a.sentiment) || (a.rating ?? 5) - (b.rating ?? 5));
   // Worst last so they draw on top where clinics sit close together.
   // Clinics nudged apart to stay visible keep a thin line back to their real spot.
-  const leaders = spots.filter((p) => Math.hypot(p.x - p.x0, p.y - p.y0) > 3).map((p) => `<line class="leader" x1="${p.x0.toFixed(1)}" y1="${p.y0.toFixed(1)}" x2="${p.x.toFixed(1)}" y2="${p.y.toFixed(1)}"/><circle class="spot" cx="${p.x0.toFixed(1)}" cy="${p.y0.toFixed(1)}" r="1.6"/>`).join('');
-  const dots = leaders + [...spots].sort((a, b) => order.indexOf(a.c.sentiment) - order.indexOf(b.c.sentiment)).map(({ c, x, y, r }) => `<a href="${clinicHref(c.site, c.slug)}" class="pin ${c.sentiment}" data-tip="${esc(pinTip(c))}" aria-label="${esc(`${c.name}: ${SENTIMENT[c.sentiment][0]}`)}"><circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${r}"/></a>`).join('');
-  const inset = pins.some(inAu) ? `<g class="inset"><text x="${AX + 2}" y="${AY - 6}">South-east Australia</text><svg x="${AX}" y="${AY}" width="${A.w}" height="${A.h}"><rect width="${A.w}" height="${A.h}" rx="6"/><path class="land" d="${A.d}"/></svg><rect class="frame" x="${AX}" y="${AY}" width="${A.w}" height="${A.h}" rx="6"/></g>` : '';
+  const leaders = '<g class="leaders">' + spots.filter((p) => Math.hypot(p.x - p.x0, p.y - p.y0) > 3).map((p) => `<line class="leader" x1="${p.x0.toFixed(1)}" y1="${p.y0.toFixed(1)}" x2="${p.x.toFixed(1)}" y2="${p.y.toFixed(1)}"/><circle class="spot" cx="${p.x0.toFixed(1)}" cy="${p.y0.toFixed(1)}" r="1.6"/>`).join('') + '</g>';
+  const dots = leaders + [...spots].sort((a, b) => order.indexOf(a.c.sentiment) - order.indexOf(b.c.sentiment)).map(({ k, c, x, y, r }) => `<a href="${clinicHref(c.site, c.slug)}" class="pin ${c.sentiment}" data-k="${k}" data-tip="${esc(pinTip(c))}" aria-label="${esc(`${c.name}: ${SENTIMENT[c.sentiment][0]}`)}"><circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${r}"/></a>`).join('');
+  const inset = pins.some(inAu) ? `<g class="inset"><text x="${AX + 2}" y="${AY - 6}">South-east Australia</text><clipPath id="au-clip"><rect x="${AX}" y="${AY}" width="${A.w}" height="${A.h}" rx="6"/></clipPath><rect class="sea" x="${AX}" y="${AY}" width="${A.w}" height="${A.h}" rx="6"/><path class="land" clip-path="url(#au-clip)" transform="translate(${AX} ${AY})" d="${A.d}"/><rect class="frame" x="${AX}" y="${AY}" width="${A.w}" height="${A.h}" rx="6"/></g>` : '';
   const nz = pins.filter((c) => !inAu(c)).length, au = pins.length - nz;
   return `<h2>Clinic sentiment</h2><div class="nzmap">
-    <svg viewBox="-6 -6 ${P.w + 12} ${P.h + 12}" role="img" aria-label="Map of New Zealand${au ? ' with a south-east Australia inset' : ''} showing ${pins.length} clinics coloured by review sentiment"><path class="land" d="${P.d}"/>${inset}${dots}</svg>
+    <svg viewBox="-6 -6 ${P.w + 12} ${P.h + 12}" role="img" aria-label="Map of New Zealand${au ? ' with a south-east Australia inset' : ''} showing ${pins.length} clinics coloured by review sentiment"><path class="land" d="${P.d}"/>${inset}<g class="hots">${hot}</g>${dots}<g class="zlabels"></g></svg>
     <div class="nzmap-side">
-      <p class="sub">${pins.length} clinics${au ? ` (${nz} in New Zealand, ${au} in Australia)` : ''}, coloured by their Google rating and the tone of the last 90 days of reviews. Hover a circle for the detail, click to open the clinic.</p>
+      <p class="sub">${pins.length} clinics${au ? ` (${nz} in New Zealand, ${au} in Australia)` : ''}, coloured by their Google rating and the tone of the last 90 days of reviews. Hover a circle for the detail, click to open the clinic. Where clinics sit close together, hover the dashed ring to zoom in.</p>
       <ul class="legend">${[...order].reverse().map((k) => `<li class="${k}"><i></i><span class="tip" tabindex="0" data-tip="${esc(SENTIMENT[k][1])}">${SENTIMENT[k][0]}</span><b>${count[k]}</b></li>`).join('')}</ul>
       ${watch.length ? `<h3>Worth a look</h3><ul class="watchlist">${watch.slice(0, 8).map((c) => `<li class="${c.sentiment}"><i></i><a href="${clinicHref(c.site, c.slug)}">${esc(c.name)}</a><small>${esc(c.reasons.join(', '))}</small></li>`).join('')}</ul>${watch.length > 8 ? `<p class="foot"><a href="#/clinics">and ${watch.length - 8} more in Clinics →</a></p>` : ''}`
         : count.unknown === pins.length ? '<p class="empty">Ratings appear once the clinics’ Google listings have been read.</p>' : '<p class="empty">Every clinic with reviews is doing well.</p>'}
@@ -831,6 +911,7 @@ async function renderManagement() {
       <td class="why">${b.changes.length ? esc(b.changes.join(' · ')) : '<span class="muted">—</span>'}</td>
     </tr>`).join('')}</tbody></table></div>`); }).join('')}
   <p class="foot"><a href="#/portfolio">Open the detailed dashboard →</a></p>`;
+  initClinicMap();
 }
 
 async function renderOverview() {
