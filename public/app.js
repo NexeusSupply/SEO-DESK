@@ -770,17 +770,22 @@ const SENTIMENT = { negative: ['Unhappy', 'Rated under 4, or two or more 1–2 s
 const pinTip = (c) => `${c.name}, ${c.town}. ${c.rating != null ? `Rated ${c.rating}${c.reviews ? ` from ${n(c.reviews)} reviews` : ''}.` : 'No rating yet.'}${c.recent.n ? ` Last 90 days: ${c.recent.n} review${c.recent.n === 1 ? '' : 's'} averaging ${c.recent.avg}.` : ''}${c.reasons.length ? ` Watch: ${c.reasons.join(', ')}.` : ''} Click to open.`;
 function clinicMapSection(pins) {
   if (!pins.length) return '';
-  const P = NZ_OUTLINE, x = (lng) => ((lng - P.W0) * P.K * P.SC).toFixed(1), y = (lat) => ((P.N0 - lat) * P.SC).toFixed(1);
+  // Australian clinics (west of 160°E) go on a south-east Australia inset in the empty top-left corner of the NZ map.
+  const P = NZ_OUTLINE, A = AU_INSET, AX = 0, AY = 20, inAu = (c) => c.lng < 160;
+  const x = (c) => (inAu(c) ? AX + (c.lng - A.W0) * A.K * A.SC : (c.lng - P.W0) * P.K * P.SC).toFixed(1);
+  const y = (c) => (inAu(c) ? AY + (A.N0 - c.lat) * A.SC : (P.N0 - c.lat) * P.SC).toFixed(1);
   const order = ['unknown', 'positive', 'mixed', 'negative'];
   const count = Object.fromEntries(order.map((k) => [k, pins.filter((c) => c.sentiment === k).length]));
   const watch = pins.filter((c) => c.sentiment === 'negative' || c.sentiment === 'mixed')
     .sort((a, b) => order.indexOf(b.sentiment) - order.indexOf(a.sentiment) || (a.rating ?? 5) - (b.rating ?? 5));
   // Worst last so they draw on top where clinics sit close together.
-  const dots = [...pins].sort((a, b) => order.indexOf(a.sentiment) - order.indexOf(b.sentiment)).map((c) => `<a href="${clinicHref(c.site, c.slug)}" class="pin ${c.sentiment}" data-tip="${esc(pinTip(c))}" aria-label="${esc(`${c.name}: ${SENTIMENT[c.sentiment][0]}`)}"><circle cx="${x(c.lng)}" cy="${y(c.lat)}" r="7"/></a>`).join('');
+  const dots = [...pins].sort((a, b) => order.indexOf(a.sentiment) - order.indexOf(b.sentiment)).map((c) => `<a href="${clinicHref(c.site, c.slug)}" class="pin ${c.sentiment}" data-tip="${esc(pinTip(c))}" aria-label="${esc(`${c.name}: ${SENTIMENT[c.sentiment][0]}`)}"><circle cx="${x(c)}" cy="${y(c)}" r="${inAu(c) ? 5.5 : 7}"/></a>`).join('');
+  const inset = pins.some(inAu) ? `<g class="inset"><text x="${AX + 2}" y="${AY - 6}">South-east Australia</text><svg x="${AX}" y="${AY}" width="${A.w}" height="${A.h}"><rect width="${A.w}" height="${A.h}" rx="6"/><path class="land" d="${A.d}"/></svg><rect class="frame" x="${AX}" y="${AY}" width="${A.w}" height="${A.h}" rx="6"/></g>` : '';
+  const nz = pins.filter((c) => !inAu(c)).length, au = pins.length - nz;
   return `<h2>Clinic sentiment</h2><div class="nzmap">
-    <svg viewBox="-6 -6 ${P.w + 12} ${P.h + 12}" role="img" aria-label="Map of New Zealand showing ${pins.length} clinics coloured by review sentiment"><path class="land" d="${P.d}"/>${dots}</svg>
+    <svg viewBox="-6 -6 ${P.w + 12} ${P.h + 12}" role="img" aria-label="Map of New Zealand${au ? ' with a south-east Australia inset' : ''} showing ${pins.length} clinics coloured by review sentiment"><path class="land" d="${P.d}"/>${inset}${dots}</svg>
     <div class="nzmap-side">
-      <p class="sub">${pins.length} clinics, coloured by their Google rating and the tone of the last 90 days of reviews. Hover a circle for the detail, click to open the clinic.</p>
+      <p class="sub">${pins.length} clinics${au ? ` (${nz} in New Zealand, ${au} in Australia)` : ''}, coloured by their Google rating and the tone of the last 90 days of reviews. Hover a circle for the detail, click to open the clinic.</p>
       <ul class="legend">${[...order].reverse().map((k) => `<li class="${k}"><i></i><span class="tip" tabindex="0" data-tip="${esc(SENTIMENT[k][1])}">${SENTIMENT[k][0]}</span><b>${count[k]}</b></li>`).join('')}</ul>
       ${watch.length ? `<h3>Worth a look</h3><ul class="watchlist">${watch.slice(0, 8).map((c) => `<li class="${c.sentiment}"><i></i><a href="${clinicHref(c.site, c.slug)}">${esc(c.name)}</a><small>${esc(c.reasons.join(', '))}</small></li>`).join('')}</ul>${watch.length > 8 ? `<p class="foot"><a href="#/clinics">and ${watch.length - 8} more in Clinics →</a></p>` : ''}`
         : count.unknown === pins.length ? '<p class="empty">Ratings appear once the clinics’ Google listings have been read.</p>' : '<p class="empty">Every clinic with reviews is doing well.</p>'}

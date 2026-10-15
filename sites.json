@@ -932,6 +932,19 @@
     "aiPrompts": [
       "What is a good vet clinic in Smithton, Tasmania?",
       "Which vets look after dairy herds in north-west Tasmania?"
+    ],
+    "locations": [
+      {
+        "slug": "smithton",
+        "name": "TasVets Smithton",
+        "town": "Smithton",
+        "services": [
+          "mixed"
+        ],
+        "address": "71-75 Nelson Street, Smithton TAS 7330",
+        "lat": -40.8446,
+        "lng": 145.1206
+      }
     ]
   },
   {
@@ -956,6 +969,69 @@
       "What are the best vets in Warrnambool?",
       "Which vet clinics look after dairy herds in South West Victoria?",
       "Who is a good farm and large animal vet near Warrnambool?"
+    ],
+    "locations": [
+      {
+        "slug": "warrnambool",
+        "name": "The Vet Group Warrnambool",
+        "town": "Warrnambool",
+        "services": [
+          "mixed"
+        ],
+        "lat": -38.3687,
+        "lng": 142.4862
+      },
+      {
+        "slug": "allansford",
+        "name": "The Vet Group Allansford",
+        "town": "Allansford",
+        "services": [
+          "mixed"
+        ],
+        "lat": -38.3866,
+        "lng": 142.5934
+      },
+      {
+        "slug": "timboon",
+        "name": "The Vet Group Timboon",
+        "town": "Timboon",
+        "services": [
+          "mixed"
+        ],
+        "lat": -38.4836,
+        "lng": 142.98
+      },
+      {
+        "slug": "simpson",
+        "name": "The Vet Group Simpson",
+        "town": "Simpson",
+        "services": [
+          "mixed"
+        ],
+        "address": "190 Barramul Street, Simpson VIC 3266",
+        "lat": -38.517,
+        "lng": 143.256
+      },
+      {
+        "slug": "portland",
+        "name": "The Vet Group Portland",
+        "town": "Portland",
+        "services": [
+          "mixed"
+        ],
+        "lat": -38.3444,
+        "lng": 141.6042
+      },
+      {
+        "slug": "heywood",
+        "name": "The Vet Group Heywood",
+        "town": "Heywood",
+        "services": [
+          "mixed"
+        ],
+        "lat": -38.1311,
+        "lng": 141.629
+      }
     ]
   },
   {
