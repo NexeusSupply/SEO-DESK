@@ -1,6 +1,7 @@
-import nodemailer from 'nodemailer';
 import { config, loadSites } from './config.js';
 import { overview, siteDetail, allLocations } from './queries.js';
+import { sendMail } from './mail.js';
+import { digestRecipients } from './settings.js';
 
 const pct = (a, b) => (a != null && b ? `${a >= b ? '+' : ''}${Math.round(((a - b) / b) * 100)}%` : '');
 
@@ -34,9 +35,9 @@ ${d.gsc.strikingDistance.length ? `<p style="margin:4px 0"><b>Within reach (pos 
 
 export async function sendDigest() {
   const html = buildDigest();
-  if (!config.smtp.enabled) return ['SMTP not configured — digest built but not sent'];
-  const t = nodemailer.createTransport({ host: config.smtp.host, port: config.smtp.port, secure: config.smtp.port === 465,
-    auth: config.smtp.user ? { user: config.smtp.user, pass: config.smtp.pass } : undefined });
-  await t.sendMail({ from: config.smtp.from, to: config.smtp.to, subject: `SEO digest — ${new Date().toDateString()}`, html });
-  return [`sent to ${config.smtp.to}`];
+  const to = digestRecipients();
+  if (!config.smtp.ready) return ['Email not set up (SMTP_HOST) — digest built but not sent'];
+  if (!to.length) return ['No one to send the digest to — add an address on the Settings page or in DIGEST_TO'];
+  await sendMail({ to, subject: `SEO digest — ${new Date().toDateString()}`, html });
+  return [`sent to ${to.join(', ')}`];
 }

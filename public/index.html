@@ -9,12 +9,13 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@500;600;700;800&family=Public+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/app.css">
+<script>try { var t = localStorage.getItem('seo-desk-theme'); if (t === 'dark' || (t === 'auto' && matchMedia('(prefers-color-scheme: dark)').matches)) document.documentElement.dataset.theme = 'dark'; } catch (e) {}</script>
 </head>
 <body>
 <header class="top">
   <div class="bar">
     <a class="wordmark" href="#/"><img src="/comhla-vet-white.png" alt="Comhla Vet" width="170" height="22"><span>SEO Desk</span></a>
-    <nav class="primary"><a id="home" href="#/">Overview</a><a id="portfolio" href="#/portfolio">Dashboard</a></nav>
+    <nav class="primary"><a id="home" href="#/">Overview</a><a id="portfolio" href="#/portfolio">Dashboard</a><a id="settings" href="#/settings" aria-label="Settings"><span class="gear" aria-hidden="true">⚙︎</span><span class="lbl">Settings</span></a></nav>
     <div class="status" id="status"></div>
   </div>
   <nav class="brands" id="brands"></nav>

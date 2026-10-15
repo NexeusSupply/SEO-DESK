@@ -1107,6 +1107,212 @@ function openVersion(site) { const c = document.getElementById(`v-${site}`); if 
 function countChars(el, max) { const s = el.closest('label').querySelector('small'); s.textContent = `${el.value.length}/${max}`; s.className = el.value.length > max ? 'notok' : 'muted'; }
 Object.assign(window, { newArticle, tickGroup, saveVersion, approveVersion, skipVersion, rewriteVersion, sendVersion, copyVersion, openVersion, countChars });
 
+// ---- Settings: connections, appearance, report emails and scheduled reports ----
+// Dark mode is a per-browser preference; index.html applies it before the page draws so there's no flash.
+const THEME_KEY = 'seo-desk-theme';
+const themePref = () => { try { return localStorage.getItem(THEME_KEY) || 'light'; } catch { return 'light'; } };
+const darkQuery = matchMedia('(prefers-color-scheme: dark)');
+function applyTheme(pref = themePref()) {
+  document.documentElement.dataset.theme = pref === 'dark' || (pref === 'auto' && darkQuery.matches) ? 'dark' : 'light';
+}
+darkQuery.addEventListener('change', () => applyTheme());
+function setTheme(pref) {
+  try { localStorage.setItem(THEME_KEY, pref); } catch {}
+  applyTheme(pref);
+  document.querySelectorAll('.theme-pick button').forEach((b) => { const on = b.dataset.theme === pref; b.classList.toggle('on', on); b.setAttribute('aria-checked', on); });
+}
+
+let settings = null;
+const CONN_STATE = { on: ['Working', 'good'], partial: ['Partly connected', 'watch'], error: ['Failing', 'problem'], off: ['Not set up', 'nc'] };
+const codes = (vars) => vars.map((v) => `<code>${esc(v)}</code>`).join(' ');
+function connCard(c) {
+  const [label, cls] = CONN_STATE[c.state];
+  return `<div class="conn ${c.state}">
+    <div class="conn-head"><b>${esc(c.name)}</b><span class="sig ${cls}">${label}</span></div>
+    <p class="conn-what">${esc(c.what)}</p>
+    <p>${esc(c.detail)}</p>
+    ${c.coverage ? `<p><b>${esc(c.coverage)}</b></p>` : ''}
+    ${c.missing.length ? `<details class="conn-more"><summary>Not linked yet (${c.missing.length})</summary><p class="muted">${c.missing.map(esc).join(', ')}</p></details>` : ''}
+    ${c.lastError ? `<p class="notok small">Latest problem ${ago(c.lastError.at)}${c.lastError.site && c.lastError.site !== 'all' ? ` (${esc(c.lastError.site)})` : ''}: ${esc(c.lastError.message)}</p>` : ''}
+    ${c.lastOk ? `<p class="muted small">Last worked ${ago(c.lastOk)}</p>` : ''}
+    ${c.vars.length ? `<p class="conn-vars small">${c.state === 'off' ? 'To switch on, set' : 'Still to set'} ${codes(c.vars)}</p>` : ''}
+  </div>`;
+}
+
+const emailSoon = (d) => d.email.ready ? '' : `<p class="notice"><span class="sig watch">Coming soon</span> Sending needs an email account: set ${codes(['SMTP_HOST', 'SMTP_USER', 'SMTP_PASS'])} on the server (the README has Gmail and Microsoft 365 settings). You can set reports up and preview them now; they start going out once it’s set.</p>`;
+
+function recipientsBlock(d) {
+  return `<p class="sub">The address book for reports. Ticked addresses also get the weekly digest${(() => { const t = cronText(d.schedules.find((s) => s.job === 'digest')?.cron || ''); return t ? `, sent ${esc(t)}` : ''; })()}.</p>
+  ${d.recipients.length ? `<div class="wrap"><table class="data rcpts"><thead><tr><th>Email</th><th>Name</th><th>Weekly digest</th><th></th></tr></thead><tbody>
+    ${d.recipients.map((r, i) => `<tr><td>${esc(r.email)}</td><td>${esc(r.name) || '<span class="muted">—</span>'}</td>
+      <td><label><input type="checkbox" ${r.digest ? 'checked' : ''} onchange="toggleDigest(${i}, this.checked)"> gets it</label></td>
+      <td class="r"><button class="run" type="button" onclick="removeRecipient(${i})">Remove</button></td></tr>`).join('')}
+  </tbody></table></div>` : '<p class="empty">No addresses yet.</p>'}
+  ${d.envRecipients.length ? `<p class="muted small">Also gets the digest, set on the server in <code>DIGEST_TO</code>: ${d.envRecipients.map(esc).join(', ')}</p>` : ''}
+  <form class="post-form rcpt-form" onsubmit="return addRecipient(event)">
+    <div class="fld-row"><label class="fld"><span>Email</span><input name="email" type="email" required placeholder="name@comhlavet.com"></label>
+    <label class="fld"><span>Name <small class="muted">(optional)</small></span><input name="name" type="text" maxlength="80"></label></div>
+    <div class="actions"><label><input name="digest" type="checkbox" checked> Send them the weekly digest</label><button class="run primary-btn" type="submit">Add address</button></div>
+    <p class="cmt-err notok" hidden></p>
+  </form>`;
+}
+async function saveRecipientList(list, errEl) {
+  try { settings.recipients = await post('/settings/recipients', { recipients: list }); await renderSettings(); }
+  catch (e) { if (errEl) { errEl.textContent = e.message; errEl.hidden = false; } else alert(e.message); }
+}
+function addRecipient(ev) {
+  ev.preventDefault();
+  const f = ev.target;
+  saveRecipientList([...settings.recipients, { email: f.email.value, name: f.name.value, digest: f.digest.checked }], f.querySelector('.cmt-err'));
+  return false;
+}
+function toggleDigest(i, on) { saveRecipientList(settings.recipients.map((r, k) => k === i ? { ...r, digest: on } : r)); }
+function removeRecipient(i) { saveRecipientList(settings.recipients.filter((_, k) => k !== i)); }
+
+const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+const hourLabel = (h) => `${h % 12 || 12}${h < 12 ? 'am' : 'pm'}`;
+const nth = (n) => `${n}${n % 10 === 1 && n !== 11 ? 'st' : n % 10 === 2 && n !== 12 ? 'nd' : n % 10 === 3 && n !== 13 ? 'rd' : 'th'}`;
+function reportCovers(r) {
+  const b = r.sites.includes('*') ? 'All brands' : r.sites.length ? `${r.sites.length} brand${r.sites.length === 1 ? '' : 's'}` : '';
+  const c = r.clinics.length ? `${r.clinics.length} clinic${r.clinics.length === 1 ? '' : 's'}` : '';
+  return [b, c].filter(Boolean).join(' + ');
+}
+function reportsBlock(d) {
+  const label = Object.fromEntries(d.sections.map((s) => [s.key, s.label]));
+  return `<p class="sub">Email a chosen set of brands or clinics, with just the parts you pick, on a schedule.</p>${emailSoon(d)}
+  ${d.reports.length ? `<div class="wrap"><table class="data reports"><thead><tr><th>Report</th><th>Covers</th><th>When</th><th>Sends to</th><th>Last sent</th><th></th></tr></thead><tbody>
+  ${d.reports.map((r) => `<tr class="${r.enabled ? '' : 'paused'}">
+    <td><b>${esc(r.name)}</b><small class="muted">${r.sections.map((k) => esc(label[k] || k)).join(', ')}</small></td>
+    <td>${reportCovers(r)}</td>
+    <td>${r.enabled ? esc(r.when) : '<span class="sig nc">Paused</span>'}${r.enabled && r.next ? `<small class="muted">Next ${new Date(r.next).toLocaleString(undefined, { weekday: 'short', day: 'numeric', month: 'short', hour: 'numeric' })}</small>` : ''}</td>
+    <td><span tabindex="0" data-tip="${esc(r.recipients.join(', '))}">${r.recipients.length} address${r.recipients.length === 1 ? '' : 'es'}</span></td>
+    <td>${r.last_sent_at ? ago(r.last_sent_at) : '<span class="muted">Not yet</span>'}${r.last_ok === false ? `<small class="notok">${esc(r.last_result)}</small>` : ''}</td>
+    <td class="r rep-acts"><button class="run" type="button" onclick="editReport(${r.id})">Edit</button><button class="run" type="button" onclick="previewReport(${r.id})">Preview</button>
+      <button class="run" type="button" onclick="sendReportNow(this, ${r.id})" ${d.email.ready ? '' : `disabled data-tip="${esc('Needs email sending set up first (SMTP_HOST).')}"`}>Send now</button>
+      <button class="run" type="button" onclick="pauseReport(${r.id}, ${!r.enabled})">${r.enabled ? 'Pause' : 'Resume'}</button><button class="run" type="button" onclick="deleteReport(${r.id})">Delete</button></td>
+  </tr>`).join('')}</tbody></table></div>` : '<p class="empty">No scheduled reports yet.</p>'}
+  <div class="actions"><button class="run primary-btn" type="button" onclick="editReport()">New report</button></div>
+  <div id="report-form"></div>`;
+}
+
+function reportForm(d, r) {
+  r ||= { name: '', sites: [], clinics: [], sections: ['summary', 'clinics'], frequency: 'weekly', weekday: 1, monthday: 1, hour: 8, recipients: d.recipients.map((x) => x.email) };
+  const groups = [...new Set(d.brands.map((b) => b.group))];
+  const all = r.sites.includes('*');
+  const opt = (v, l, cur) => `<option value="${v}" ${String(v) === String(cur) ? 'selected' : ''}>${esc(l)}</option>`;
+  const extra = r.recipients.filter((e) => !d.recipients.some((x) => x.email === e));
+  const sectionBox = (s) => `<label data-tip="${esc(s.hint)}"><input type="checkbox" name="section" value="${s.key}" ${r.sections.includes(s.key) ? 'checked' : ''}> ${esc(s.label)}</label>`;
+  return `<form class="post-form art-form rep-form" onsubmit="return saveReportForm(event, ${r.id || 'null'})">
+    <h3>${r.id ? `Edit “${esc(r.name)}”` : 'New report'}</h3>
+    <label class="fld"><span>Name</span><input name="name" type="text" maxlength="120" required value="${esc(r.name)}" placeholder="e.g. VetSouth clinics weekly"></label>
+    <h4>Brands</h4>
+    <label class="all-brands"><input type="checkbox" name="all" ${all ? 'checked' : ''} onchange="this.form.querySelectorAll('input[name=site]').forEach((x) => { x.disabled = this.checked; })"> <b>All brands</b>, including any added later</label>
+    ${groups.map((g) => `<div class="art-group"><div class="art-group-head"><b>${esc(g)}</b> <a class="muted" href="#" onclick="return tickGroup(this, true)">all</a> · <a class="muted" href="#" onclick="return tickGroup(this, false)">none</a></div>
+      <div class="chans">${d.brands.filter((b) => b.group === g).map((b) => `<label><input type="checkbox" name="site" value="${esc(b.slug)}" ${r.sites.includes(b.slug) ? 'checked' : ''} ${all ? 'disabled' : ''}> ${badge(b.slug, b.name, 'xs')} ${esc(b.name)}</label>`).join('')}</div></div>`).join('')}
+    <h4>Clinics <small class="muted">A brand ticked above already includes all its clinics. Pick single clinics here.</small></h4>
+    ${d.brands.filter((b) => b.clinics.length).map((b) => { const n = b.clinics.filter((c) => r.clinics.includes(`${b.slug}/${c.slug}`)).length;
+      return `<details class="art-group clinic-pick" ${n ? 'open' : ''}><summary class="art-group-head">${badge(b.slug, b.name, 'xs')} <b>${esc(b.name)}</b> <span class="muted">${b.clinics.length} clinic${b.clinics.length === 1 ? '' : 's'}${n ? `, ${n} picked` : ''}</span></summary>
+      <div class="art-group-head"><a class="muted" href="#" onclick="return tickGroup(this, true)">all</a> · <a class="muted" href="#" onclick="return tickGroup(this, false)">none</a></div>
+      <div class="chans">${b.clinics.map((c) => `<label><input type="checkbox" name="clinic" value="${esc(`${b.slug}/${c.slug}`)}" ${r.clinics.includes(`${b.slug}/${c.slug}`) ? 'checked' : ''}> ${esc(c.name)}</label>`).join('')}</div></details>`; }).join('')}
+    <h4>What to include</h4>
+    <div class="chans"><span class="muted">For each brand:</span> ${d.sections.filter((s) => s.scope === 'brand').map(sectionBox).join('')}</div>
+    <div class="chans"><span class="muted">For the clinics:</span> ${d.sections.filter((s) => s.scope === 'clinic').map(sectionBox).join('')}</div>
+    <h4>When</h4>
+    <div class="send-form when" data-freq="${r.frequency}">
+      <select name="frequency" onchange="this.parentNode.dataset.freq = this.value">${opt('daily', 'Every day', r.frequency)}${opt('weekly', 'Every week', r.frequency)}${opt('monthly', 'Every month', r.frequency)}</select>
+      <select name="weekday" class="w">${DAY_NAMES.map((n, i) => opt(i, `on ${n}`, r.weekday)).join('')}</select>
+      <select name="monthday" class="m">${Array.from({ length: 28 }, (_, i) => opt(i + 1, `on the ${nth(i + 1)}`, r.monthday)).join('')}</select>
+      <select name="hour">${Array.from({ length: 24 }, (_, h) => opt(h, `at ${hourLabel(h)}`, r.hour)).join('')}</select>
+    </div>
+    <h4>Send to</h4>
+    ${d.recipients.length ? `<div class="chans">${d.recipients.map((x) => `<label><input type="checkbox" name="to" value="${esc(x.email)}" ${r.recipients.includes(x.email) ? 'checked' : ''}> ${esc(x.name || x.email)}${x.name ? ` <small class="muted">${esc(x.email)}</small>` : ''}</label>`).join('')}</div>` : ''}
+    <label class="fld"><span>${d.recipients.length ? 'Other addresses' : 'Addresses'} <small class="muted">separate with commas</small></span><input name="extra" type="text" value="${esc(extra.join(', '))}" placeholder="someone@example.com"></label>
+    <div class="actions"><button class="run primary-btn" type="submit">${r.id ? 'Save changes' : 'Save report'}</button><button class="run" type="button" onclick="previewReport(null, this.form)">Preview</button><button class="run" type="button" onclick="$('#report-form').innerHTML = ''">Cancel</button></div>
+    <p class="cmt-err notok" hidden></p>
+  </form>`;
+}
+function reportBody(f) {
+  const vals = (name) => [...f.querySelectorAll(`input[name=${name}]:checked`)].map((x) => x.value);
+  return { name: f.name.value, sites: f.all.checked ? ['*'] : vals('site'), clinics: vals('clinic'), sections: vals('section'),
+    frequency: f.frequency.value, weekday: f.weekday.value, monthday: f.monthday.value, hour: f.hour.value,
+    recipients: [...vals('to'), ...f.extra.value.split(/[,;\s]+/).filter(Boolean)] };
+}
+function editReport(id) {
+  const box = $('#report-form');
+  box.innerHTML = reportForm(settings, id ? settings.reports.find((r) => r.id === id) : null);
+  box.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  box.querySelector('input[name=name]').focus({ preventScroll: true });
+}
+async function saveReportForm(ev, id) {
+  ev.preventDefault();
+  const f = ev.target, btn = f.querySelector('button[type=submit]'), err = f.querySelector('.cmt-err');
+  btn.disabled = true; err.hidden = true;
+  try { await post(id ? `/reports/${id}` : '/reports', reportBody(f)); await renderSettings(); $('h2#reports')?.scrollIntoView({ block: 'start' }); }
+  catch (e) { err.textContent = e.message; err.hidden = false; btn.disabled = false; }
+  return false;
+}
+// Opens the window straight away (inside the click, so it isn't blocked) and fills it once the report is built.
+async function previewReport(id, form) {
+  const w = window.open('', '_blank');
+  const body = form ? reportBody(form) : settings.reports.find((r) => r.id === id);
+  try {
+    const { subject, html } = await post('/reports/preview', body);
+    if (w) { w.document.open(); w.document.write(`<!doctype html><meta charset="utf-8"><title>${esc(subject)}</title><body style="margin:24px;background:#fff">${html}</body>`); w.document.close(); }
+  } catch (e) {
+    w?.close();
+    const err = form?.querySelector('.cmt-err'); if (err) { err.textContent = e.message; err.hidden = false; } else alert(e.message);
+  }
+}
+async function sendReportNow(btn, id) {
+  btn.disabled = true; btn.textContent = 'Sending…';
+  try { await post(`/reports/${id}/send`); } catch (e) { alert(e.message); }
+  await renderSettings();
+}
+async function pauseReport(id, on) { try { await post(`/reports/${id}/enabled`, { enabled: on }); } catch (e) { alert(e.message); } await renderSettings(); }
+async function deleteReport(id) {
+  const r = settings.reports.find((x) => x.id === id);
+  if (!confirm(`Delete the report “${r?.name}”? It stops being sent.`)) return;
+  try { await api(`/reports/${id}`, { method: 'DELETE' }); } catch (e) { alert(e.message); }
+  await renderSettings();
+}
+
+async function renderSettings() {
+  const d = settings = await api('/settings');
+  const working = d.connections.filter((c) => c.state === 'on' || c.state === 'partial').length;
+  const pref = themePref();
+  const themeBtn = (v, l) => `<button type="button" role="radio" data-theme="${v}" class="${pref === v ? 'on' : ''}" aria-checked="${pref === v}" onclick="setTheme('${v}')">${l}</button>`;
+  $('#main').innerHTML = `<h1>Settings</h1><p class="sub">What the dashboard is connected to, how it looks, and who gets emailed what.</p>
+  <h2 id="connections">Connections</h2>
+  <p class="sub">${working} of ${d.connections.length} connected. Server settings are variables on Railway (the SEO-DESK service → Variables); it redeploys by itself after a change.</p>
+  <div class="conns">${d.connections.map(connCard).join('')}</div>
+  <h2 id="appearance">Appearance</h2>
+  <div class="theme-pick" role="radiogroup" aria-label="Colour theme">${themeBtn('light', '☀️ Light')}${themeBtn('dark', '🌙 Dark')}${themeBtn('auto', '🖥️ Match this device')}</div>
+  <p class="muted small">Saved in this browser, so each person picks their own.</p>
+  <h2 id="addresses">Report email addresses</h2>
+  ${recipientsBlock(d)}
+  <h2 id="reports">Scheduled reports</h2>
+  ${reportsBlock(d)}
+  <h2 id="schedule">Automatic updates</h2>
+  <p class="sub">When the dashboard fetches new data, in New Zealand time. Each one can be changed with its <code>CRON_</code> variable on the server.</p>
+  <div class="wrap"><table class="data"><thead><tr><th>What</th><th>Schedule</th></tr></thead><tbody>
+  ${d.schedules.map((s) => `<tr><td>${esc(s.label)}</td><td><code>${esc(s.cron)}</code> <span class="muted">${esc(cronText(s.cron))}</span></td></tr>`).join('')}
+  </tbody></table></div>`;
+}
+// Reads the common cron shapes aloud ("Mondays at 2am"); anything else just shows the code.
+function cronText(c) {
+  const [m, h, dom, , dow] = c.trim().split(/\s+/);
+  const at = /^\d+$/.test(h) && /^\d+$/.test(m) ? `at ${Number(h) % 12 || 12}${m !== '0' ? `:${m.padStart(2, '0')}` : ''}${Number(h) < 12 ? 'am' : 'pm'}` : '';
+  if (/^\*\/\d+$/.test(m) && h === '*') return `every ${m.slice(2)} minutes`;
+  if (/^\d+$/.test(m) && /^\*\/\d+$/.test(h)) return `every ${h.slice(2)} hours`;
+  if (/^\d+$/.test(m) && h === '*') return 'every hour';
+  if (!at) return '';
+  if (dom === '*' && dow === '*') return `daily ${at}`;
+  if (dom === '*' && /^\d$/.test(dow)) return `${DAY_NAMES[Number(dow) % 7]}s ${at}`;
+  if (/^\d+$/.test(dom) && dow === '*') return `monthly on the ${nth(Number(dom))} ${at}`;
+  return '';
+}
+Object.assign(window, { setTheme, addRecipient, toggleDigest, removeRecipient, editReport, saveReportForm, previewReport, sendReportNow, pauseReport, deleteReport });
+
 // One floating tooltip for every [data-tip] element. It lives on <body> so table overflow can't clip it.
 function initTips() {
   const box = document.createElement('div'); box.className = 'tipbox'; box.setAttribute('role', 'tooltip'); document.body.append(box);
@@ -1128,7 +1334,8 @@ function initTips() {
 
 // Jump menu: a sticky row of chips under the header, one per section (h2) on the current page,
 // rebuilt whenever #main is re-rendered. Uses buttons, not #anchors, because the hash is the router.
-const JUMP_ICON = [[/how people find/i, '🧭'], [/business profile|listing/i, '📍'], [/local search|map.pack/i, '🗺️'], [/review/i, '⭐'],
+const JUMP_ICON = [[/connections/i, '🔌'], [/appearance/i, '🌓'], [/email address/i, '📬'], [/scheduled report/i, '🗓️'], [/automatic/i, '⏱️'],
+  [/how people find/i, '🧭'], [/business profile|listing/i, '📍'], [/local search|map.pack/i, '🗺️'], [/review/i, '⭐'],
   [/site health/i, '🩺'], [/website/i, '🌐'], [/checklist/i, '✅'], [/keyword gap/i, '🕳️'], [/keyword/i, '🔑'], [/idea/i, '💡'], [/ai answer/i, '🤖'],
   [/social/i, '📣'], [/ads/i, '💸'], [/search performance/i, '📈'], [/within reach/i, '🎯'], [/rank/i, '🏆'], [/top quer/i, '🔍'],
   [/top pages/i, '📄'], [/clinic/i, '🏥'], [/competitor/i, '🥊'], [/job/i, '⚙️'], [/article/i, '📝'], [/supply/i, '🚚'], [/comhla/i, '🐾']];
@@ -1193,8 +1400,8 @@ async function boot() {
       + `<a href="#/ai" class="${slug === 'ai' ? 'active' : ''}">AI answers</a>`
       + `<a href="#/articles" class="${slug === 'articles' || slug.startsWith('article/') ? 'active' : ''}">Articles</a>`;
     $('#brands .tabs a.active')?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
-    $('#home').className = slug ? '' : 'active'; $('#portfolio').className = slug === 'portfolio' ? 'active' : '';
-    try { slug.startsWith('comments') ? await renderComments(slug.split('/')[1]) : slug === 'clinics' ? await renderLocations() : slug.startsWith('clinic/') ? await renderClinic(...slug.split('/').slice(1, 3).map(decodeURIComponent)) : slug === 'ads' ? await renderAds() : slug === 'ai' ? await renderAi() : slug === 'articles' ? await renderArticles() : slug.startsWith('article/') ? await renderArticle(Number(slug.split('/')[1])) : slug === 'portfolio' ? await renderOverview() : slug ? await renderSite(slug) : await renderManagement(); }
+    $('#home').className = slug ? '' : 'active'; $('#portfolio').className = slug === 'portfolio' ? 'active' : ''; $('#settings').className = slug === 'settings' ? 'active' : '';
+    try { slug.startsWith('comments') ? await renderComments(slug.split('/')[1]) : slug === 'clinics' ? await renderLocations() : slug.startsWith('clinic/') ? await renderClinic(...slug.split('/').slice(1, 3).map(decodeURIComponent)) : slug === 'ads' ? await renderAds() : slug === 'ai' ? await renderAi() : slug === 'articles' ? await renderArticles() : slug.startsWith('article/') ? await renderArticle(Number(slug.split('/')[1])) : slug === 'settings' ? await renderSettings() : slug === 'portfolio' ? await renderOverview() : slug ? await renderSite(slug) : await renderManagement(); }
     catch (e) { $('#main').innerHTML = `<p class="empty">Couldn't load that view: ${esc(e.message)}. <a href="#/">Back to portfolio</a></p>`; }
   };
   homeGroup = sites[0]?.group ?? null;

@@ -87,7 +87,8 @@ export const config = {
     pass: process.env.SMTP_PASS || '',
     from: process.env.DIGEST_FROM || '',
     to: process.env.DIGEST_TO || '',
-    get enabled() { return Boolean(this.host && this.to); },
+    // Can send at all. Who gets the weekly digest is DIGEST_TO plus the addresses ticked on the Settings page.
+    get ready() { return Boolean(this.host); },
   },
   cron: {
     audit: process.env.CRON_AUDIT || '0 2 * * 1',
@@ -104,6 +105,8 @@ export const config = {
     planable: process.env.CRON_PLANABLE || '0 7 * * *',
     ai: process.env.CRON_AI || '0 4 2 * *',
   },
+  // Scheduled reports set up on the Settings page are checked against this, a few minutes past every hour.
+  reportsCron: process.env.CRON_REPORTS || '3 * * * *',
 };
 
 export function loadSites() {
