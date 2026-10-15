@@ -768,18 +768,36 @@ const SENTIMENT = { negative: ['Unhappy', 'Rated under 4, or two or more 1–2 s
   positive: ['Happy', 'Rated 4.5 or more with no poor reviews in the last 90 days.'],
   unknown: ['No data yet', 'We haven’t read this clinic’s Google listing yet.'] };
 const pinTip = (c) => `${c.name}, ${c.town}. ${c.rating != null ? `Rated ${c.rating}${c.reviews ? ` from ${n(c.reviews)} reviews` : ''}.` : 'No rating yet.'}${c.recent.n ? ` Last 90 days: ${c.recent.n} review${c.recent.n === 1 ? '' : 's'} averaging ${c.recent.avg}.` : ''}${c.reasons.length ? ` Watch: ${c.reasons.join(', ')}.` : ''} Click to open.`;
+// Clinics in the same town sit on top of each other at map scale, so push overlapping circles apart until each one shows.
+function spreadPins(spots) {
+  for (let pass = 0; pass < 200; pass++) {
+    let moved = false;
+    for (let i = 0; i < spots.length; i++) for (let j = i + 1; j < spots.length; j++) {
+      const a = spots[i], b = spots[j], gap = a.r + b.r - 1;
+      let dx = b.x - a.x, dy = b.y - a.y, d = Math.hypot(dx, dy);
+      if (d >= gap) continue;
+      if (d < 0.01) { dx = Math.cos(j * 2.4); dy = Math.sin(j * 2.4); d = 1; } // same spot: split them in a fixed direction
+      const push = (gap - d) / 2 + 0.05;
+      a.x -= dx / d * push; a.y -= dy / d * push; b.x += dx / d * push; b.y += dy / d * push; moved = true;
+    }
+    if (!moved) break;
+  }
+  return spots;
+}
 function clinicMapSection(pins) {
   if (!pins.length) return '';
   // Australian clinics (west of 160°E) go on a south-east Australia inset in the empty top-left corner of the NZ map.
   const P = NZ_OUTLINE, A = AU_INSET, AX = 0, AY = 20, inAu = (c) => c.lng < 160;
-  const x = (c) => (inAu(c) ? AX + (c.lng - A.W0) * A.K * A.SC : (c.lng - P.W0) * P.K * P.SC).toFixed(1);
-  const y = (c) => (inAu(c) ? AY + (A.N0 - c.lat) * A.SC : (P.N0 - c.lat) * P.SC).toFixed(1);
+  const at = (c) => inAu(c) ? [AX + (c.lng - A.W0) * A.K * A.SC, AY + (A.N0 - c.lat) * A.SC] : [(c.lng - P.W0) * P.K * P.SC, (P.N0 - c.lat) * P.SC];
+  const spots = spreadPins(pins.map((c) => { const [x0, y0] = at(c), r = inAu(c) ? 5.5 : 7; return { c, x0, y0, x: x0, y: y0, r }; }));
   const order = ['unknown', 'positive', 'mixed', 'negative'];
   const count = Object.fromEntries(order.map((k) => [k, pins.filter((c) => c.sentiment === k).length]));
   const watch = pins.filter((c) => c.sentiment === 'negative' || c.sentiment === 'mixed')
     .sort((a, b) => order.indexOf(b.sentiment) - order.indexOf(a.sentiment) || (a.rating ?? 5) - (b.rating ?? 5));
   // Worst last so they draw on top where clinics sit close together.
-  const dots = [...pins].sort((a, b) => order.indexOf(a.sentiment) - order.indexOf(b.sentiment)).map((c) => `<a href="${clinicHref(c.site, c.slug)}" class="pin ${c.sentiment}" data-tip="${esc(pinTip(c))}" aria-label="${esc(`${c.name}: ${SENTIMENT[c.sentiment][0]}`)}"><circle cx="${x(c)}" cy="${y(c)}" r="${inAu(c) ? 5.5 : 7}"/></a>`).join('');
+  // Clinics nudged apart to stay visible keep a thin line back to their real spot.
+  const leaders = spots.filter((p) => Math.hypot(p.x - p.x0, p.y - p.y0) > 3).map((p) => `<line class="leader" x1="${p.x0.toFixed(1)}" y1="${p.y0.toFixed(1)}" x2="${p.x.toFixed(1)}" y2="${p.y.toFixed(1)}"/><circle class="spot" cx="${p.x0.toFixed(1)}" cy="${p.y0.toFixed(1)}" r="1.6"/>`).join('');
+  const dots = leaders + [...spots].sort((a, b) => order.indexOf(a.c.sentiment) - order.indexOf(b.c.sentiment)).map(({ c, x, y, r }) => `<a href="${clinicHref(c.site, c.slug)}" class="pin ${c.sentiment}" data-tip="${esc(pinTip(c))}" aria-label="${esc(`${c.name}: ${SENTIMENT[c.sentiment][0]}`)}"><circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${r}"/></a>`).join('');
   const inset = pins.some(inAu) ? `<g class="inset"><text x="${AX + 2}" y="${AY - 6}">South-east Australia</text><svg x="${AX}" y="${AY}" width="${A.w}" height="${A.h}"><rect width="${A.w}" height="${A.h}" rx="6"/><path class="land" d="${A.d}"/></svg><rect class="frame" x="${AX}" y="${AY}" width="${A.w}" height="${A.h}" rx="6"/></g>` : '';
   const nz = pins.filter((c) => !inAu(c)).length, au = pins.length - nz;
   return `<h2>Clinic sentiment</h2><div class="nzmap">

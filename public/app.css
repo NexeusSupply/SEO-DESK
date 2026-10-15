@@ -449,3 +449,5 @@ table.reports tr.paused td { opacity: 0.7; }
 .nzmap .inset > svg > rect { fill: var(--sheet); }
 .nzmap .inset .frame { fill: none; stroke: var(--line); stroke-width: 1.5; }
 .nzmap .inset text { font: 600 11px var(--display); fill: var(--muted); letter-spacing: 0.04em; text-transform: uppercase; }
+.nzmap .leader { stroke: var(--brand-deep); stroke-width: 1; opacity: 0.45; }
+.nzmap .spot { fill: var(--brand-deep); opacity: 0.6; }
