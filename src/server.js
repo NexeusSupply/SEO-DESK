@@ -2,7 +2,7 @@ import express from 'express';
 import fs from 'node:fs';
 import path from 'node:path';
 import { config, loadSites } from './config.js';
-import { overview, siteDetail, issueDetail, allLocations, management, socialComments, allAds, clinicDetail, allAi } from './queries.js';
+import { overview, siteDetail, issueDetail, allLocations, clinicMap, management, socialComments, allAds, clinicDetail, allAi } from './queries.js';
 import { accessMiddleware } from './access.js';
 import { spendThisMonth } from './data/dataforseo.js';
 import { listAllLocations } from './data/gbp.js';
@@ -68,6 +68,7 @@ app.post('/api/sites/:slug/suggestions', brandAction((s, req) =>
 app.get('/api/ai', (_, res) => res.json(allAi(loadSites())));
 app.get('/api/ads', (_, res) => res.json(allAds(loadSites())));
 app.get('/api/locations', (_, res) => res.json(allLocations(loadSites())));
+app.get('/api/clinic-map', (_, res) => res.json(clinicMap(loadSites())));
 // Finds gbpLocationId values for every listing the signed-in Google account manages
 app.get('/api/gbp/listings', (_, res) => listAllLocations().then((r) => res.json(r)).catch((e) => res.status(500).json({ error: e.message })));
 // Facebook and Instagram. /api/meta/pages finds the pageId / instagramId values for sites.json.

@@ -122,6 +122,37 @@ export function allLocations(sites) {
     .sort((a, b) => b.attention - a.attention || a.brand.localeCompare(b.brand));
 }
 
+/**
+ * Every clinic with map coordinates and a review-sentiment colour, for the Overview map.
+ * Sentiment blends the Google star rating with the tone of the last 90 days of reviews (their stars),
+ * so a well-rated clinic with a run of poor reviews still shows amber or red.
+ */
+export function clinicMap(sites) {
+  const snap = db.prepare('SELECT rating, review_count FROM gbp_snapshots WHERE site=? AND location=? ORDER BY fetched_on DESC LIMIT 1');
+  const recent = db.prepare(`SELECT COUNT(*) n, AVG(rating) avg, SUM(CASE WHEN rating<=2 THEN 1 ELSE 0 END) low FROM gbp_reviews
+    WHERE site=? AND location=? AND created_at >= date('now','-90 days')`);
+  return sites.flatMap((s) => s.locations.filter((l) => l.lat != null && l.lng != null).map((loc) => {
+    const g = snap.get(s.slug, loc.slug), r = recent.get(s.slug, loc.slug);
+    const rating = g?.rating ?? null, n = r?.n ?? 0, avg = n ? +r.avg.toFixed(1) : null, low = r?.low ?? 0;
+    const reasons = [];
+    let sentiment = rating == null && !n ? 'unknown' : 'positive';
+    if (sentiment !== 'unknown') {
+      if (rating != null && rating < 4) reasons.push(`rated ${rating}`);
+      if (low >= 2) reasons.push(`${low} poor reviews lately`);
+      if (n >= 3 && avg < 3.5) reasons.push(`recent reviews average ${avg}`);
+      if (reasons.length) sentiment = 'negative';
+      else {
+        if (rating != null && rating < 4.5) reasons.push(`rated ${rating}`);
+        if (low === 1) reasons.push('a poor review lately');
+        if (n >= 3 && avg < 4.3) reasons.push(`recent reviews average ${avg}`);
+        if (reasons.length) sentiment = 'mixed';
+      }
+    }
+    return { site: s.slug, brand: s.name, slug: loc.slug, name: loc.name, town: loc.town, lat: loc.lat, lng: loc.lng,
+      rating, reviews: g?.review_count ?? null, recent: { n, avg, low }, sentiment, reasons };
+  }));
+}
+
 export function recentReviews(site, limit = 30) {
   return db.prepare('SELECT review_id, location, created_at, rating, reviewer, comment, replied FROM gbp_reviews WHERE site=? ORDER BY created_at DESC LIMIT ?').all(site.slug, limit);
 }

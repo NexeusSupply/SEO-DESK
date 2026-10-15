@@ -762,9 +762,35 @@ const groupBlock = (name, count, body) => name === homeGroup
   : `<details class="group fold"><summary><h2 class="group-title">${esc(name)}<span class="count">${count} brand${count === 1 ? '' : 's'}</span></h2></summary>${body}</details>`;
 const pctTxt = (p) => p == null ? '' : `<span class="delta ${p > 0 ? 'up' : p < 0 ? 'down' : 'flat'}">${p > 0 ? '+' : ''}${p}%</span>`;
 
+// Overview map: every clinic as a circle on New Zealand, coloured by how its Google reviews are going.
+const SENTIMENT = { negative: ['Unhappy', 'Rated under 4, or two or more 1–2 star reviews (or recent reviews averaging under 3.5) in the last 90 days.'],
+  mixed: ['Mixed', 'Rated 4 to 4.4, or one 1–2 star review (or recent reviews averaging under 4.3) in the last 90 days.'],
+  positive: ['Happy', 'Rated 4.5 or more with no poor reviews in the last 90 days.'],
+  unknown: ['No data yet', 'We haven’t read this clinic’s Google listing yet.'] };
+const pinTip = (c) => `${c.name}, ${c.town}. ${c.rating != null ? `Rated ${c.rating}${c.reviews ? ` from ${n(c.reviews)} reviews` : ''}.` : 'No rating yet.'}${c.recent.n ? ` Last 90 days: ${c.recent.n} review${c.recent.n === 1 ? '' : 's'} averaging ${c.recent.avg}.` : ''}${c.reasons.length ? ` Watch: ${c.reasons.join(', ')}.` : ''} Click to open.`;
+function clinicMapSection(pins) {
+  if (!pins.length) return '';
+  const P = NZ_OUTLINE, x = (lng) => ((lng - P.W0) * P.K * P.SC).toFixed(1), y = (lat) => ((P.N0 - lat) * P.SC).toFixed(1);
+  const order = ['unknown', 'positive', 'mixed', 'negative'];
+  const count = Object.fromEntries(order.map((k) => [k, pins.filter((c) => c.sentiment === k).length]));
+  const watch = pins.filter((c) => c.sentiment === 'negative' || c.sentiment === 'mixed')
+    .sort((a, b) => order.indexOf(b.sentiment) - order.indexOf(a.sentiment) || (a.rating ?? 5) - (b.rating ?? 5));
+  // Worst last so they draw on top where clinics sit close together.
+  const dots = [...pins].sort((a, b) => order.indexOf(a.sentiment) - order.indexOf(b.sentiment)).map((c) => `<a href="${clinicHref(c.site, c.slug)}" class="pin ${c.sentiment}" data-tip="${esc(pinTip(c))}" aria-label="${esc(`${c.name}: ${SENTIMENT[c.sentiment][0]}`)}"><circle cx="${x(c.lng)}" cy="${y(c.lat)}" r="7"/></a>`).join('');
+  return `<h2>Clinic sentiment</h2><div class="nzmap">
+    <svg viewBox="-6 -6 ${P.w + 12} ${P.h + 12}" role="img" aria-label="Map of New Zealand showing ${pins.length} clinics coloured by review sentiment"><path class="land" d="${P.d}"/>${dots}</svg>
+    <div class="nzmap-side">
+      <p class="sub">${pins.length} clinics, coloured by their Google rating and the tone of the last 90 days of reviews. Hover a circle for the detail, click to open the clinic.</p>
+      <ul class="legend">${[...order].reverse().map((k) => `<li class="${k}"><i></i><span class="tip" tabindex="0" data-tip="${esc(SENTIMENT[k][1])}">${SENTIMENT[k][0]}</span><b>${count[k]}</b></li>`).join('')}</ul>
+      ${watch.length ? `<h3>Worth a look</h3><ul class="watchlist">${watch.slice(0, 8).map((c) => `<li class="${c.sentiment}"><i></i><a href="${clinicHref(c.site, c.slug)}">${esc(c.name)}</a><small>${esc(c.reasons.join(', '))}</small></li>`).join('')}</ul>${watch.length > 8 ? `<p class="foot"><a href="#/clinics">and ${watch.length - 8} more in Clinics →</a></p>` : ''}`
+        : count.unknown === pins.length ? '<p class="empty">Ratings appear once the clinics’ Google listings have been read.</p>' : '<p class="empty">Every clinic with reviews is doing well.</p>'}
+    </div></div>`;
+}
+
 async function renderManagement() {
-  const groups = await api('/management');
+  const [groups, pins] = await Promise.all([api('/management'), api('/clinic-map').catch(() => [])]);
   $('#main').innerHTML = `<h1>How things are going</h1><p class="sub">Search visibility and Google listings across the group, updated daily. Green is fine, amber needs a look, red needs a decision.</p>
+  ${clinicMapSection(pins)}
   ${groups.map((g) => { const h = g.headline; return groupBlock(g.group, g.brands.length, `
     <div class="strip mgmt">
       <div><div class="v">${h.brandsConnected}<small>of ${h.brands} brands</small></div><div class="l">${tip('Reporting', 'reporting')}</div></div>
@@ -1335,7 +1361,7 @@ function initTips() {
 // Jump menu: a sticky row of chips under the header, one per section (h2) on the current page,
 // rebuilt whenever #main is re-rendered. Uses buttons, not #anchors, because the hash is the router.
 const JUMP_ICON = [[/connections/i, '🔌'], [/appearance/i, '🌓'], [/email address/i, '📬'], [/scheduled report/i, '🗓️'], [/automatic/i, '⏱️'],
-  [/how people find/i, '🧭'], [/business profile|listing/i, '📍'], [/local search|map.pack/i, '🗺️'], [/review/i, '⭐'],
+  [/how people find/i, '🧭'], [/business profile|listing/i, '📍'], [/local search|map.pack/i, '🗺️'], [/review/i, '⭐'], [/sentiment/i, '🇳🇿'],
   [/site health/i, '🩺'], [/website/i, '🌐'], [/checklist/i, '✅'], [/keyword gap/i, '🕳️'], [/keyword/i, '🔑'], [/idea/i, '💡'], [/ai answer/i, '🤖'],
   [/social/i, '📣'], [/ads/i, '💸'], [/search performance/i, '📈'], [/within reach/i, '🎯'], [/rank/i, '🏆'], [/top quer/i, '🔍'],
   [/top pages/i, '📄'], [/clinic/i, '🏥'], [/competitor/i, '🥊'], [/job/i, '⚙️'], [/article/i, '📝'], [/supply/i, '🚚'], [/comhla/i, '🐾']];
