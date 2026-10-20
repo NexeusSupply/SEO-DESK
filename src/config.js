@@ -35,6 +35,15 @@ export const config = {
     version: process.env.META_GRAPH_VERSION || 'v23.0',
     get enabled() { return Boolean(this.token); },
   },
+  whatsapp: {
+    // WhatsApp Cloud API. The System User token needs whatsapp_business_messaging; META_ACCESS_TOKEN is used if this
+    // is blank. WHATSAPP_VERIFY_TOKEN is any string you choose and type into Meta's webhook settings too.
+    get token() { return process.env.WHATSAPP_TOKEN || process.env.META_ACCESS_TOKEN || ''; },
+    verifyToken: process.env.WHATSAPP_VERIFY_TOKEN || '',
+    // The dashboard's address (https://seo.comhlavet.com), for the link in forwarded emails.
+    publicUrl: (process.env.PUBLIC_URL || '').replace(/\/$/, ''),
+    get enabled() { return Boolean(this.token && this.verifyToken && process.env.META_APP_SECRET); },
+  },
   planable: {
     // A Planable company API token (Company settings → API tokens). Read scope syncs figures; Write also lets the
     // dashboard create draft posts. Needs Planable's Pro or Enterprise plan.
@@ -123,6 +132,7 @@ export function loadSites() {
     s.competitors ||= [];
     s.localKeywords ||= [];
     s.meta = s.meta?.pageId || s.meta?.instagramId ? { pageId: s.meta.pageId ? String(s.meta.pageId) : null, instagramId: s.meta.instagramId ? String(s.meta.instagramId) : null } : null;
+    s.whatsapp = s.whatsapp?.phoneNumberId ? { phoneNumberId: String(s.whatsapp.phoneNumberId), forwardTo: s.whatsapp.forwardTo || null } : null;
     s.planable = s.planable?.workspaceId ? { workspaceId: String(s.planable.workspaceId), pageIds: (s.planable.pageIds || []).map(String) } : null;
     s.locations = (s.locations || []).map((l) => {
       if (!l.slug || !l.name) throw new Error(`Location in ${s.slug} missing slug or name`);

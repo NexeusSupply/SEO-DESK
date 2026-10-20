@@ -11,6 +11,7 @@ const scoreColour = (s) => s >= 80 ? 'var(--good)' : s >= 60 ? 'var(--warn)' : '
 const scoreBar = (s) => s == null ? '<span class="dash">—</span>' : `<span class="score"><b>${s}</b><i style="--w:${s}%;--c:${scoreColour(s)}"></i></span>`;
 // Plain-English explanations shown when hovering, tapping or tabbing to a heading.
 const TIPS = {
+  draftWhatsApp: 'Claude reads the conversation and writes a short WhatsApp reply as the brand. Edit it before sending; nothing goes until you press Send.',
   auditScore: 'A 0–100 health check of the website from our own crawl. It starts at 100 and loses points for every problem found, weighted by how serious it is and by the size of the site. 80+ is healthy, 60–79 needs some fixes, under 60 needs attention.',
   errors: 'Serious website problems found in the last audit, such as broken pages or pages that fail to load. These hurt visitors and Google rankings, so fix them first.',
   clicks: 'How many times someone clicked through to the website from a Google search result. From Google Search Console. The small +/− figure is the change on the previous 28 days.',
@@ -356,7 +357,7 @@ const mockReply = (r, site, clinic) => `<details class="mock-reply" data-draft="
   <p class="cmt-err notok" hidden></p></details>`;
 async function draftReply(btn) {
   const box = btn.closest('[data-draft]'), ta = box.querySelector('textarea'), err = box.querySelector('.cmt-err');
-  const kind = box.dataset.draft === 'review' ? 'reviews' : 'comments';
+  const kind = { review: 'reviews', whatsapp: 'whatsapp' }[box.dataset.draft] || 'comments';
   btn.disabled = true; btn.textContent = 'Drafting…'; err.hidden = true;
   try {
     const { reply } = await post(`/sites/${box.dataset.site}/${kind}/${encodeURIComponent(box.dataset.id)}/draft-reply`, { note: box.querySelector('.draft-note')?.value || '' });
@@ -733,6 +734,59 @@ async function renderComments(status) {
   <div class="actions inbox-tabs"><a class="run ${status === 'all' ? '' : 'on'}" href="#/comments">Waiting for a reply</a><a class="run ${status === 'all' ? 'on' : ''}" href="#/comments/all">All recent</a>
     <button class="run" onclick="run('meta-comments')">Check for new comments</button></div>
   ${rows.length ? commentsList(rows, true) : `<p class="empty">${status === 'all' ? 'No comments synced yet.' : 'Nothing waiting. All caught up.'}</p>`}`;
+}
+
+// ---- WhatsApp: conversations from each brand's WhatsApp number, also emailed to its support address ----
+const waBubble = (m) => `<div class="wa-msg ${m.direction}"><div class="wa-text">${esc(m.body) || '<span class="muted">(no text)</span>'}</div>
+  ${m.media_id && m.type === 'image' ? `<a href="/api/whatsapp/media/${encodeURIComponent(m.media_id)}" target="_blank" rel="noopener"><img class="wa-img" src="/api/whatsapp/media/${encodeURIComponent(m.media_id)}" alt="Photo" loading="lazy"></a>`
+    : m.media_id ? `<a href="/api/whatsapp/media/${encodeURIComponent(m.media_id)}" target="_blank" rel="noopener">Open ${m.type === 'audio' ? 'voice message' : 'file'}</a>` : ''}
+  <small class="muted">${ago(m.created_at)}${m.direction === 'out' ? `${m.sent_by ? ` · ${esc(m.sent_by)}` : ''}${m.status ? ` · ${esc(m.status)}` : ''}`
+    : m.email_error ? ` · <span class="notok">not emailed: ${esc(m.email_error)}</span>` : m.emailed_at ? ' · emailed' : ''}</small></div>`;
+function waRow(c) {
+  return `<li class="cmt ${c.waiting ? '' : 'done'}" data-draft="whatsapp" data-site="${esc(c.site)}" data-id="${esc(c.wa_id)}">
+    <div class="cmt-head"><span class="plat whatsapp">WhatsApp</span> <a href="#/${esc(c.site)}">${esc(c.brand)}</a> <b>${esc(c.name || c.phone)}</b>${c.name ? ` <span class="muted">${esc(c.phone)}</span>` : ''} <span class="muted">${ago(c.last_at)}</span></div>
+    <div class="wa-thread">${c.messages.map(waBubble).join('')}</div>
+    ${!c.waiting && c.handled_by ? `<p class="cmt-state"><span class="ok">✓</span> Marked as handled <span class="muted">· ${esc(c.handled_by)}</span></p>` : ''}
+    ${c.can_reply ? `<form class="cmt-reply" onsubmit="return replyWhatsApp(event)">${claudeOn ? noteInput : ''}<textarea name="m" rows="2" placeholder="Reply on WhatsApp as ${esc(c.brand)}…" required></textarea>
+      <div class="actions"><button class="run primary-btn" type="submit">Send</button>${claudeOn ? `<button class="run" type="button" onclick="draftReply(this)" data-tip="${esc(TIPS.draftWhatsApp)}">Draft with Claude</button>` : ''}${c.waiting ? '<button class="run" type="button" onclick="whatsAppHandled(this)">No reply needed</button>' : ''}</div></form>`
+      : `<p class="cmt-state muted">More than 24 hours since their last message, so WhatsApp won’t deliver a normal reply. Call or email them instead.</p>${c.waiting ? '<div class="actions"><button class="run" type="button" onclick="whatsAppHandled(this)">Mark as handled</button></div>' : ''}`}
+    <p class="cmt-err notok" hidden></p>
+  </li>`;
+}
+async function refreshWhatsApp(li) {
+  const rows = await api(`/whatsapp?site=${li.dataset.site}&status=all`);
+  const c = rows.find((r) => r.wa_id === li.dataset.id);
+  if (c) li.outerHTML = waRow(c);
+}
+async function replyWhatsApp(ev) {
+  ev.preventDefault();
+  const form = ev.target, li = form.closest('.cmt'), err = li.querySelector('.cmt-err');
+  const message = form.m.value.trim(); if (!message) return false;
+  form.querySelectorAll('button,textarea').forEach((x) => { x.disabled = true; });
+  try { await post(`/sites/${li.dataset.site}/whatsapp/${encodeURIComponent(li.dataset.id)}/reply`, { message }); await refreshWhatsApp(li); }
+  catch (e) { err.textContent = `Couldn't send: ${e.message}`; err.hidden = false; form.querySelectorAll('button,textarea').forEach((x) => { x.disabled = false; }); }
+  return false;
+}
+async function whatsAppHandled(btn) {
+  const li = btn.closest('.cmt'), err = li.querySelector('.cmt-err');
+  btn.disabled = true;
+  try { await post(`/sites/${li.dataset.site}/whatsapp/${encodeURIComponent(li.dataset.id)}/handled`); await refreshWhatsApp(li); }
+  catch (e) { err.textContent = e.message; err.hidden = false; btn.disabled = false; }
+}
+window.replyWhatsApp = replyWhatsApp; window.whatsAppHandled = whatsAppHandled;
+
+async function renderWhatsApp(status) {
+  const st = await api('/status');
+  if (!st.whatsapp) {
+    $('#main').innerHTML = `<h1>WhatsApp <span class="sig nc">Not set up</span></h1>
+    <p class="sub">Messages sent to a brand’s WhatsApp number show up here and are emailed to its support address, so nobody’s personal phone has to answer them. Replies are sent from this page as the brand.</p>
+    <p class="sub">It switches on once the WhatsApp number is added to the Meta app and a brand has a <code>whatsapp</code> block in sites.json. <a href="#/settings">See what’s missing in Settings</a>.</p>`;
+    return;
+  }
+  const rows = await api(`/whatsapp${status === 'all' ? '?status=all' : ''}`);
+  $('#main').innerHTML = `<h1>WhatsApp</h1><p class="sub">Messages to each brand’s WhatsApp number, also emailed to its support address. Replies go to the customer on WhatsApp, as the brand, and can only be sent within 24 hours of their last message.</p>
+  <div class="actions inbox-tabs"><a class="run ${status === 'all' ? '' : 'on'}" href="#/whatsapp">Waiting for a reply</a><a class="run ${status === 'all' ? 'on' : ''}" href="#/whatsapp/all">All recent</a></div>
+  ${rows.length ? `<ul class="cmts">${rows.map(waRow).join('')}</ul>` : `<p class="empty">${status === 'all' ? 'No WhatsApp messages yet.' : 'Nothing waiting. All caught up.'}</p>`}`;
 }
 
 async function run(job, site) {
@@ -1542,12 +1596,13 @@ async function boot() {
       + others.map((g) => dd(g, sites.filter((s) => s.group === g))).join('')
       + `<a href="#/clinics" class="${slug === 'clinics' || slug.startsWith('clinic/') ? 'active' : ''} sep">All clinics</a>`
       + `<a href="#/comments" class="${slug.startsWith('comments') ? 'active' : ''}">Comments</a>`
+      + `<a href="#/whatsapp" class="${slug.startsWith('whatsapp') ? 'active' : ''}">WhatsApp</a>`
       + `<a href="#/ads" class="${slug === 'ads' ? 'active' : ''}">Ads</a>`
       + `<a href="#/ai" class="${slug === 'ai' ? 'active' : ''}">AI answers</a>`
       + `<a href="#/articles" class="${slug === 'articles' || slug.startsWith('article/') ? 'active' : ''}">Articles</a>`;
     $('#brands .tabs a.active')?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
     $('#home').className = slug ? '' : 'active'; $('#portfolio').className = slug === 'portfolio' ? 'active' : ''; $('#settings').className = slug === 'settings' ? 'active' : '';
-    try { slug.startsWith('comments') ? await renderComments(slug.split('/')[1]) : slug === 'clinics' ? await renderLocations() : slug.startsWith('clinic/') ? await renderClinic(...slug.split('/').slice(1, 3).map(decodeURIComponent)) : slug === 'ads' ? await renderAds() : slug === 'ai' ? await renderAi() : slug === 'articles' ? await renderArticles() : slug.startsWith('article/') ? await renderArticle(Number(slug.split('/')[1])) : slug === 'settings' ? await renderSettings() : slug === 'portfolio' ? await renderOverview() : slug ? await renderSite(slug) : await renderManagement(); }
+    try { slug.startsWith('comments') ? await renderComments(slug.split('/')[1]) : slug.startsWith('whatsapp') ? await renderWhatsApp(slug.split('/')[1]) : slug === 'clinics' ? await renderLocations() : slug.startsWith('clinic/') ? await renderClinic(...slug.split('/').slice(1, 3).map(decodeURIComponent)) : slug === 'ads' ? await renderAds() : slug === 'ai' ? await renderAi() : slug === 'articles' ? await renderArticles() : slug.startsWith('article/') ? await renderArticle(Number(slug.split('/')[1])) : slug === 'settings' ? await renderSettings() : slug === 'portfolio' ? await renderOverview() : slug ? await renderSite(slug) : await renderManagement(); }
     catch (e) { $('#main').innerHTML = `<p class="empty">Couldn't load that view: ${esc(e.message)}. <a href="#/">Back to portfolio</a></p>`; }
   };
   homeGroup = sites[0]?.group ?? null;

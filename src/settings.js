@@ -115,6 +115,20 @@ export function connectionList() {
       missing: config.meta.enabled ? names(sites.filter((s) => !s.meta)) : [] });
   }
   {
+    const linked = sites.filter((s) => s.whatsapp);
+    // Failing when the newest incoming message couldn't be emailed on.
+    const latest = db.prepare("SELECT created_at at, site, email_error message FROM wa_messages WHERE direction='in' ORDER BY created_at DESC LIMIT 1").get();
+    const failed = latest?.message ? latest : null;
+    const missingVars = ['WHATSAPP_VERIFY_TOKEN', 'META_APP_SECRET'].filter((k) => !process.env[k]).concat(config.whatsapp.token ? [] : ['WHATSAPP_TOKEN']);
+    out.push({ key: 'whatsapp', name: 'WhatsApp', what: 'Incoming WhatsApp messages emailed to each brand’s support address, and replies from the WhatsApp page.',
+      state: !config.whatsapp.enabled ? 'off' : failed ? 'error' : !linked.length ? 'partial' : 'on',
+      vars: config.whatsapp.enabled ? [] : missingVars,
+      detail: config.whatsapp.enabled ? `Webhook at /webhooks/whatsapp. ${linked.length ? `Messages are emailed to ${[...new Set(linked.map((s) => s.whatsapp.forwardTo).filter(Boolean))].join(', ') || 'nobody yet (set forwardTo)'}.` : 'No brand has a whatsapp phoneNumberId in sites.json yet.'}${config.smtp.ready ? '' : ' Email sending isn’t set up, so nothing can be forwarded yet.'}`
+        : 'Needs the WhatsApp number added to the Meta app, a verify token and the app secret (see the README).',
+      coverage: config.whatsapp.enabled ? `${linked.length} of ${sites.length} brands` : null, missing: [],
+      lastOk: latest && !failed ? latest.at : null, lastError: failed ? { at: failed.at, site: failed.site, message: `Couldn’t email a message: ${failed.message}` } : null });
+  }
+  {
     const linked = sites.filter((s) => s.planable);
     add({ key: 'planable', name: 'Planable', ready: config.planable.enabled, jobs: ['planable'],
       what: 'Social figures for every channel in Planable, and sending draft posts there for approval.',

@@ -1040,6 +1040,7 @@
     "name": "Cowsmart",
     "url": "https://cowsmart.co.nz",
     "cms": "rocketspark",
+    "whatsapp": { "phoneNumberId": "", "forwardTo": "support@cowsmart.co.nz" },
     "description": "Veterinary data consultancy for dairy farmers (herd data, reproduction and mastitis), based at the Centre for Dairy Excellence in Geraldine.",
     "keywords": [],
     "keywordSeeds": [
