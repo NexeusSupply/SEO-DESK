@@ -171,6 +171,7 @@ h3 { font-size: 15px; font-weight: 600; margin: 24px 0 10px; }
 .plat.threads, .plat.x { background: #ececec; color: #222; }
 .plat.google { background: #e5f2e8; color: #1d6b36; }
 .plat.pinterest { background: #f8e0e2; color: #9b1b2a; }
+.plat.whatsapp { background: #ddf3e4; color: #12663a; }
 /* Drafting a post for Planable */
 .post-form { background: var(--sheet); border: 1px solid var(--line); border-radius: 8px; padding: 14px 16px; }
 .post-form .chans { display: flex; flex-wrap: wrap; gap: 6px 16px; margin-bottom: 10px; font-size: 14px; }
@@ -456,3 +457,11 @@ table.reports tr.paused td { opacity: 0.7; }
 .nzmap .leaders { transition: opacity 0.2s; }
 .nzmap .zlabels text { font-family: var(--display); font-weight: 600; fill: var(--brand-deep); stroke: var(--sheet); paint-order: stroke; pointer-events: none; animation: zl-in 0.2s ease-out; }
 @keyframes zl-in { from { opacity: 0; } }
+
+/* WhatsApp conversations: their messages on the left, ours on the right */
+.wa-thread { display: flex; flex-direction: column; gap: 6px; margin: 8px 0 4px; }
+.wa-msg { max-width: min(560px, 85%); padding: 7px 11px; border-radius: 10px; background: var(--paper); border: 1px solid var(--line); }
+.wa-msg.out { align-self: flex-end; background: var(--good-soft); border-color: transparent; }
+.wa-text { white-space: pre-wrap; overflow-wrap: anywhere; }
+.wa-img { display: block; max-width: 240px; max-height: 240px; margin: 6px 0 2px; border-radius: 6px; }
+.wa-msg small { display: block; margin-top: 2px; font-size: 12px; }

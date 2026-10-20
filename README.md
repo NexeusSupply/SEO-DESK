@@ -10,6 +10,7 @@ A self-hosted SEO dashboard for a portfolio of brand websites. It covers the par
 | Competitors | Organic keyword count, estimated traffic, backlinks and referring domains for you and each competitor; keyword gap (what they rank for that you don't); volume and difficulty for your tracked keywords. | DataForSEO Labs + Backlinks | A few cents per domain refresh |
 | Local SEO | Per-clinic Business Profile listing (rating, review count, completeness, open status), reviews with unreplied and low-rating flags, listing performance (search/maps views, calls, direction requests), map-pack rankings checked from each town, and name/address/phone consistency between config, website and listing. A group-wide "All clinics" view sorts by who needs attention, and each clinic has its own page (pick one from the clinic menu or click its name) with its listing details, reviews, listing performance, map-pack trend and website figures. | Google Business Profile APIs + DataForSEO | Free + ~US$0.003 per local check |
 | Facebook and Instagram | Followers, views and engagements over 28 days against the 28 before, recent posts with likes, comments and shares, and a comments inbox: read every comment across brands, reply publicly as the brand, hide spam, or mark it as needing no reply. Unanswered comments over a day old count towards a brand's Watch signal. | Meta Graph API | Free |
+| WhatsApp | Each message to a brand's WhatsApp number is emailed to its support address (photos and files attached), so it lands in the shared mailbox rather than on one person's phone. A "WhatsApp" page shows every conversation, with replies sent as the brand's number and Claude drafts. | WhatsApp Cloud API (Meta) | Receiving is free; replies within 24 hours of the customer's last message are free or very cheap (check Meta's current rates) |
 | Ads | Google ads each brand's website is running (image, text and video, with first and last shown dates) from Google's public Ads Transparency Center, checked weekly, plus a link to each brand's Facebook and Instagram ads in Meta's public Ad Library. An "Ads" page lists every brand. | DataForSEO (Google Ads Transparency) | A fraction of a cent per brand per week |
 | AI answers | Once a month, asks ChatGPT, Gemini and Perplexity (with web search, as someone in New Zealand) which vet they'd recommend in each clinic's town, and checks Google's AI Overview on the town's local search. Shows whether each clinic was named and in what position, whether its website was cited, who was named instead, and the sources the AI read. Brands without clinics (Cowsmart, the supply chain businesses, the Australian brands) get brand-level questions instead, such as "Who supplies animal health products to vet clinics in New Zealand?", asked as someone in the brand's country. There's an "AI answers" page for every brand, plus a section on each brand and clinic page. | DataForSEO AI Optimization (LLM Responses) + SERP API | About US$0.02–0.04 per question per AI, plus US$0.004 per AI Overview check. Roughly US$5–7 a month for 54 towns |
 | Keyword research | Per clinic, and per brand for businesses without clinics: searches to target on the website (SEO) and to bid on in Google Ads. Starts from the clinic's town and services (`vet feilding`, `farm vet feilding`, `emergency vet feilding`…) plus any words you add, pulls Google's related suggestions with monthly searches, a 12-month trend, ad competition and top-of-page bids, adds SEO difficulty, and marks each one SEO, Ads, both or low priority, with where the site already ranks. Download as CSV for Google Ads. Brands start from their `keywordSeeds` (or, with none, from what Google thinks the website is about), with Australian volumes for Australian brands. Runs when someone presses the button and is kept for a month; clinics in the same town share results. | DataForSEO (Google Ads Keyword Planner + Labs difficulty) | About US$0.09 per clinic, about US$5 for all 54 |
@@ -143,6 +144,26 @@ One token covers every brand. The steps all need someone who is an admin of the 
 7. With the server running, open `/api/meta/pages` to list every Page the token can see with its Instagram ID, and copy the IDs into sites.json.
 
 Comments are checked every 30 minutes (`CRON_META_COMMENTS`) and insights daily (`CRON_META`). Replies go out publicly straight away, as the Page or Instagram account, and the dashboard records which signed-in person sent them. Meta keeps changing which insight metrics exist; each is requested on its own, so a retired one just disappears from the numbers rather than breaking the sync.
+
+### WhatsApp
+
+A brand's WhatsApp number can live on Meta's servers instead of a phone. Meta sends each incoming message to `/webhooks/whatsapp`; SEO Desk saves it and emails it to the brand's `forwardTo` address, with any photo or file attached. The **WhatsApp** page lists the conversations, and replies typed there go to the customer on WhatsApp as the brand. Replying to the forwarded email sends an email, not a WhatsApp. WhatsApp only delivers a normal reply within 24 hours of the customer's last message; after that the page says to call or email them instead.
+
+```json
+"whatsapp": { "phoneNumberId": "123456789012345", "forwardTo": "support@cowsmart.co.nz" }
+```
+
+It uses the same Meta app and system user as Facebook and Instagram above. Someone who is an admin of the Meta Business portfolio does these steps:
+
+1. **Pick the number.** Any number that can take a text or a call, including a landline, as long as it isn't already on WhatsApp (if it is, delete that WhatsApp account first). Once added it can't also be used in the WhatsApp phone app.
+2. **Add WhatsApp to the app.** developers.facebook.com → the app → Add product → **WhatsApp**, and choose the business portfolio. This creates a WhatsApp Business Account.
+3. **Add the number.** WhatsApp → API Setup → Add phone number. Enter the display name (the brand's name; Meta checks it) and verify the number by text or voice call. If it then shows as not registered, register it from the same page with a six-digit PIN you choose. Copy the **Phone number ID** (not the phone number) into `phoneNumberId` in sites.json.
+4. **Token.** In Business Settings → System users, give the system user the WhatsApp account with full control, then generate a new token that also has `whatsapp_business_messaging` and `whatsapp_business_management`. Put it in `META_ACCESS_TOKEN`, or in `WHATSAPP_TOKEN` to keep it separate.
+5. **Server variables.** `META_APP_SECRET` (app → App settings → Basic → App secret; required here, because it's how SEO Desk knows a message really came from Meta), `WHATSAPP_VERIFY_TOKEN` (any long random string you make up) and `PUBLIC_URL` (`https://seo.comhlavet.com`, for the link in the emails). Email sending (`SMTP_*`) must be set up too.
+6. **Let Meta past the login.** Cloudflare Zero Trust → Access → Applications → Add → *Self-hosted*: domain `seo.comhlavet.com`, path `webhooks/whatsapp`, with one policy whose action is **Bypass** and which includes **Everyone**. Only that path is opened, and SEO Desk refuses any request on it without Meta's signature.
+7. **Webhook.** App → WhatsApp → Configuration → Webhook: callback URL `https://seo.comhlavet.com/webhooks/whatsapp`, verify token the same as `WHATSAPP_VERIFY_TOKEN`, then **Verify and save** and subscribe to the **messages** field.
+8. **Go live.** Switch the app to Live mode (Meta only sends real customers' messages to live apps). Meta may also ask for Business Verification and a payment method in WhatsApp Manager before the number can message freely.
+9. **Test.** Send the number a WhatsApp from your own phone. It should appear on the WhatsApp page within seconds and in the support mailbox shortly after. Settings shows WhatsApp as working, or the reason the last email failed.
 
 ### Planable
 
@@ -301,8 +322,9 @@ Dockerfile            For Railway / Render / Fly / any VPS
   data/gbp-auth.js    One-time OAuth helper
   data/local.js       Map-pack rank checks and NAP consistency
   data/meta.js        Facebook and Instagram insights, posts, comments and replies
+  data/whatsapp.js    WhatsApp webhook, emailing messages on, replies
   data/planable.js    Planable channels' figures and posts, and creating draft posts
-  data/reply-helper.js  Claude drafts replies to Google reviews and Facebook/Instagram comments, and social posts
+  data/reply-helper.js  Claude drafts replies to Google reviews, Facebook/Instagram comments and WhatsApp messages, and social posts
   data/ads.js         Google ads via the Ads Transparency Center, Meta Ad Library links
   data/keywords.js    Keyword research per clinic or brand and the SEO / Ads advice
   data/suggestions.js Claude's traffic ideas and starter search ad per clinic
