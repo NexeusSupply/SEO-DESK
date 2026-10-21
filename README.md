@@ -182,6 +182,19 @@ The sync runs daily (`CRON_PLANABLE`, `npm run planable`). The first run backfil
 
 What Planable's API can't do: there are no comments or messages (replies happen in Planable's Social Inbox add-on, or here through Meta), no webhooks (hence the daily sync), and published posts can't be edited. Planable doesn't document whether each metrics snapshot holds one day's figures or a running total. The sync treats them as daily (the latest snapshot each day wins), so check the first real run's 28-day totals against Planable's own analytics.
 
+### WP Umbrella
+
+[WP Umbrella](https://wp-umbrella.com) monitors the group's WordPress sites. With its Public API token in `WP_UMBRELLA_API_KEY`, each WordPress brand's page gets a **Website uptime and upkeep** section: uptime and outages over 30 days, Lighthouse speed (mobile and desktop), WordPress, plugin and theme updates waiting, known security holes (Patchstack), PHP errors, broken links, HTTPS, whether WordPress is blocking search engines, and the last backup. The Dashboard flags any brand that is down, hidden from Google or has security alerts.
+
+1. **Token.** In WP Umbrella go to Profile → Public API (for developers) and generate a token. This is an account-level token, not the connection key you paste into the plugin on each site. Paste it into `WP_UMBRELLA_API_KEY`.
+2. **Sites.** Each WordPress site needs the WP Umbrella plugin installed and connected. Sites are matched to brands by domain (www or not). Open `/api/wpumbrella/projects` to see what matched; if a brand's site is listed under another address, add its id to sites.json:
+
+```json
+"wpUmbrella": { "projectId": 123 }
+```
+
+The sync runs every three hours (`CRON_WPUMBRELLA`, `npm run wpumbrella`). WP Umbrella's API is for reading and maintenance only; it can't create posts, so sending shared articles still needs each site's WordPress application password (`WP_<SLUG>`). WP Umbrella's own down alerts are faster than this sync, so keep those on in WP Umbrella.
+
 ### Shared articles
 
 The **Articles** page turns one article into a version for each brand. Claude reads what the dashboard knows about each brand (its clinics and towns, keyword research, Search Console queries ranking 8–20, keyword gap, AI answers, and the pages found by the latest audit) and rewrites the article for it: a new opening and close, local context and FAQ, a call to action naming its clinics, a focus search the site is missing, and links to two to four of its existing pages. It also lists the SEO holes the post fills and the changes to make elsewhere on the site (pages to link from, pages it could compete with). Versions are written three at a time in the background.

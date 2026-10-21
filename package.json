@@ -17,6 +17,7 @@
     "meta": "node src/cli.js meta",
     "ads": "node src/cli.js ads",
     "planable": "node src/cli.js planable",
+    "wpumbrella": "node src/cli.js wpumbrella",
     "ai": "node src/cli.js ai",
     "keywords": "node src/cli.js keywords",
     "gbp:auth": "node src/data/gbp-auth.js"

@@ -1,5 +1,6 @@
 // Read-side queries that feed the dashboard and digest.
 import { db } from './db.js';
+import { websiteHealth, healthFlags } from './data/wpumbrella.js';
 import { config } from './config.js';
 import { ISSUE_LABELS } from './audit/rules.js';
 import { keywordGap } from './data/competitors.js';
@@ -32,6 +33,7 @@ export function overview(sites) {
         top10: ranks.filter((r) => r.position && r.position <= 10).length, unranked: ranks.filter((r) => !r.position).length, date: rankDate,
       } : null,
       domain: snap || null,
+      web: healthFlags(s),
     };
   });
 }
@@ -75,6 +77,8 @@ export function siteDetail(site) {
     socialSources: { meta: config.meta.enabled && Boolean(site.meta), planable: config.planable.enabled && Boolean(site.planable) },
     planablePages: config.planable.enabled && site.planable ? savedPages(site) : [],
     ai: { ...aiSummary(site), engines: engineList() },
+    // Uptime and upkeep from WP Umbrella; null for brands not on WordPress.
+    website: websiteHealth(site),
     // Brand-level keyword research and ideas are for businesses with no clinic towns (Cowsmart, the supply chain units).
     brandLevel: !site.locations.some((l) => l.town), keywords: keywordSummary(site, null), suggestions: latestSuggestions(site, null) };
 }

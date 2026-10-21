@@ -1117,7 +1117,7 @@
     "group": "Nexeus Supply Chain",
     "name": "Fortis",
     "url": "https://fortisnz.co.nz",
-    "cms": "custom",
+    "cms": "silverstripe",
     "description": "Wholesale supplier of veterinary products to vet clinics in New Zealand.",
     "keywords": [],
     "keywordSeeds": [
