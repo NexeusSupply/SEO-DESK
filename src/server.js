@@ -8,6 +8,7 @@ import { spendThisMonth } from './data/dataforseo.js';
 import { listAllLocations } from './data/gbp.js';
 import { listPages, replyToComment, hideComment, markHandled } from './data/meta.js';
 import { draftReply, draftPost, EXAMPLES } from './data/reply-helper.js';
+import { validSignature, handleWebhook, conversations, sendReply, markHandled as markWhatsAppHandled, fetchMedia, knownMedia } from './data/whatsapp.js';
 import { listPages as listPlanablePages, createDraft, savedPages } from './data/planable.js';
 import { listProjects as listWpuProjects, matchProjects } from './data/wpumbrella.js';
 import { researchClinic, keywordSummary } from './data/keywords.js';
@@ -22,13 +23,28 @@ import { startScheduler } from './scheduler.js';
 
 const app = express();
 app.set('trust proxy', 1);
+
+// WhatsApp webhook. Meta calls it directly, so it sits before the login check (Cloudflare Access needs a Bypass rule for
+// this one path) and instead proves each request came from Meta with the app secret's signature.
+app.get('/webhooks/whatsapp', (req, res) => {
+  const ok = config.whatsapp.verifyToken && req.query['hub.mode'] === 'subscribe' && req.query['hub.verify_token'] === config.whatsapp.verifyToken;
+  ok ? res.send(String(req.query['hub.challenge'] || '')) : res.sendStatus(403);
+});
+app.post('/webhooks/whatsapp', express.raw({ type: '*/*', limit: '2mb' }), (req, res) => {
+  if (!validSignature(req.body, req.get('X-Hub-Signature-256'))) return res.sendStatus(403);
+  // Answer straight away: Meta retries anything slower than a few seconds, and emailing a photo can take longer.
+  res.sendStatus(200);
+  let body; try { body = JSON.parse(req.body.toString('utf8')); } catch { return; }
+  handleWebhook(body).catch((e) => console.error('[whatsapp] webhook:', e));
+});
+
 app.use(accessMiddleware());
 app.use(express.json());
 app.use(express.static(path.join(config.root, 'public')));
 
 const site = (req, res) => { const s = loadSites().find((x) => x.slug === req.params.slug); if (!s) res.status(404).json({ error: 'unknown site' }); return s; };
 
-app.get('/api/status', (req, res) => res.json({ dataforseo: config.dfs.enabled, searchConsole: config.gsc.enabled, businessProfile: config.gbp.enabled, meta: config.meta.enabled, planable: config.planable.enabled, wpUmbrella: config.wpUmbrella.enabled, claude: config.claude.enabled, email: config.smtp.ready,
+app.get('/api/status', (req, res) => res.json({ dataforseo: config.dfs.enabled, searchConsole: config.gsc.enabled, businessProfile: config.gbp.enabled, meta: config.meta.enabled, planable: config.planable.enabled, wpUmbrella: config.wpUmbrella.enabled, claude: config.claude.enabled, email: config.smtp.ready, whatsapp: config.whatsapp.enabled && loadSites().some((s) => s.whatsapp),
   access: config.access.enabled, preview: !config.access.enabled && Boolean(config.access.previewPassword), user: req.user?.email, cron: config.cron, dfsSpendUsd: config.dfs.enabled ? +spendThisMonth().toFixed(2) : null, dfsCapUsd: config.dfs.monthlyCapUsd }));
 app.get('/api/management', (_, res) => res.json(management(loadSites())));
 app.get('/api/overview', (_, res) => res.json(overview(loadSites())));
@@ -90,6 +106,19 @@ app.post('/api/sites/:slug/comments/:id/handled', commentAction((s, req) => mark
 const note = (req) => String(req.body?.note || '').slice(0, 500).trim();
 app.post('/api/sites/:slug/reviews/:id/draft-reply', commentAction((s, req) => draftReply('review', s, req.params.id, note(req))));
 app.post('/api/sites/:slug/comments/:id/draft-reply', commentAction((s, req) => draftReply('comment', s, req.params.id, note(req))));
+// WhatsApp conversations: read them, reply as the brand's number, or mark them as needing no reply.
+app.get('/api/whatsapp', (req, res) => res.json(conversations(loadSites().filter((s) => !req.query.site || s.slug === req.query.site), { status: req.query.status === 'all' ? 'all' : 'open' })));
+app.get('/api/whatsapp/media/:id', (req, res) => {
+  if (!knownMedia(req.params.id)) return res.status(404).json({ error: 'unknown media' });
+  fetchMedia(req.params.id).then((f) => res.type(f.mime).set('Cache-Control', 'private, max-age=86400').send(f.data)).catch((e) => res.status(502).json({ error: e.message }));
+});
+app.post('/api/sites/:slug/whatsapp/:waId/reply', commentAction((s, req) => {
+  const message = String(req.body?.message || '').trim().slice(0, 4096);
+  if (!message) throw new Error('empty reply');
+  return sendReply(s, req.params.waId, message, req.user?.email);
+}));
+app.post('/api/sites/:slug/whatsapp/:waId/handled', commentAction((s, req) => markWhatsAppHandled(s, req.params.waId, req.user?.email)));
+app.post('/api/sites/:slug/whatsapp/:waId/draft-reply', commentAction((s, req) => draftReply('whatsapp', s, req.params.waId, note(req))));
 // Planable. /api/planable/pages finds the workspaceId and pageIds values for sites.json.
 app.get('/api/planable/pages', (_, res) => listPlanablePages().then((r) => res.json(r)).catch((e) => res.status(500).json({ error: e.message })));
 // WP Umbrella. /api/wpumbrella/projects shows each site in the account and the brand it matched (or a projectId for sites.json).
@@ -161,7 +190,7 @@ app.post('/api/run/:job', (req, res) => {
 
 app.listen(config.port, () => {
   console.log(`SEO Desk on http://localhost:${config.port}`);
-  console.log(`DataForSEO: ${config.dfs.enabled ? 'on' : 'off'} · Search Console: ${config.gsc.enabled ? 'on' : 'off'} · Business Profile: ${config.gbp.enabled ? 'on' : 'off'} · Meta: ${config.meta.enabled ? 'on' : 'off'} · Planable: ${config.planable.enabled ? 'on' : 'off'} · WP Umbrella: ${config.wpUmbrella.enabled ? 'on' : 'off'} · Access: ${config.access.enabled ? 'enforced' : config.access.previewPassword ? 'preview password' : 'OFF (open to anyone who can reach this port)'}`);
+  console.log(`DataForSEO: ${config.dfs.enabled ? 'on' : 'off'} · Search Console: ${config.gsc.enabled ? 'on' : 'off'} · Business Profile: ${config.gbp.enabled ? 'on' : 'off'} · Meta: ${config.meta.enabled ? 'on' : 'off'} · Planable: ${config.planable.enabled ? 'on' : 'off'} · WP Umbrella: ${config.wpUmbrella.enabled ? 'on' : 'off'} · WhatsApp: ${config.whatsapp.enabled ? 'on' : 'off'} · Access: ${config.access.enabled ? 'enforced' : config.access.previewPassword ? 'preview password' : 'OFF (open to anyone who can reach this port)'}`);
   const sitesFile = config.sitesPaths.find((f) => fs.existsSync(f));
   console.log(sitesFile ? `Sites: ${path.relative(config.root, sitesFile)} (${loadSites().length} brands)` : 'Sites: none found — add data/sites.json or commit sites.json at the repo root');
   startScheduler();

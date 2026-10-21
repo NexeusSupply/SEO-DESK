@@ -5,6 +5,7 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { config } from '../config.js';
 import { db } from '../db.js';
+import { recentMessages, contactName } from './whatsapp.js';
 
 const RULES = `- Never confirm or reveal anything about an animal's medical history, treatment, diagnosis or the person's account that their message doesn't already say. Replies are public.
 - For a complaint: acknowledge the experience without arguing or admitting fault, don't make promises (refunds, discounts, outcomes), and invite them to contact the clinic directly to talk it through.
@@ -27,6 +28,13 @@ ${RULES}`,
 - Answer a question directly if the post or the comment gives you the answer; otherwise point them to call the clinic or send a direct message. Never make up opening hours, prices or availability.
 - Use the commenter's first name when it reads naturally. An emoji is fine on Instagram if it fits; no hashtags and no sign-off.
 ${RULES}`,
+  whatsapp: `You draft WhatsApp replies for New Zealand and Australian brands, mostly veterinary clinics plus a few animal-feed, data and supply businesses, written as the brand's support team. The conversation is private, between the business and one customer.
+
+- Answer their latest message. Keep it short and natural for WhatsApp: one to four sentences, no subject line, no sign-off block.
+- Answer directly when the conversation or the team's note gives you the answer; otherwise say who will get back to them or suggest a call. Never make up opening hours, prices, availability or results.
+- Use their first name when it reads naturally. No hashtags. An emoji only if they used one.
+- Don't give medical advice for an animal you haven't seen; suggest they call or book in.
+- Write only the reply text, as plain text with no placeholders. Use New Zealand English spelling (Australian for an Australian brand).`,
 };
 
 // Fixed examples so the drafting can be shown before Google or Meta is connected.
@@ -70,10 +78,22 @@ Comment: ${c.message?.trim() || '(no text, probably a sticker or photo)'}
 </comment>`;
 }
 
-/** Draft a reply to one review or comment ('review' | 'comment'). Returns { reply }. */
+function whatsappPrompt(site, waId) {
+  const msgs = recentMessages(site, waId);
+  if (!msgs.length) throw new Error('unknown conversation');
+  return `<conversation>
+Brand: ${site.name}${site.description ? ` (${site.description})` : ''}
+Customer: ${contactName(site, waId) || '(no name)'}
+${msgs.map((m) => `${m.direction === 'in' ? 'Customer' : 'Us'}: ${m.body?.trim() || '(no text)'}`).join('\n')}
+</conversation>`;
+}
+
+const PROMPTS = { review: reviewPrompt, comment: commentPrompt, whatsapp: whatsappPrompt };
+
+/** Draft a reply to one review, comment or WhatsApp conversation ('review' | 'comment' | 'whatsapp'). Returns { reply }. */
 export async function draftReply(kind, site, id, note) {
   if (!config.claude.enabled) throw new Error('Claude is not configured (ANTHROPIC_API_KEY)');
-  const item = kind === 'review' ? reviewPrompt(site, id) : commentPrompt(site, id);
+  const item = PROMPTS[kind](site, id);
   const msg = await anthropic().beta.messages.create({
     model: config.claude.model,
     max_tokens: 16000,
